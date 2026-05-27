@@ -1,0 +1,54 @@
+[
+  {
+    "id": "mimo",
+    "name": "Xiaomi MiMo",
+    "baseUrl": "https://api.xiaomimimo.com/v1",
+    "authType": "bearer",
+    "envKey": "MIMO_API_KEY",
+    "adapter": "mimo",
+    "enabled": true,
+    "metadata": {
+      "protocols": ["openai_compatible", "anthropic_compatible"],
+      "anthropicBaseUrl": "https://api.xiaomimimo.com/anthropic"
+    }
+  },
+  {
+    "id": "minimax",
+    "name": "MiniMax",
+    "baseUrl": "https://api.minimax.chat",
+    "authType": "bearer",
+    "envKey": "MINIMAX_API_KEY",
+    "adapter": "minimax",
+    "enabled": true,
+    "metadata": {
+      "protocols": ["anthropic_compatible", "openai_compatible"]
+    }
+  },
+  {
+    "id": "volcengine_coding",
+    "name": "火山引擎 Coding Plan",
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+    "authType": "bearer",
+    "envKey": "VOLCENGINE_API_KEY",
+    "adapter": "volcengine_coding",
+    "enabled": true,
+    "metadata": {
+      "openaiBaseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3",
+      "anthropicBaseUrl": "https://ark.cn-beijing.volces.com/api/coding",
+      "forbiddenBaseUrls": ["https://ark.cn-beijing.volces.com/api/v3"]
+    }
+  },
+  {
+    "id": "volcengine_seedance",
+    "name": "火山引擎 Seedance",
+    "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+    "authType": "bearer",
+    "envKey": "VOLCENGINE_API_KEY",
+    "adapter": "volcengine_video",
+    "enabled": false,
+    "metadata": {
+      "reservedForFutureVersion": true
+    }
+  }
+]
+

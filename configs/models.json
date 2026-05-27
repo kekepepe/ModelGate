@@ -1,0 +1,210 @@
+[
+  {
+    "id": "mimo.mimo_v2_5_pro",
+    "officialModelName": "MiMo-V2.5-Pro",
+    "displayName": "MiMo-V2.5-Pro",
+    "provider": "mimo",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding", "streaming", "tool_calling"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "openai_compatible",
+      "providerModelName": "mimo-v2.5-pro",
+      "baseUrl": "https://api.xiaomimimo.com/v1"
+    }
+  },
+  {
+    "id": "mimo.mimo_v2_5",
+    "officialModelName": "MiMo-V2.5",
+    "displayName": "MiMo-V2.5",
+    "provider": "mimo",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding", "streaming"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "openai_compatible",
+      "providerModelName": "mimo-v2.5",
+      "baseUrl": "https://api.xiaomimimo.com/v1"
+    }
+  },
+  {
+    "id": "minimax.m2_7_highspeed",
+    "officialModelName": "MiniMax-M2.7-highspeed",
+    "displayName": "MiniMax-M2.7-highspeed",
+    "provider": "minimax",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "anthropic_compatible",
+      "providerModelName": "MiniMax-M2.7-highspeed"
+    }
+  },
+  {
+    "id": "minimax.m2_7",
+    "officialModelName": "MiniMax-M2.7",
+    "displayName": "MiniMax-M2.7",
+    "provider": "minimax",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "anthropic_compatible",
+      "providerModelName": "MiniMax-M2.7"
+    }
+  },
+  {
+    "id": "volcengine_coding.kimi_k2_6",
+    "officialModelName": "Kimi-K2.6",
+    "displayName": "Kimi-K2.6",
+    "provider": "volcengine_coding",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding", "streaming"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "openai_compatible",
+      "providerModelName": "kimi-k2.6",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
+    }
+  },
+  {
+    "id": "volcengine_coding.glm_5_1",
+    "officialModelName": "GLM-5.1",
+    "displayName": "GLM-5.1",
+    "provider": "volcengine_coding",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding", "streaming"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "openai_compatible",
+      "providerModelName": "glm-5.1",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
+    }
+  },
+  {
+    "id": "volcengine_coding.deepseek_v4_pro",
+    "officialModelName": "DeepSeek-V4-Pro",
+    "displayName": "DeepSeek-V4-Pro",
+    "provider": "volcengine_coding",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding", "streaming"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "openai_compatible",
+      "providerModelName": "deepseek-v4-pro",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
+    }
+  },
+  {
+    "id": "volcengine_coding.deepseek_v4_flash",
+    "officialModelName": "DeepSeek-V4-Flash",
+    "displayName": "DeepSeek-V4-Flash",
+    "provider": "volcengine_coding",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding", "streaming"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "openai_compatible",
+      "providerModelName": "deepseek-v4-flash",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
+    }
+  },
+  {
+    "id": "volcengine_coding.doubao_seed_2_0_code",
+    "officialModelName": "Doubao-Seed-2.0-Code",
+    "displayName": "Doubao-Seed-2.0-Code",
+    "provider": "volcengine_coding",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding", "streaming"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "openai_compatible",
+      "providerModelName": "doubao-seed-2.0-code",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
+    }
+  },
+  {
+    "id": "volcengine_coding.doubao_seed_2_0_pro",
+    "officialModelName": "Doubao-Seed-2.0-pro",
+    "displayName": "Doubao-Seed-2.0-pro",
+    "provider": "volcengine_coding",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding", "streaming"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": null,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "openai_compatible",
+      "providerModelName": "doubao-seed-2.0-pro",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
+    }
+  }
+]

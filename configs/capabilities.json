@@ -1,0 +1,19 @@
+[
+  "text",
+  "code",
+  "long_context",
+  "vision_understanding",
+  "video_understanding",
+  "file_understanding",
+  "audio_understanding",
+  "text_to_image",
+  "image_to_image",
+  "text_to_video",
+  "image_to_video",
+  "first_last_frame_video",
+  "streaming",
+  "function_calling",
+  "tool_calling",
+  "async_generation"
+]
+

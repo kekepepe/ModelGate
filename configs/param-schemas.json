@@ -1,0 +1,64 @@
+[
+  {
+    "id": "chat_openai_compatible_schema",
+    "name": "OpenAI Compatible Chat Parameters",
+    "version": 1,
+    "runtime": "chat_completion",
+    "fields": [
+      {
+        "key": "temperature",
+        "type": "number",
+        "label": "Temperature",
+        "default": 1,
+        "required": false,
+        "min": 0,
+        "max": 2,
+        "step": 0.1,
+        "providerMapping": {
+          "mimo": "temperature",
+          "volcengine_coding": "temperature"
+        }
+      },
+      {
+        "key": "top_p",
+        "type": "number",
+        "label": "Top P",
+        "default": 0.95,
+        "required": false,
+        "min": 0,
+        "max": 1,
+        "step": 0.01,
+        "providerMapping": {
+          "mimo": "top_p",
+          "volcengine_coding": "top_p"
+        }
+      },
+      {
+        "key": "max_completion_tokens",
+        "type": "number",
+        "label": "Max Tokens",
+        "default": 1024,
+        "required": false,
+        "min": 1,
+        "max": 32768,
+        "providerMapping": {
+          "mimo": "max_completion_tokens",
+          "volcengine_coding": "max_tokens",
+          "minimax": "max_tokens"
+        }
+      },
+      {
+        "key": "stream",
+        "type": "boolean",
+        "label": "流式输出",
+        "default": false,
+        "required": false,
+        "providerMapping": {
+          "mimo": "stream",
+          "volcengine_coding": "stream"
+        }
+      }
+    ]
+  }
+]
+

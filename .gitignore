@@ -1,0 +1,42 @@
+# Environment
+.env
+.env.local
+.env.*.local
+apps/server/.env
+apps/web/.env
+
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.venv/
+venv/
+*.egg-info/
+
+# Node
+node_modules/
+.next/
+out/
+dist/
+coverage/
+*.tsbuildinfo
+
+# Logs
+*.log
+logs/
+
+# Local storage
+storage/uploads/*
+storage/outputs/*
+storage/previews/*
+!storage/uploads/.gitkeep
+!storage/outputs/.gitkeep
+!storage/previews/.gitkeep
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
+

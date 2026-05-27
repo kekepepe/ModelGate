@@ -1,0 +1,48 @@
+[
+  {
+    "id": "chat",
+    "name": "聊天",
+    "requiredInputTypes": ["text"],
+    "optionalInputTypes": ["file"],
+    "outputTypes": ["text"],
+    "runtime": "chat_completion",
+    "requiredCapabilities": ["text"]
+  },
+  {
+    "id": "coding",
+    "name": "写代码",
+    "requiredInputTypes": ["text"],
+    "optionalInputTypes": ["code", "file"],
+    "outputTypes": ["text"],
+    "runtime": "chat_completion",
+    "requiredCapabilities": ["code"]
+  },
+  {
+    "id": "code_review",
+    "name": "代码审查",
+    "requiredInputTypes": ["code"],
+    "optionalInputTypes": ["text", "file"],
+    "outputTypes": ["text"],
+    "runtime": "chat_completion",
+    "requiredCapabilities": ["code"]
+  },
+  {
+    "id": "document_analysis",
+    "name": "文档分析",
+    "requiredInputTypes": ["file"],
+    "optionalInputTypes": ["text"],
+    "outputTypes": ["text"],
+    "runtime": "chat_completion",
+    "requiredCapabilities": ["file_understanding"]
+  },
+  {
+    "id": "prompt_optimize",
+    "name": "Prompt 优化",
+    "requiredInputTypes": ["text"],
+    "optionalInputTypes": ["file"],
+    "outputTypes": ["text"],
+    "runtime": "chat_completion",
+    "requiredCapabilities": ["text"]
+  }
+]
+

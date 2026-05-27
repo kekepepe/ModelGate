@@ -9,13 +9,13 @@
 
 ## 0. 当前已完成文档
 
-- [X] 原始设计方案产出：[设计方案.md](./设计方案.md)
-- [X] 合并版 PRD + 技术规格文档产出：[AI_Model_Workspace_PRD_技术规格文档.md](./AI_Model_Workspace_PRD_技术规格文档.md)
-- [X] 产品需求文档 PRD产出：[产品需求文档.md](./产品需求文档.md)
-- [X] 技术规格文档 TSD产出：[技术规格文档.md](./技术规格文档.md)
-- [X] 技术风险与问题清单产出：[技术风险与问题清单.md](./技术风险与问题清单.md)
+- [X] 原始设计方案产出：[设计方案.md](./docs/00-项目概览/设计方案.md)
+- [X] 合并版 PRD + 技术规格文档产出：[AI_Model_Workspace_PRD_技术规格文档.md](./docs/00-项目概览/AI_Model_Workspace_PRD_技术规格文档.md)
+- [X] 产品需求文档 PRD产出：[产品需求文档.md](./docs/01-产品需求/产品需求文档.md)
+- [X] 技术规格文档 TSD产出：[技术规格文档.md](./docs/02-技术设计/技术规格文档.md)
+- [X] 技术风险与问题清单产出：[技术风险与问题清单.md](./docs/03-安全与风险/技术风险与问题清单.md)
 - [X] 安全边界与 App 设计边界
-  产出：[安全边界与App设计边界.md](./安全边界与App设计边界.md)
+  产出：[安全边界与App设计边界.md](./docs/03-安全与风险/安全边界与App设计边界.md)
 
 ---
 
@@ -26,52 +26,52 @@
 ### 1.1 第一批必须先写的文档
 
 - [X] 系统架构设计文档
-  产出：[系统架构设计文档.md](./系统架构设计文档.md)
+  产出：[系统架构设计文档.md](./docs/02-技术设计/系统架构设计文档.md)
   内容范围：前端、FastAPI、Worker、PostgreSQL、Redis、Storage、Provider Adapter 的关系；请求流、异步任务流、部署拓扑、模块边界。
 - [X] 数据库详细设计文档
-  产出：[数据库详细设计文档.md](./数据库详细设计文档.md)
+  产出：[数据库详细设计文档.md](./docs/02-技术设计/数据库详细设计文档.md)
   内容范围：每张表字段、类型、索引、状态枚举、JSONB 字段结构；重点覆盖 `providers`、`models`、`param_schemas`、`files`、`runs`、`generation_tasks`、`request_logs`、`usage_logs`。
 - [X] API 接口规范文档
-  产出：[API接口规范文档.md](./API接口规范文档.md)
+  产出：[API接口规范文档.md](./docs/02-技术设计/API接口规范文档.md)
   内容范围：Provider、模型推荐、文件上传、Chat Run、Generation Task、历史记录、日志查询；请求体、响应体、错误格式。
 - [X] Model Registry 配置规范
-  产出：[ModelRegistry配置规范.md](./ModelRegistry配置规范.md)
+  产出：[ModelRegistry配置规范.md](./docs/02-技术设计/ModelRegistry配置规范.md)
   内容范围：provider、model、capability、taskType、paramsSchema、providerMapping 的写法；配置校验规则和示例。
 - [X] 任务状态机设计文档
-  产出：[任务状态机设计文档.md](./任务状态机设计文档.md)
+  产出：[任务状态机设计文档.md](./docs/02-技术设计/任务状态机设计文档.md)
   内容范围：`run` 和 `generation_task` 状态流转；取消、失败、超时、重试、幂等提交、Worker 轮询状态控制。
 
 ### 1.2 第二批开写代码前补齐的文档
 
 - [X] Provider Adapter 开发规范
-  产出：[ProviderAdapter开发规范.md](./ProviderAdapter开发规范.md)
+  产出：[ProviderAdapter开发规范.md](./docs/02-技术设计/ProviderAdapter开发规范.md)
   内容范围：每接一个 Provider 要实现的方法；鉴权、参数映射、错误归一化、限流、重试、mock 测试标准。
 - [X] 动态参数 Schema 设计文档
-  产出：[动态参数Schema设计文档.md](./动态参数Schema设计文档.md)
+  产出：[动态参数Schema设计文档.md](./docs/02-技术设计/动态参数Schema设计文档.md)
   内容范围：字段类型、默认值、校验、条件显示、Provider 参数映射、前后端校验关系。
 - [X] 文件上传与解析设计文档
-  产出：[文件上传与解析设计文档.md](./文件上传与解析设计文档.md)
+  产出：[文件上传与解析设计文档.md](./docs/02-技术设计/文件上传与解析设计文档.md)
   内容范围：文件类型识别、大小限制、存储路径、预览、解析策略；PDF、DOCX、图片、视频、代码文件处理方式。
 - [X] 异步任务与 Worker 设计文档
-  产出：[异步任务与Worker设计文档.md](./异步任务与Worker设计文档.md)
+  产出：[异步任务与Worker设计文档.md](./docs/02-技术设计/异步任务与Worker设计文档.md)
   内容范围：Celery + Redis 用法；任务入队、轮询、锁、重试、超时、结果持久化。
 
 ### 1.3 第三批开发过程中同步维护的文档
 
 - [X] 错误码与日志规范
-  产出：[错误码与日志规范.md](./错误码与日志规范.md)
+  产出：[错误码与日志规范.md](./docs/03-安全与风险/错误码与日志规范.md)
   内容范围：标准错误类型、错误响应格式、requestId、日志脱敏、Provider 错误映射。
 - [X] 前端状态管理与页面交互规范
-  产出：[前端状态管理与页面交互规范.md](./前端状态管理与页面交互规范.md)
+  产出：[前端状态管理与页面交互规范.md](./docs/02-技术设计/前端状态管理与页面交互规范.md)
   内容范围：Zustand store 拆分、TanStack Query 管理范围、任务切换、模型切换、文件删除、任务取消的状态重置规则。
 - [X] 环境变量与部署文档
-  产出：[环境变量与部署文档.md](./环境变量与部署文档.md)
+  产出：[环境变量与部署文档.md](./docs/02-技术设计/环境变量与部署文档.md)
   内容范围：`.env.example`、Docker Compose、PostgreSQL、Redis、目录挂载、本地/测试/生产环境差异。
 - [X] 测试策略文档
-  产出：[测试策略文档.md](./测试策略文档.md)
+  产出：[测试策略文档.md](./docs/04-开发管理/测试策略文档.md)
   内容范围：单元测试、集成测试、E2E 测试；Adapter mock、Capability Router fixture、文件上传、任务流测试。
 - [X] 开发规范文档
-  产出：[开发规范文档.md](./开发规范文档.md)
+  产出：[开发规范文档.md](./docs/04-开发管理/开发规范文档.md)
   内容范围：目录结构、命名规则、提交规则、代码分层原则、OpenAPI 类型生成、migration 规则、禁止事项。
 
 ### 1.4 开发前决策确认
@@ -91,7 +91,7 @@
 - [X] 确认第一版是否实现用户登录，还是本地单用户无登录。  
   结论：第一版不需要登录。
 - [X] 第一版范围与开发决策记录。  
-  产出：[第一版范围与开发决策.md](./第一版范围与开发决策.md)
+  产出：[第一版范围与开发决策.md](./docs/00-项目概览/第一版范围与开发决策.md)
 
 ---
 
@@ -101,49 +101,50 @@
 
 ### 2.1 仓库与目录结构
 
-- [ ] 创建 monorepo 目录结构。
-- [ ] 创建 `apps/web` Next.js 前端项目。
-- [ ] 创建 `apps/server` FastAPI 后端项目。
-- [ ] 创建 `configs/` 配置目录。
-- [ ] 创建 `storage/uploads`、`storage/outputs`、`storage/previews`。
-- [ ] 创建 `docs/` 或继续使用 `ModelGate/` 管理文档。
-- [ ] 添加根目录 README。
-- [ ] 添加 `.gitignore`，覆盖 `.env`、缓存、构建产物、上传文件。
+- [X] 创建 monorepo 目录结构。
+- [X] 创建 `apps/web` Next.js 前端项目。
+- [X] 创建 `apps/server` FastAPI 后端项目。
+- [X] 创建 `configs/` 配置目录。
+- [X] 创建 `storage/uploads`、`storage/outputs`、`storage/previews`。
+- [X] 创建 `docs/` 或继续使用 `ModelGate/` 管理文档。
+- [X] 添加根目录 README。
+- [X] 添加 `.gitignore`，覆盖 `.env`、缓存、构建产物、上传文件。
 
 ### 2.2 前端基础设施
 
-- [ ] 安装 Next.js + TypeScript。
-- [ ] 配置 Tailwind CSS。
-- [ ] 配置 shadcn/ui。
-- [ ] 配置 Zustand。
-- [ ] 配置 TanStack Query。
-- [ ] 配置 React Hook Form。
-- [ ] 配置 Zod。
-- [ ] 建立前端 API client 基础结构。
-- [ ] 建立页面路由：任务中心、工作台、历史记录、模型管理、设置。
+- [ ] 安装 Next.js + TypeScript。  
+  状态：`apps/web/package.json` 已声明依赖；已尝试执行 `npm install`，但当前环境网络请求无响应，已停止安装且未生成 `node_modules` / `package-lock.json`。
+- [X] 配置 Tailwind CSS。
+- [X] 配置 shadcn/ui。
+- [X] 配置 Zustand。
+- [X] 配置 TanStack Query。
+- [X] 配置 React Hook Form。
+- [X] 配置 Zod。
+- [X] 建立前端 API client 基础结构。
+- [X] 建立页面路由：任务中心、工作台、历史记录、模型管理、设置。
 
 ### 2.3 后端基础设施
 
-- [ ] 初始化 FastAPI 项目。
-- [ ] 配置 Pydantic settings。
-- [ ] 配置 SQLAlchemy 2.x。
-- [ ] 配置 Alembic。
-- [ ] 配置 PostgreSQL 连接。
-- [ ] 配置 Redis 连接。
-- [ ] 配置 Celery Worker。
-- [ ] 配置统一错误响应结构。
-- [ ] 配置 requestId middleware。
-- [ ] 配置日志脱敏工具。
+- [X] 初始化 FastAPI 项目。
+- [X] 配置 Pydantic settings。
+- [X] 配置 SQLAlchemy 2.x。
+- [X] 配置 Alembic。
+- [X] 配置 PostgreSQL 连接。
+- [X] 配置 Redis 连接。
+- [X] 配置 Celery Worker。
+- [X] 配置统一错误响应结构。
+- [X] 配置 requestId middleware。
+- [X] 配置日志脱敏工具。
 
 ### 2.4 本地开发环境
 
-- [ ] 编写 `.env.example`。
-- [ ] 编写 Docker Compose：PostgreSQL、Redis、API、Worker。
-- [ ] 配置 PostgreSQL healthcheck。
-- [ ] 配置 Redis healthcheck。
-- [ ] 配置 API 启动前数据库连接检查。
-- [ ] 配置 Worker 启动前 Redis 连接检查。
-- [ ] 写本地启动说明。
+- [X] 编写 `.env.example`。
+- [X] 编写 Docker Compose：PostgreSQL、Redis、API、Worker。
+- [X] 配置 PostgreSQL healthcheck。
+- [X] 配置 Redis healthcheck。
+- [X] 配置 API 启动前数据库连接检查。
+- [X] 配置 Worker 启动前 Redis 连接检查。
+- [X] 写本地启动说明。
 
 ---
 
@@ -153,42 +154,45 @@
 
 ### 3.1 数据库与迁移
 
-- [ ] 创建 `providers` 表。
-- [ ] 创建 `models` 表。
-- [ ] 创建 `param_schemas` 表。
-- [ ] 创建 `files` 表。
-- [ ] 创建 `runs` 表。
-- [ ] 创建 `generation_tasks` 表。
-- [ ] 创建 `request_logs` 表。
-- [ ] 创建 `usage_logs` 表。
-- [ ] 创建 `workflow_definitions` 表。
-- [ ] 创建 `workflow_runs` 表。
-- [ ] 为 `provider_id`、`model_id`、`task_type`、`status`、`created_at` 建索引。
-- [ ] 编写初始 Alembic migration。
+- [X] 创建 `providers` 表。
+- [X] 创建 `models` 表。
+- [X] 创建 `param_schemas` 表。
+- [X] 创建 `files` 表。
+- [X] 创建 `runs` 表。
+- [X] 创建 `generation_tasks` 表。
+- [X] 创建 `request_logs` 表。
+- [X] 创建 `usage_logs` 表。
+- [X] 创建 `workflow_definitions` 表。
+- [X] 创建 `workflow_runs` 表。
+- [X] 为 `provider_id`、`model_id`、`task_type`、`status`、`created_at` 建索引。
+- [X] 编写初始 Alembic migration。
+  产出：`apps/server/alembic/versions/0001_initial_schema.py`
 
 ### 3.2 Model Registry
 
-- [ ] 创建 `configs/providers.json`。
-- [ ] 创建 `configs/models.json`。
-- [ ] 创建 `configs/capabilities.json`。
-- [ ] 创建 `configs/task-types.json`。
-- [ ] 创建 `configs/param-schemas.json`。
-- [ ] 实现配置加载服务。
-- [ ] 实现配置校验脚本。
-- [ ] 启动时校验 Provider 配置。
-- [ ] 启动时校验 Model 配置。
-- [ ] 启动时校验 paramsSchema 配置。
+- [X] 创建 `configs/providers.json`。
+- [X] 创建 `configs/models.json`。
+- [X] 创建 `configs/capabilities.json`。
+- [X] 创建 `configs/task-types.json`。
+- [X] 创建 `configs/param-schemas.json`。
+- [X] 实现配置加载服务。
+- [X] 实现配置校验脚本。
+  产出：`apps/server/scripts/validate_model_registry.py`
+- [X] 启动时校验 Provider 配置。
+- [X] 启动时校验 Model 配置。
+- [X] 启动时校验 paramsSchema 配置。
 
 ### 3.3 Capability Router
 
-- [ ] 实现 `taskType` 过滤。
-- [ ] 实现 `inputTypes` 过滤。
-- [ ] 实现 `outputTypes` 过滤。
-- [ ] 实现 `enabled` 过滤。
-- [ ] 实现 Provider 可用状态过滤。
-- [ ] 实现 paramsSchema 必需参数过滤。
-- [ ] 实现 hidden reason 返回。
-- [ ] 编写 Capability Router 单元测试。
+- [X] 实现 `taskType` 过滤。
+- [X] 实现 `inputTypes` 过滤。
+- [X] 实现 `outputTypes` 过滤。
+- [X] 实现 `enabled` 过滤。
+- [X] 实现 Provider 可用状态过滤。
+- [X] 实现 paramsSchema 必需参数过滤。
+- [X] 实现 hidden reason 返回。
+- [X] 编写 Capability Router 单元测试。
+  产出：`tests/test_model_registry.py`；因当前环境未安装 pytest，尚未执行测试。
 
 ---
 
@@ -579,12 +583,10 @@
 
 ### 下一步建议
 
-下一步进入 Phase 1 项目骨架搭建：
+Phase 2 数据模型与配置系统已完成代码落地；依赖安装和真实数据库迁移执行需要在本地 conda 环境完成。下一步进入 Phase 3 后端 API 基础能力：
 
-1. [ ] 创建 monorepo 目录结构。
-2. [ ] 创建 `apps/web` Next.js 前端项目。
-3. [ ] 创建 `apps/server` FastAPI 后端项目。
-4. [ ] 创建 `configs/` 配置目录。
-5. [ ] 创建本地 `storage/` 目录和 `.gitignore`。
-
-文档层已经足够支撑进入项目初始化。
+1. [ ] 安装后端依赖并执行 `alembic upgrade head`。
+2. [ ] 运行 `pytest tests/test_model_registry.py`。
+3. [ ] 补齐 `GET /api/models/{modelId}`、`POST /api/models/recommend` 的响应结构。
+4. [ ] 实现 `GET /api/param-schemas/{schemaId}`。
+5. [ ] 开始文件 API、Chat Run API、Generation Task API 的路由骨架。

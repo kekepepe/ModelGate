@@ -3,7 +3,7 @@
 项目名称：ModelGate / AI Model Workspace  
 技术栈：Next.js + TypeScript + Tailwind CSS + shadcn/ui + Zustand / FastAPI / PostgreSQL / Redis  
 版本：v1.0  
-依据：`技术风险与问题清单.md`
+依据：[技术风险与问题清单.md](./技术风险与问题清单.md)
 
 ---
 
