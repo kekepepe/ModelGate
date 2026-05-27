@@ -588,7 +588,7 @@ Service 层不直接：
 - Capability Router。
 - Provider Adapter 基础层。
 - Chat Runtime。
-- Generation Runtime。
+- Generation Runtime 结构预留。
 - 文件上传与解析。
 - 动态参数面板。
 - 历史记录。
@@ -596,6 +596,7 @@ Service 层不直接：
 - PostgreSQL 持久化。
 - Redis 队列和缓存。
 - 基础安全控制。
+- 第一版不需要登录，按本地单用户 GitHub 开源项目设计。
 
 ### 12.2 第一版只预留，不完整实现
 
@@ -610,6 +611,8 @@ Service 层不直接：
 - 自动 fallback。
 - 模型价格计费系统。
 - 多模型评测系统。
+- 火山 Seedance 视频生成。
+- 完整 Generation Provider 接入。
 
 ### 12.3 第一版明确不做
 
@@ -752,4 +755,3 @@ ModelGate 的核心安全边界是：
 ModelGate 的核心 App 设计边界是：
 
 > 第一版是多模型 AI 工作台，不是自动执行系统、不是多租户平台、不是 Provider 替代品、不是无限制 Agent。它负责把任务、模型、文件、参数、调用、历史和结果统一编排起来，但不允许模型输出或用户输入进入系统控制平面。
-
