@@ -583,10 +583,10 @@
 
 ### 下一步建议
 
-Phase 2 数据模型与配置系统已完成代码落地；依赖安装和真实数据库迁移执行需要在本地 conda 环境完成。下一步进入 Phase 3 后端 API 基础能力：
+Phase 2 数据模型与配置系统已完成代码落地；后端依赖、Docker 依赖服务、数据库迁移和当前单元测试已验证。下一步进入 Phase 3 后端 API 基础能力：
 
-1. [ ] 安装后端依赖并执行 `alembic upgrade head`。
-2. [ ] 运行 `pytest tests/test_model_registry.py`。
+1. [X] 安装后端依赖并执行 `alembic upgrade head`。
+2. [X] 运行 `pytest tests/test_model_registry.py`。
 3. [ ] 补齐 `GET /api/models/{modelId}`、`POST /api/models/recommend` 的响应结构。
 4. [ ] 实现 `GET /api/param-schemas/{schemaId}`。
 5. [ ] 开始文件 API、Chat Run API、Generation Task API 的路由骨架。
