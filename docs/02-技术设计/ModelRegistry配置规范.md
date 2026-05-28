@@ -51,14 +51,14 @@ configs/
 {
   "id": "mimo",
   "name": "Xiaomi MiMo",
-  "baseUrl": "https://api.xiaomimimo.com/v1",
+  "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
   "authType": "bearer",
   "envKey": "MIMO_API_KEY",
   "adapter": "mimo",
   "enabled": true,
   "metadata": {
     "protocols": ["openai_compatible", "anthropic_compatible"],
-    "anthropicBaseUrl": "https://api.xiaomimimo.com/anthropic"
+    "anthropicBaseUrl": "https://token-plan-cn.xiaomimimo.com/anthropic"
   }
 }
 ```
@@ -186,7 +186,6 @@ configs/
 |---|---|
 | Xiaomi MiMo | MiMo-V2.5-Pro |
 | Xiaomi MiMo | MiMo-V2.5 |
-| MiniMax | MiniMax-M2.7-highspeed |
 | MiniMax | MiniMax-M2.7 |
 | 火山 Coding Plan | Kimi-K2.6 |
 | 火山 Coding Plan | GLM-5.1 |
@@ -220,7 +219,7 @@ MiMo 示例：
   "adapterConfig": {
     "protocol": "openai_compatible",
     "providerModelName": "mimo-v2.5-pro",
-    "baseUrl": "https://api.xiaomimimo.com/v1"
+    "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1"
   }
 }
 ```

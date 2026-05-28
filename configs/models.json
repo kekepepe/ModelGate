@@ -17,7 +17,7 @@
     "adapterConfig": {
       "protocol": "openai_compatible",
       "providerModelName": "mimo-v2.5-pro",
-      "baseUrl": "https://api.xiaomimimo.com/v1"
+      "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1"
     }
   },
   {
@@ -38,7 +38,7 @@
     "adapterConfig": {
       "protocol": "openai_compatible",
       "providerModelName": "mimo-v2.5",
-      "baseUrl": "https://api.xiaomimimo.com/v1"
+      "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1"
     }
   },
   {
@@ -54,11 +54,12 @@
     "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
     "contextWindow": null,
     "async": false,
-    "enabled": true,
+    "enabled": false,
     "paramsSchema": "chat_openai_compatible_schema",
     "adapterConfig": {
       "protocol": "anthropic_compatible",
-      "providerModelName": "MiniMax-M2.7-highspeed"
+      "providerModelName": "MiniMax-M2.7-highspeed",
+      "disabledReason": "Current Token Plan only supports MiniMax-M2.7."
     }
   },
   {

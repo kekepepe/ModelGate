@@ -50,6 +50,7 @@ export function WorkspaceShell() {
   }, [searchParams, selectedTaskType, setSelectedTaskType]);
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskType) ?? tasks[0];
+  const fileIds = useMemo(() => files.map((file) => file.id), [files]);
   const inputTypes = useMemo(() => {
     const inputSet = new Set(selectedTask.requiredInputTypes);
     if (prompt.trim()) inputSet.add("text");
@@ -66,11 +67,12 @@ export function WorkspaceShell() {
     queryFn: () => getData<ModelInfo[]>("/models"),
   });
   const recommendationQuery = useQuery({
-    queryKey: ["recommendation", selectedTaskType, inputTypes, providerFilter, params],
+    queryKey: ["recommendation", selectedTaskType, inputTypes, providerFilter, params, fileIds],
     queryFn: () =>
       postData<RecommendResult>("/models/recommend", {
         taskType: selectedTaskType,
         inputTypes,
+        fileIds,
         requiredOutput: "text",
         preferredProviders: providerFilter ? [providerFilter] : [],
         params,
@@ -123,7 +125,7 @@ export function WorkspaceShell() {
         taskType: selectedTaskType,
         modelId: selectedModelId,
         prompt,
-        fileIds: files.map((file) => file.id),
+        fileIds,
         params,
       }),
     onSuccess: (run) => {

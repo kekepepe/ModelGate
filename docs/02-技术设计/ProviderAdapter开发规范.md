@@ -150,13 +150,13 @@ MODEL_NOT_COMPATIBLE
 class ChatInput(BaseModel):
     provider_id: str
     model_id: str
-    official_model_name: str
+    provider_model_name: str
     task_type: str
     messages: list[ChatMessage]
-    file_contexts: list[FileContext] = []
     params: dict
     adapter_config: dict = {}
     request_id: str
+    timeout_seconds: float = 120
 ```
 
 ### 5.2 ChatOutput
@@ -165,11 +165,17 @@ class ChatInput(BaseModel):
 class ChatOutput(BaseModel):
     type: Literal["text"]
     content: str
-    raw_usage: dict | None = None
-    normalized_usage: UsageInfo | None = None
-    provider_response_id: str | None = None
     metadata: dict = {}
+    usage: dict = {}
 ```
+
+Phase 6 第一版实现状态：
+
+- OpenAI-compatible Adapter：用于 MiMo、火山 Coding Plan。
+- Anthropic-compatible Adapter：用于 MiniMax。
+- Provider 错误统一映射为 `PROVIDER_AUTH_FAILED`、`PROVIDER_RATE_LIMITED`、`PROVIDER_TIMEOUT`、`PROVIDER_BAD_REQUEST`、`PROVIDER_SERVER_ERROR` 等。
+- Runtime 不记录 Authorization、API Key 和完整消息正文到 `request_logs`，只记录模型、Provider、参数和消息数量。
+- 流式输出、运行中取消和 Provider 文件上传接口暂未进入第一版主链路。
 
 ### 5.3 GenerationInput
 
@@ -177,10 +183,9 @@ class ChatOutput(BaseModel):
 class GenerationInput(BaseModel):
     provider_id: str
     model_id: str
-    official_model_name: str
+    provider_model_name: str
     task_type: str
-    prompt: str | None = None
-    files: list[FileForProvider] = []
+    input: dict = {}
     params: dict
     adapter_config: dict = {}
     request_id: str
@@ -456,7 +461,7 @@ Adapter 不做：
 第一版优先：
 
 ```text
-POST https://api.xiaomimimo.com/v1/chat/completions
+POST https://token-plan-cn.xiaomimimo.com/v1/chat/completions
 ```
 
 模型示例：
@@ -538,7 +543,7 @@ Adapter 要求：
 
 模型类别：
 
-- 文本：`MiniMax-M2.7`、`MiniMax-M2.7-highspeed`、`MiniMax-M2.5`。
+- 文本：`MiniMax-M2.7`、`MiniMax-M2.5`。
 - 视频：Hailuo 2.3、Hailuo 2.3 Fast、Hailuo 02。
 - 图片：`image-01`、`image-01-live`。
 - 语音：Speech 系列。
@@ -546,8 +551,9 @@ Adapter 要求：
 
 第一版模型：
 
-- `MiniMax-M2.7-highspeed`
 - `MiniMax-M2.7`
+
+说明：当前用户的 Coding Plan 无法调用 `MiniMax-M2.7-highspeed`，所以第一版配置中仅启用 `MiniMax-M2.7`。
 
 第一版建议：
 

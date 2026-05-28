@@ -335,14 +335,8 @@ POST /api/chat/runs
 ```json
 {
   "taskType": "chat",
-  "providerId": "mimo",
   "modelId": "mimo.mimo_v2_5_pro",
-  "messages": [
-    {
-      "role": "user",
-      "content": "请介绍一下你自己"
-    }
-  ],
+  "prompt": "请介绍一下你自己",
   "fileIds": [],
   "params": {
     "temperature": 1.0,
@@ -358,13 +352,40 @@ POST /api/chat/runs
 ```json
 {
   "data": {
-    "runId": "run_123",
+    "id": "run_123",
+    "taskType": "chat",
+    "providerId": "mimo",
+    "modelId": "mimo.mimo_v2_5_pro",
+    "input": {
+      "prompt": "请介绍一下你自己",
+      "fileIds": []
+    },
+    "params": {
+      "temperature": 1.0,
+      "top_p": 0.95,
+      "max_completion_tokens": 1024,
+      "stream": false
+    },
+    "output": {
+      "type": "text",
+      "text": "我是 MiMo...",
+      "metadata": {
+        "providerResponseId": "chatcmpl_xxx"
+      }
+    },
     "status": "completed",
-    "type": "text",
-    "content": "我是 MiMo..."
+    "errorType": null,
+    "errorMessage": null
   }
 }
 ```
+
+Phase 6 第一版说明：
+
+- `/api/chat/runs` 已进入 Chat Runtime，不再返回 Phase 3 placeholder。
+- 非流式请求会同步完成，并保存 `runs`、`request_logs`、`usage_logs`。
+- `fileIds` 对应文件的 `metadata.parsedText` 会用 `BEGIN_USER_FILE_CONTEXT` / `END_USER_FILE_CONTEXT` 边界注入用户消息。
+- `stream=true` 目前会被 Runtime 强制按非流式请求处理；SSE 为后续增强项。
 
 ### 5.2 获取 Chat Run
 
@@ -539,13 +560,13 @@ GET /api/usage/summary
 OpenAI-compatible：
 
 ```text
-POST https://api.xiaomimimo.com/v1/chat/completions
+POST https://token-plan-cn.xiaomimimo.com/v1/chat/completions
 ```
 
 Anthropic-compatible：
 
 ```text
-POST https://api.xiaomimimo.com/anthropic/v1/messages
+POST https://token-plan-cn.xiaomimimo.com/anthropic/v1/messages
 ```
 
 ModelGate 内部统一：

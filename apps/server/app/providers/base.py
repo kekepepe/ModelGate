@@ -1,23 +1,59 @@
-from typing import Protocol
+from enum import StrEnum
+from typing import Any, Protocol
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
+
+
+class TaskStatus(StrEnum):
+    QUEUED = "queued"
+    RUNNING = "running"
+    COMPLETED = "completed"
+    FAILED = "failed"
+    CANCELLED = "cancelled"
+    EXPIRED = "expired"
+
+
+class ChatMessage(BaseModel):
+    role: str
+    content: str
 
 
 class ChatInput(BaseModel):
     provider_id: str
     model_id: str
-    official_model_name: str
+    provider_model_name: str
     task_type: str
-    messages: list[dict]
-    params: dict
-    adapter_config: dict = {}
+    messages: list[ChatMessage]
+    params: dict[str, Any] = Field(default_factory=dict)
+    adapter_config: dict[str, Any] = Field(default_factory=dict)
     request_id: str
+    timeout_seconds: float = 120
 
 
 class ChatOutput(BaseModel):
     type: str = "text"
     content: str
-    metadata: dict = {}
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    usage: dict[str, int] = Field(default_factory=dict)
+
+
+class GenerationInput(BaseModel):
+    provider_id: str
+    model_id: str
+    provider_model_name: str
+    task_type: str
+    input: dict[str, Any] = Field(default_factory=dict)
+    params: dict[str, Any] = Field(default_factory=dict)
+    adapter_config: dict[str, Any] = Field(default_factory=dict)
+    request_id: str
+    timeout_seconds: float = 120
+
+
+class GenerationOutput(BaseModel):
+    status: TaskStatus
+    provider_task_id: str | None = None
+    output: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
 
 
 class ProviderAdapter(Protocol):
@@ -25,4 +61,3 @@ class ProviderAdapter(Protocol):
 
     async def chat(self, input_data: ChatInput) -> ChatOutput:
         ...
-

@@ -2,26 +2,28 @@
   {
     "id": "mimo",
     "name": "Xiaomi MiMo",
-    "baseUrl": "https://api.xiaomimimo.com/v1",
+    "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1",
     "authType": "bearer",
     "envKey": "MIMO_API_KEY",
     "adapter": "mimo",
     "enabled": true,
     "metadata": {
       "protocols": ["openai_compatible", "anthropic_compatible"],
-      "anthropicBaseUrl": "https://api.xiaomimimo.com/anthropic"
+      "anthropicBaseUrl": "https://token-plan-cn.xiaomimimo.com/anthropic"
     }
   },
   {
     "id": "minimax",
     "name": "MiniMax",
-    "baseUrl": "https://api.minimax.chat",
+    "baseUrl": "https://api.minimaxi.com/anthropic",
     "authType": "bearer",
     "envKey": "MINIMAX_API_KEY",
     "adapter": "minimax",
     "enabled": true,
     "metadata": {
-      "protocols": ["anthropic_compatible", "openai_compatible"]
+      "protocols": ["anthropic_compatible", "openai_compatible"],
+      "anthropicBaseUrl": "https://api.minimaxi.com/anthropic",
+      "internationalAnthropicBaseUrl": "https://api.minimax.io/anthropic"
     }
   },
   {
@@ -51,4 +53,3 @@
     }
   }
 ]
-

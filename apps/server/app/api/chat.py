@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -7,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.db.models import Run
 from app.db.session import get_db
-from app.services.model_registry import model_registry
+from app.services.chat_runtime import chat_runtime
 
 router = APIRouter()
 
@@ -41,29 +39,15 @@ def serialize_run(record: Run) -> dict:
 
 @router.post("/runs")
 async def create_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
-    model = model_registry.get_model(input_data.modelId)
-    if input_data.taskType not in model.get("taskTypes", []):
-        raise AppError("MODEL_TASK_UNSUPPORTED", "Selected model does not support this task.", 400)
-
-    run_id = f"run_{uuid4().hex}"
-    output = {
-        "type": "text",
-        "text": "Phase 3 local run placeholder. Provider adapters will execute real calls in Phase 6.",
-    }
-    record = Run(
-        id=run_id,
+    record = await chat_runtime.run_chat(
+        db=db,
         task_type=input_data.taskType,
-        provider_id=model["provider"],
-        model_id=model["id"],
-        input_json={"prompt": input_data.prompt, "fileIds": input_data.fileIds},
-        params_json=input_data.params,
-        output_json=output,
-        status="completed",
+        model_id=input_data.modelId,
+        prompt=input_data.prompt,
+        file_ids=input_data.fileIds,
+        params=input_data.params,
         idempotency_key=input_data.idempotencyKey,
     )
-    db.add(record)
-    db.commit()
-    db.refresh(record)
     return {"data": serialize_run(record)}
 
 

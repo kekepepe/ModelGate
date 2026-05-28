@@ -12,7 +12,7 @@ export async function apiGet<T>(path: string): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw await buildApiError(response);
   }
 
   return response.json() as Promise<T>;
@@ -28,7 +28,7 @@ export async function apiPost<T>(path: string, body: unknown): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw await buildApiError(response);
   }
 
   return response.json() as Promise<T>;
@@ -40,7 +40,7 @@ export async function apiDelete<T>(path: string): Promise<T> {
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw await buildApiError(response);
   }
 
   return response.json() as Promise<T>;
@@ -53,7 +53,7 @@ export async function apiUpload<T>(path: string, formData: FormData): Promise<T>
   });
 
   if (!response.ok) {
-    throw new Error(`API request failed: ${response.status}`);
+    throw await buildApiError(response);
   }
 
   return response.json() as Promise<T>;
@@ -77,4 +77,15 @@ export async function deleteData<T>(path: string): Promise<T> {
 export async function uploadData<T>(path: string, formData: FormData): Promise<T> {
   const envelope = await apiUpload<ApiEnvelope<T>>(path, formData);
   return envelope.data;
+}
+
+async function buildApiError(response: Response): Promise<Error> {
+  try {
+    const payload = await response.json();
+    const message = payload?.error?.message ?? payload?.error?.type;
+    if (message) return new Error(String(message));
+  } catch {
+    // Fall through to status-only error.
+  }
+  return new Error(`API request failed: ${response.status}`);
 }

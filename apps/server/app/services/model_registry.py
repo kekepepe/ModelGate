@@ -208,6 +208,12 @@ class ModelRegistry:
                 return model
         raise_app_error("MODEL_NOT_FOUND", f"Model not found: {model_id}", status_code=404)
 
+    def get_provider(self, provider_id: str) -> dict:
+        for provider in self.providers:
+            if provider["id"] == provider_id:
+                return provider
+        raise_app_error("PROVIDER_NOT_FOUND", f"Provider not found: {provider_id}", status_code=404)
+
     def get_param_schema(self, schema_id: str) -> dict:
         for schema in self.param_schemas:
             if schema["id"] == schema_id:

@@ -21,3 +21,13 @@ def test_recommend_filters_by_task_type_and_input_type() -> None:
     assert result["availableModels"]
     assert all("coding" in model["taskTypes"] for model in result["availableModels"])
     assert all("code" in model["inputTypes"] for model in result["availableModels"])
+
+
+def test_minimax_highspeed_is_not_recommended_for_current_plan() -> None:
+    registry = ModelRegistry(PROJECT_ROOT / "configs")
+
+    result = registry.recommend(task_type="chat", input_types=["text"], preferred_providers=["minimax"])
+    available_ids = {model["id"] for model in result["availableModels"]}
+
+    assert "minimax.m2_7" in available_ids
+    assert "minimax.m2_7_highspeed" not in available_ids

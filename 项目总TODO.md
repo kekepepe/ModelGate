@@ -365,45 +365,47 @@
 
 ### 7.1 Adapter 基础层
 
-- [ ] 定义 ProviderAdapter 基类。
-- [ ] 定义 ChatInput / ChatOutput。
-- [ ] 定义 GenerationInput / GenerationOutput。
-- [ ] 定义 TaskStatus。
-- [ ] 实现 Provider 错误归一化。
-- [ ] 实现 Provider 请求日志脱敏。
-- [ ] 实现 Provider 超时控制。
+- [X] 定义 ProviderAdapter 基类。
+- [X] 定义 ChatInput / ChatOutput。
+- [X] 定义 GenerationInput / GenerationOutput。
+- [X] 定义 TaskStatus。
+- [X] 实现 Provider 错误归一化。
+- [X] 实现 Provider 请求日志脱敏。
+- [X] 实现 Provider 超时控制。
 
 ### 7.2 第一批 Chat Provider
 
-- [ ] MiMo Adapter。
-- [ ] MiniMax Chat Adapter。
-- [ ] 火山 Coding Plan Adapter。
-- [ ] 火山 Coding Plan 模型：Kimi-K2.6、GLM-5.1、DeepSeek-V4-Pro、DeepSeek-V4-Flash、Doubao-Seed-2.0-Code、Doubao-Seed-2.0-pro。
-- [ ] OpenAI-compatible Adapter 预留。
+- [X] MiMo Adapter。
+- [X] MiniMax Chat Adapter。
+- [X] 火山 Coding Plan Adapter。
+- [X] 火山 Coding Plan 模型：Kimi-K2.6、GLM-5.1、DeepSeek-V4-Pro、DeepSeek-V4-Flash、Doubao-Seed-2.0-Code、Doubao-Seed-2.0-pro。
+- [X] OpenAI-compatible Adapter 预留。
 
 ### 7.3 Chat Runtime
 
-- [ ] 普通聊天。
-- [ ] 写代码。
-- [ ] 代码审查。
-- [ ] 图片理解。
-- [ ] 文档分析。
-- [ ] Prompt 优化。
+- [X] 普通聊天。
+- [X] 写代码。
+- [X] 代码审查。
+- [ ] 图片理解。  
+  状态：第一版已支持图片上传 metadata / preview；尚未把图片二进制或 base64 注入多模态 Provider。
+- [X] 文档分析。
+- [X] Prompt 优化。
 - [ ] 流式输出。  
   状态：第一版不作为硬性要求；如果实现难度高，先做非流式。
-- [ ] Abort / cancel。
-- [ ] 保存 runs。
-- [ ] 保存 request_logs。
-- [ ] 保存 usage_logs。
+- [ ] Abort / cancel。  
+  状态：接口已预留；非流式同步请求运行中取消后续再做。
+- [X] 保存 runs。
+- [X] 保存 request_logs。
+- [X] 保存 usage_logs。
 
 ### 7.4 Chat Runtime 测试
 
-- [ ] Adapter mock 单元测试。
-- [ ] Chat Runtime 单元测试。
-- [ ] Provider 错误映射测试。
+- [X] Adapter mock 单元测试。
+- [X] Chat Runtime 单元测试。
+- [X] Provider 错误映射测试。
 - [ ] 流式输出测试。  
   状态：随流式输出实现情况决定是否进入第一版验收。
-- [ ] 文档分析集成测试。
+- [X] 文档分析集成测试。
 
 ---
 
@@ -601,6 +603,8 @@
 - [X] Phase 4：前端工作台基础版。
 - [X] Phase 5：文件上传与解析主体能力。  
   状态：视频抽帧和文件上下文边界归入 Phase 6 Runtime 链路继续完成。
+- [X] Phase 6：Provider Adapter 与 Chat Runtime 主链路。  
+  状态：非流式 Chat Runtime、本地文件上下文、runs / request_logs / usage_logs 已完成；外部 Provider smoke test、流式输出和图片多模态后续补强。
 
 ### 下一步建议
 
@@ -612,9 +616,18 @@ Phase 5 文件上传与解析主体能力已完成。当前验证状态：
 4. [X] 本机 PostgreSQL / Redis 真实 API 测试复跑。  
    状态：已在本机通过，`9 passed in 1.17s`。
 
-下一步进入 Phase 6 Provider Adapter 与 Chat Runtime：
+Phase 6 Provider Adapter 与 Chat Runtime 主链路已完成。当前验证状态：
 
-1. [ ] 定义 ProviderAdapter 输入输出协议。
-2. [ ] 实现 MiMo / MiniMax / 火山 Coding Plan 第一批 Chat Adapter。
-3. [ ] 把 Phase 5 的 `parsedText` 用 `BEGIN_USER_FILE_CONTEXT` 边界注入 Chat Runtime。
-4. [ ] 替换当前前端输出里的 Phase 3 placeholder。
+1. [X] 后端真实 PostgreSQL / Redis 测试通过：`11 passed in 1.12s`。
+2. [X] 前端 typecheck 通过。
+3. [X] 已替换 Phase 3 placeholder，`/api/chat/runs` 现在进入 Chat Runtime。
+4. [X] Phase 6 增强项边界测试通过：`stream=true` 强制非流式、completed run cancel 保持终态、图片文件不注入 base64 多模态内容。
+5. [ ] 外部 Provider smoke test。  
+   状态：MiMo-V2.5-Pro 已通过 token-plan-cn 真实 smoke test；MiniMax 当前 Coding Plan 仅保留 `MiniMax-M2.7`，待额度恢复后复跑。
+
+下一步建议：
+
+1. [X] 更新 / 确认 MiMo API Key 后复跑 MiMo-V2.5-Pro smoke test。
+2. [ ] 等待 MiniMax 额度恢复后复跑 MiniMax-M2.7 smoke test。
+3. [ ] 进入 Phase 7 Generation Runtime 与异步 Worker。
+4. [ ] 后续补 Phase 6 增强：流式输出、运行中取消、图片多模态输入。
