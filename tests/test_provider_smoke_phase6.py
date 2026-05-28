@@ -72,7 +72,7 @@ def test_minimax_m2_7_real_provider_smoke() -> None:
                 "prompt": "Reply with exactly: ModelGate smoke ok",
                 "params": {
                     "temperature": 0,
-                    "max_completion_tokens": 32,
+                    "max_completion_tokens": 256,
                     "stream": False,
                 },
             },
