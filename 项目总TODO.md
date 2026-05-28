@@ -112,8 +112,8 @@
 
 ### 2.2 前端基础设施
 
-- [ ] 安装 Next.js + TypeScript。  
-  状态：`apps/web/package.json` 已声明依赖；已尝试执行 `npm install`，但当前环境网络请求无响应，已停止安装且未生成 `node_modules` / `package-lock.json`。
+- [X] 安装 Next.js + TypeScript。  
+  状态：已执行 `npm install`，生成 `node_modules` 与 `package-lock.json`。
 - [X] 配置 Tailwind CSS。
 - [X] 配置 shadcn/ui。
 - [X] 配置 Zustand。
@@ -202,42 +202,42 @@
 
 ### 4.1 Provider 与模型 API
 
-- [ ] `GET /api/providers`
-- [ ] `GET /api/models`
-- [ ] `GET /api/models/{modelId}`
-- [ ] `POST /api/models/recommend`
-- [ ] `GET /api/param-schemas/{schemaId}`
+- [X] `GET /api/providers`
+- [X] `GET /api/models`
+- [X] `GET /api/models/{modelId}`
+- [X] `POST /api/models/recommend`
+- [X] `GET /api/param-schemas/{schemaId}`
 
 ### 4.2 文件 API
 
-- [ ] `POST /api/files/upload`
-- [ ] `GET /api/files/{fileId}`
-- [ ] `GET /api/files/{fileId}/preview`
-- [ ] `DELETE /api/files/{fileId}`
+- [X] `POST /api/files/upload`
+- [X] `GET /api/files/{fileId}`
+- [X] `GET /api/files/{fileId}/preview`
+- [X] `DELETE /api/files/{fileId}`
 
 ### 4.3 Chat Run API
 
-- [ ] `POST /api/chat/runs`
-- [ ] `GET /api/chat/runs/{runId}`
-- [ ] `GET /api/chat/runs/{runId}/events`
-- [ ] `POST /api/chat/runs/{runId}/cancel`
+- [X] `POST /api/chat/runs`
+- [X] `GET /api/chat/runs/{runId}`
+- [X] `GET /api/chat/runs/{runId}/events`
+- [X] `POST /api/chat/runs/{runId}/cancel`
 
 ### 4.4 Generation Task API
 
-- [ ] `POST /api/generation/tasks`
-- [ ] `GET /api/generation/tasks/{taskId}`
-- [ ] `GET /api/generation/tasks/{taskId}/result`
-- [ ] `POST /api/generation/tasks/{taskId}/cancel`
-- [ ] `POST /api/generation/tasks/{taskId}/rerun`
+- [X] `POST /api/generation/tasks`
+- [X] `GET /api/generation/tasks/{taskId}`
+- [X] `GET /api/generation/tasks/{taskId}/result`
+- [X] `POST /api/generation/tasks/{taskId}/cancel`
+- [X] `POST /api/generation/tasks/{taskId}/rerun`
 
 ### 4.5 历史与日志 API
 
-- [ ] `GET /api/history/runs`
-- [ ] `GET /api/history/generation-tasks`
-- [ ] `GET /api/history/{recordId}`
-- [ ] `DELETE /api/history/{recordId}`
-- [ ] `GET /api/logs/requests`
-- [ ] `GET /api/usage/summary`
+- [X] `GET /api/history/runs`
+- [X] `GET /api/history/generation-tasks`
+- [X] `GET /api/history/{recordId}`
+- [X] `DELETE /api/history/{recordId}`
+- [X] `GET /api/logs/requests`
+- [X] `GET /api/usage/summary`
 
 ---
 
@@ -247,58 +247,58 @@
 
 ### 5.1 页面与布局
 
-- [ ] 任务中心页面。
-- [ ] 工作台页面。
-- [ ] 历史记录页面。
-- [ ] 模型管理页面。
-- [ ] 设置页面。
-- [ ] 三栏工作台布局。
-- [ ] 移动端基础适配。
+- [X] 任务中心页面。
+- [X] 工作台页面。
+- [X] 历史记录页面。
+- [X] 模型管理页面。
+- [X] 设置页面。
+- [X] 三栏工作台布局。
+- [X] 移动端基础适配。
 
 ### 5.2 任务与模型选择
 
-- [ ] TaskCenter。
-- [ ] TaskCard。
-- [ ] TaskTabs。
-- [ ] ProviderFilter。
-- [ ] ModelSelector。
-- [ ] ModelCard。
-- [ ] CapabilityBadges。
-- [ ] hidden reason 展示。
+- [X] TaskCenter。
+- [X] TaskCard。
+- [X] TaskTabs。
+- [X] ProviderFilter。
+- [X] ModelSelector。
+- [X] ModelCard。
+- [X] CapabilityBadges。
+- [X] hidden reason 展示。
 
 ### 5.3 文件与参数
 
-- [ ] FileUploader。
-- [ ] FilePreview。
-- [ ] FileList。
-- [ ] DynamicParamForm。
-- [ ] ParamField。
-- [ ] PromptEditor。
-- [ ] CompatibilityNotice。
-- [ ] RunToolbar。
+- [X] FileUploader。
+- [X] FilePreview。
+- [X] FileList。
+- [X] DynamicParamForm。
+- [X] ParamField。
+- [X] PromptEditor。
+- [X] CompatibilityNotice。
+- [X] RunToolbar。
 
 ### 5.4 结果与历史
 
-- [ ] TextResult。
-- [ ] ImageResult。
-- [ ] VideoResult。
-- [ ] FileResult。
-- [ ] HistoryPanel。
-- [ ] RequestLogPanel。
-- [ ] 复制参数。
-- [ ] 重新运行。
-- [ ] 下载结果。
+- [X] TextResult。
+- [X] ImageResult。
+- [X] VideoResult。
+- [X] FileResult。
+- [X] HistoryPanel。
+- [X] RequestLogPanel。
+- [X] 复制参数。
+- [X] 重新运行。
+- [X] 下载结果。
 
 ### 5.5 前端状态管理
 
-- [ ] workspace store。
-- [ ] files store。
-- [ ] modelSelection store。
-- [ ] generation store。
-- [ ] selectedTask 切换时重置相关状态。
-- [ ] selectedModel 切换时重置参数表单。
-- [ ] 删除文件时同步清理 `fileIds`。
-- [ ] 使用 TanStack Query 管理服务端数据。
+- [X] workspace store。
+- [X] files store。
+- [X] modelSelection store。
+- [X] generation store。
+- [X] selectedTask 切换时重置相关状态。
+- [X] selectedModel 切换时重置参数表单。
+- [X] 删除文件时同步清理 `fileIds`。
+- [X] 使用 TanStack Query 管理服务端数据。
 
 ---
 
@@ -580,13 +580,17 @@
 - [X] 第一批正式开发前核心文档：系统架构、数据库、API、Model Registry、任务状态机。
 - [X] 第二批开写代码前补齐文档：Provider Adapter、动态参数 Schema、文件上传与解析、异步任务与 Worker。
 - [X] 第三批开发过程中同步维护文档：错误码与日志、前端状态管理、环境变量与部署、测试策略、开发规范。
+- [X] Phase 1：项目骨架搭建。
+- [X] Phase 2：数据模型与配置系统。
+- [X] Phase 3：后端 API 基础能力。
+- [X] Phase 4：前端工作台基础版。
 
 ### 下一步建议
 
-Phase 2 数据模型与配置系统已完成代码落地；后端依赖、Docker 依赖服务、数据库迁移和当前单元测试已验证。下一步进入 Phase 3 后端 API 基础能力：
+Phase 3 和 Phase 4 已完成基础版代码落地，并通过后端 API smoke test、前端 typecheck 与 Next build。下一步进入 Phase 5 文件上传与解析：
 
-1. [X] 安装后端依赖并执行 `alembic upgrade head`。
-2. [X] 运行 `pytest tests/test_model_registry.py`。
-3. [ ] 补齐 `GET /api/models/{modelId}`、`POST /api/models/recommend` 的响应结构。
-4. [ ] 实现 `GET /api/param-schemas/{schemaId}`。
-5. [ ] 开始文件 API、Chat Run API、Generation Task API 的路由骨架。
+1. [ ] 强化文件类型安全校验：扩展名、MIME、文件头。
+2. [ ] 生成图片缩略图和文件预览。
+3. [ ] 接入 PDF / DOCX / Office 文档文本解析。
+4. [ ] 增加文件解析状态流转。
+5. [ ] 让文件解析结果参与模型推荐。

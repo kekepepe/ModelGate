@@ -5,8 +5,9 @@ from redis import Redis
 from sqlalchemy import text
 
 from app.core.config import settings
-from app.db.session import engine
+from app.db.session import SessionLocal, engine
 from app.services.model_registry import RegistryValidationError, model_registry
+from app.services.registry_sync import sync_registry_to_db
 
 
 @asynccontextmanager
@@ -24,5 +25,8 @@ async def lifespan(app: FastAPI):
         model_registry.validate()
     except RegistryValidationError as exc:
         raise RuntimeError(f"Model registry validation failed: {exc}") from exc
+
+    with SessionLocal() as session:
+        sync_registry_to_db(model_registry, session)
 
     yield

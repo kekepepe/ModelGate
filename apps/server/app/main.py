@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import health, models, providers
+from app.api import chat, files, generation, health, history, logs, models, param_schemas, providers, usage
 from app.core.errors import register_exception_handlers
 from app.core.middleware import RequestIdMiddleware
 from app.core.startup import lifespan
@@ -22,3 +22,10 @@ register_exception_handlers(app)
 app.include_router(health.router)
 app.include_router(providers.router, prefix="/api/providers", tags=["providers"])
 app.include_router(models.router, prefix="/api/models", tags=["models"])
+app.include_router(param_schemas.router, prefix="/api/param-schemas", tags=["param-schemas"])
+app.include_router(files.router, prefix="/api/files", tags=["files"])
+app.include_router(chat.router, prefix="/api/chat", tags=["chat"])
+app.include_router(generation.router, prefix="/api/generation", tags=["generation"])
+app.include_router(history.router, prefix="/api/history", tags=["history"])
+app.include_router(logs.router, prefix="/api/logs", tags=["logs"])
+app.include_router(usage.router, prefix="/api/usage", tags=["usage"])
