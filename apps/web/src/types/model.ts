@@ -65,6 +65,7 @@ export type FileRecord = {
   directUsable: boolean;
   metadata: Record<string, unknown>;
   errorMessage?: string | null;
+  previewUrl?: string | null;
   createdAt?: string | null;
 };
 

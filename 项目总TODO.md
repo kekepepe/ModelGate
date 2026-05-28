@@ -308,39 +308,54 @@
 
 ### 6.1 文件安全
 
-- [ ] UUID 文件名。
-- [ ] 原始文件名只存 metadata。
-- [ ] 扩展名校验。
-- [ ] MIME 校验。
-- [ ] 文件头校验。
-- [ ] 单文件大小限制。
-- [ ] 总上传大小限制。
-- [ ] 上传目录禁止执行。
-- [ ] SVG / HTML 不 inline 渲染。
+- [X] UUID / 不可猜测 ID 文件名。
+- [X] 原始文件名只存 DB metadata / response，不参与真实路径。
+- [X] 扩展名白名单校验。
+- [X] MIME 与扩展名兼容校验。
+- [X] 文件头 magic number 校验。
+- [X] 文本 / 代码文件二进制内容拒绝。
+- [X] 单文件大小限制。
+- [X] 总上传大小限制。
+- [X] 文件名长度限制。
+- [X] 上传目录禁止执行。  
+  状态：第一版通过非静态挂载、受控预览接口和本地目录权限隔离实现。
+- [X] SVG / HTML 不 inline 渲染，预览强制 attachment。
+- [X] 预览 / 下载接口不返回物理路径。
 
 ### 6.2 文件解析
 
-- [ ] 图片 metadata 提取。
-- [ ] 图片缩略图生成。
-- [ ] PDF 文本提取。
-- [ ] DOCX 文本提取。
-- [ ] PPTX 文本提取。
-- [ ] XLSX 表格提取。
-- [ ] 代码文件语言识别。
-- [ ] 视频基础 metadata 提取。
-- [ ] 视频抽帧。
-- [ ] 音频基础 metadata 提取。
+- [X] 图片 metadata 提取：宽、高、格式、alpha、文件大小。
+- [X] 图片缩略图 / preview 生成，并去除 EXIF 定位信息。
+- [X] PDF 文本提取：页数、文本、按页 chunks。
+- [X] DOCX 文本提取：段落、标题、表格文本。
+- [X] TXT / MD 文本提取：标题、代码块基础识别。
+- [X] CSV 基础解析：表头、行列数、前 N 行样本。
+- [X] PPTX 基础文本 / metadata 提取。  
+  状态：第一版可做简化解析，复杂结构后续增强。
+- [X] XLSX 基础表格 / metadata 提取。  
+  状态：第一版可做简化解析，复杂公式后续增强。
+- [X] 代码文件语言识别：扩展名、文件名特例、shebang。
+- [X] 视频基础 metadata 提取。  
+  状态：第一版可预留，不阻塞 Chat / 文档分析主链路。
+- [ ] 视频抽帧。  
+  状态：后续增强项，第一版不阻塞。
+- [X] 音频基础 metadata 提取。  
+  状态：第一版可预留，不阻塞。
+- [X] 解析结果写入 `metadata_json`，包含 `parsedText`、`chunks`、`parser`、`parseVersion`。
 
 ### 6.3 文件状态
 
-- [ ] `uploading`
-- [ ] `uploaded`
-- [ ] `parsing`
-- [ ] `parsed`
-- [ ] `failed`
-- [ ] `deleted`
-- [ ] 文件解析失败展示错误。
-- [ ] 只有可用文件进入模型推荐。
+- [X] `uploading` UI 临时态。
+- [X] `uploaded` 保存成功态。
+- [X] `parsing` Worker 解析中。
+- [X] `parsed` 解析成功。
+- [X] `failed` 解析失败并写入 `error_message`。
+- [X] `deleted` 逻辑删除。
+- [X] Worker 写回 `files.status`、`metadata_json`、`preview_path`、`error_message`。
+- [X] 文件解析失败展示错误。
+- [X] 只有可用文件进入模型推荐。
+- [ ] 文件内容进入模型时加 `BEGIN_USER_FILE_CONTEXT` 边界。
+- [X] PDF / DOCX / TXT / MD / 代码文件各有至少一个解析测试。
 
 ---
 
@@ -584,13 +599,22 @@
 - [X] Phase 2：数据模型与配置系统。
 - [X] Phase 3：后端 API 基础能力。
 - [X] Phase 4：前端工作台基础版。
+- [X] Phase 5：文件上传与解析主体能力。  
+  状态：视频抽帧和文件上下文边界归入 Phase 6 Runtime 链路继续完成。
 
 ### 下一步建议
 
-Phase 3 和 Phase 4 已完成基础版代码落地，并通过后端 API smoke test、前端 typecheck 与 Next build。下一步进入 Phase 5 文件上传与解析：
+Phase 5 文件上传与解析主体能力已完成。当前验证状态：
 
-1. [ ] 强化文件类型安全校验：扩展名、MIME、文件头。
-2. [ ] 生成图片缩略图和文件预览。
-3. [ ] 接入 PDF / DOCX / Office 文档文本解析。
-4. [ ] 增加文件解析状态流转。
-5. [ ] 让文件解析结果参与模型推荐。
+1. [X] 后端编译检查通过。
+2. [X] 前端 typecheck 通过。
+3. [X] 沙箱内 pytest 通过可执行部分：`2 passed, 6 skipped`。
+4. [X] 本机 PostgreSQL / Redis 真实 API 测试复跑。  
+   状态：已在本机通过，`9 passed in 1.17s`。
+
+下一步进入 Phase 6 Provider Adapter 与 Chat Runtime：
+
+1. [ ] 定义 ProviderAdapter 输入输出协议。
+2. [ ] 实现 MiMo / MiniMax / 火山 Coding Plan 第一批 Chat Adapter。
+3. [ ] 把 Phase 5 的 `parsedText` 用 `BEGIN_USER_FILE_CONTEXT` 边界注入 Chat Runtime。
+4. [ ] 替换当前前端输出里的 Phase 3 placeholder。

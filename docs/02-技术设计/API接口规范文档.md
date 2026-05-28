@@ -220,26 +220,60 @@ POST /api/files/upload
 ```json
 {
   "data": {
-    "fileId": "file_123",
+    "id": "file_123",
     "originalName": "image.png",
     "mimeType": "image/png",
     "detectedType": "image",
-    "status": "uploaded",
+    "status": "parsed",
     "sizeBytes": 1234567,
     "directUsable": true,
     "previewUrl": "/api/files/file_123/preview",
     "metadata": {
+      "kind": "image",
       "width": 1920,
-      "height": 1080
-    }
+      "height": 1080,
+      "format": "png",
+      "chunks": []
+    },
+    "errorMessage": null,
+    "createdAt": "2026-05-28T12:00:00+08:00"
   }
 }
 ```
+
+Phase 5 说明：
+
+- `id` 是后端生成的不可猜测文件 ID。
+- `originalName` 只作为 metadata 返回，不参与存储路径。
+- `status` 可以是 `uploaded`、`parsing`、`parsed`、`failed`、`deleted`。
+- `previewUrl` 只有图片或可预览文件才返回；不可预览文件返回 `null`。
+- 后端不得返回 `storedPath`、`previewPath` 等物理路径。
+- 扩展名、MIME、文件头不匹配时返回 `FILE_TYPE_NOT_ALLOWED` 或 `FILE_SIGNATURE_MISMATCH`。
 
 ### 4.2 获取文件详情
 
 ```http
 GET /api/files/{fileId}
+```
+
+响应同上传接口中的 `data` 结构。`metadata` 中可以包含：
+
+```json
+{
+  "kind": "document",
+  "parser": "pypdf",
+  "parseVersion": 1,
+  "pageCount": 12,
+  "chunks": [
+    {
+      "index": 0,
+      "source": {
+        "page": 1
+      },
+      "textPreview": "..."
+    }
+  ]
+}
 ```
 
 ### 4.3 获取文件预览
@@ -250,18 +284,38 @@ GET /api/files/{fileId}/preview
 
 返回：文件流。禁止返回物理路径。
 
+响应头：
+
+```http
+X-Content-Type-Options: nosniff
+Content-Disposition: inline; filename="safe-preview-name"
+```
+
+HTML / SVG / 不可信文本文件不能 inline 渲染，必须使用：
+
+```http
+Content-Disposition: attachment
+```
+
 ### 4.4 删除文件
 
 ```http
 DELETE /api/files/{fileId}
 ```
 
+删除策略：
+
+- 第一版本地单用户：执行逻辑删除，并尽量删除本地物理文件。
+- 数据库 `files.status` 写为 `deleted`。
+- 历史记录中仍保留 `fileId`，但不允许再次预览或作为新任务输入。
+
 响应：
 
 ```json
 {
   "data": {
-    "deleted": true
+    "id": "file_123",
+    "status": "deleted"
   }
 }
 ```

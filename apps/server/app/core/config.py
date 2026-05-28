@@ -33,6 +33,8 @@ class Settings(BaseSettings):
     max_audio_mb: int = 100
     max_document_mb: int = 100
     max_code_mb: int = 5
+    max_total_upload_mb: int = 1024
+    max_filename_length: int = 255
 
     enable_streaming: bool = False
     enable_seedance: bool = False
@@ -52,4 +54,3 @@ def get_settings() -> Settings:
 
 
 settings = get_settings()
-

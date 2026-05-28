@@ -14,7 +14,11 @@ dependencies = [
   "redis>=5.2.1",
   "celery>=5.4.0",
   "httpx>=0.28.1",
-  "python-multipart>=0.0.19"
+  "python-multipart>=0.0.19",
+  "pillow>=11.0.0",
+  "pypdf>=5.1.0",
+  "python-docx>=1.1.2",
+  "openpyxl>=3.1.5"
 ]
 
 [project.optional-dependencies]
@@ -27,4 +31,3 @@ dev = [
 [tool.ruff]
 line-length = 100
 target-version = "py311"
-

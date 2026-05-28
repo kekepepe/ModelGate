@@ -120,6 +120,18 @@ ModelGate 不是：
 - 不允许在线编辑并运行用户上传的脚本。
 - 不允许 inline 渲染不可信 HTML / SVG。
 - 不允许把用户原始文件名作为存储路径。
+- 不允许解压用户上传的压缩包。
+- 不允许执行 Office 宏或脚本。
+- 不允许解析阶段访问文档中的外部链接或远程资源。
+
+Phase 5 硬性校验：
+
+- 扩展名必须在白名单内。
+- MIME 必须与扩展名兼容。
+- 文件头 magic number 必须与类型兼容。
+- 文件大小必须在类型上限内。
+- 文件名长度必须限制，原始文件名只作为 metadata。
+- HTML / SVG 可以作为文本或代码分析输入，但预览必须 attachment，不能 inline。
 
 ### 4.2 文件存储边界
 
@@ -132,16 +144,17 @@ ModelGate 不是：
 - 上传目录不可执行。
 - 文件访问必须经过后端授权接口。
 
+第一版是本地单用户项目，暂不做多用户权限隔离；但接口设计仍必须保留后续 `owner_id` / `workspace_id` 扩展空间。
+
 ### 4.3 文件解析边界
 
 文件解析只做：
 
 - 文本提取。
 - 图片尺寸和缩略图生成。
-- PDF / DOCX / PPTX 的内容抽取。
-- 表格结构提取。
-- 视频抽帧。
-- 音频转写预处理。
+- PDF / DOCX / TXT / MD / 代码文件内容抽取。
+- CSV / PPTX / XLSX 的基础 metadata 和可用文本抽取。
+- 视频 / 音频基础 metadata 预留。
 
 文件解析不做：
 
@@ -150,6 +163,13 @@ ModelGate 不是：
 - 不访问文档中的外部链接。
 - 不自动下载文档引用的远程资源。
 - 不把解析内容拼入 system prompt。
+
+解析失败边界：
+
+- 解析失败不代表上传文件一定不可用。
+- 如果文件是图片或其他可直接传 Provider 的格式，可以保持 `directUsable: true`，但 `status` 必须标记失败原因。
+- 文档类文件解析失败时，不进入 `document_analysis` 推荐，除非后续 Provider 支持原文件直接输入。
+- 前端必须展示失败原因，不能静默忽略。
 
 ### 4.4 文件状态边界
 
@@ -168,6 +188,16 @@ deleted
 
 - `parsed`。
 - 对于无需解析、可直接传 Provider 的文件，可以是 `uploaded`，但必须标记 `directUsable: true`。
+
+文件内容进入模型时必须作为 user context，并加边界符：
+
+```text
+BEGIN_USER_FILE_CONTEXT fileId="file_123" source="uploaded_file"
+...
+END_USER_FILE_CONTEXT
+```
+
+禁止把文件内容放入 system prompt，禁止让文件内容修改模型选择、API Key、Provider 配置、系统规则或本地执行策略。
 
 ---
 
