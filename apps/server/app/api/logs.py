@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends
 from sqlalchemy import desc, select
 from sqlalchemy.orm import Session
 
+from app.core.logging import redact
 from app.db.models import RequestLog
 from app.db.session import get_db
 
@@ -15,12 +16,12 @@ def serialize_request_log(record: RequestLog) -> dict:
         "recordId": record.record_id,
         "providerId": record.provider_id,
         "modelId": record.model_id,
-        "request": record.request_json,
-        "response": record.response_json,
+        "request": redact(record.request_json),
+        "response": redact(record.response_json),
         "statusCode": record.status_code,
         "latencyMs": record.latency_ms,
         "errorType": record.error_type,
-        "errorMessage": record.error_message,
+        "errorMessage": redact(record.error_message),
         "createdAt": record.created_at.isoformat() if record.created_at else None,
     }
 

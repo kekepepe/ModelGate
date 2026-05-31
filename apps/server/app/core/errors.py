@@ -2,6 +2,8 @@ from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 
+from app.core.logging import redact, redact_text
+
 
 class ErrorBody(BaseModel):
     type: str
@@ -26,9 +28,9 @@ def error_response(request: Request, error_type: str, message: str, status_code:
         content={
             "error": ErrorBody(
                 type=error_type,
-                message=message,
+                message=redact_text(message),
                 requestId=request_id,
-                details=details,
+                details=redact(details),
             ).model_dump()
         },
     )
@@ -42,4 +44,3 @@ def register_exception_handlers(app: FastAPI) -> None:
     @app.exception_handler(Exception)
     async def handle_unknown_error(request: Request, exc: Exception):
         return error_response(request, "INTERNAL_ERROR", "Internal server error", 500)
-

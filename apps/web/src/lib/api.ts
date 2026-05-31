@@ -1,5 +1,19 @@
 export const API_BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "http://localhost:8000/api";
 
+export class ApiError extends Error {
+  type?: string;
+  requestId?: string;
+  status: number;
+
+  constructor(message: string, status: number, type?: string, requestId?: string) {
+    super(message);
+    this.name = "ApiError";
+    this.status = status;
+    this.type = type;
+    this.requestId = requestId;
+  }
+}
+
 type ApiEnvelope<T> = {
   data: T;
 };
@@ -82,10 +96,12 @@ export async function uploadData<T>(path: string, formData: FormData): Promise<T
 async function buildApiError(response: Response): Promise<Error> {
   try {
     const payload = await response.json();
-    const message = payload?.error?.message ?? payload?.error?.type;
-    if (message) return new Error(String(message));
+    const type = payload?.error?.type ? String(payload.error.type) : undefined;
+    const requestId = payload?.error?.requestId ? String(payload.error.requestId) : undefined;
+    const message = payload?.error?.message ?? type;
+    if (message) return new ApiError(String(message), response.status, type, requestId);
   } catch {
     // Fall through to status-only error.
   }
-  return new Error(`API request failed: ${response.status}`);
+  return new ApiError(`API request failed: ${response.status}`, response.status);
 }

@@ -5,6 +5,8 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
+from app.core.config import settings
+
 
 class ProviderConfig(BaseModel):
     model_config = ConfigDict(extra="forbid")
@@ -213,6 +215,10 @@ class ModelRegistry:
             if provider["id"] == provider_id:
                 return provider
         raise_app_error("PROVIDER_NOT_FOUND", f"Provider not found: {provider_id}", status_code=404)
+
+    def get_provider_secret(self, provider_id: str) -> str:
+        provider = self.get_provider(provider_id)
+        return settings.get_secret(provider.get("envKey") or "")
 
     def get_param_schema(self, schema_id: str) -> dict:
         for schema in self.param_schemas:

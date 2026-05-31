@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import httpx
 
+from app.core.logging import redact_text
 from app.core.errors import AppError
 
 
@@ -80,10 +81,10 @@ def _extract_provider_message(response: httpx.Response) -> str | None:
         if isinstance(error, dict):
             message = error.get("message") or error.get("type")
             if isinstance(message, str):
-                return message[:500]
+                return redact_text(message)[:500]
         if isinstance(error, str):
-            return error[:500]
+            return redact_text(error)[:500]
         message = payload.get("message")
         if isinstance(message, str):
-            return message[:500]
+            return redact_text(message)[:500]
     return None

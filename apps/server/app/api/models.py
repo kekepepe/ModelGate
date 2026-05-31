@@ -21,25 +21,55 @@ class RecommendModelsInput(BaseModel):
 
 @router.get("")
 async def list_models():
-    return {"data": model_registry.models}
+    return {"data": [serialize_model(model) for model in model_registry.models]}
 
 
 @router.get("/{model_id}")
 async def get_model(model_id: str):
-    return {"data": model_registry.get_model(model_id)}
+    return {"data": serialize_model(model_registry.get_model(model_id))}
 
 
 @router.post("/recommend")
 async def recommend_models(input_data: RecommendModelsInput, db: Session = Depends(get_db)):
     input_types = _apply_file_input_types(input_data=input_data, db=db)
+    result = model_registry.recommend(
+        task_type=input_data.taskType,
+        input_types=input_types,
+        required_output=input_data.requiredOutput,
+        preferred_providers=input_data.preferredProviders,
+        params=input_data.params,
+    )
     return {
-        "data": model_registry.recommend(
-            task_type=input_data.taskType,
-            input_types=input_types,
-            required_output=input_data.requiredOutput,
-            preferred_providers=input_data.preferredProviders,
-            params=input_data.params,
-        )
+        "data": {
+            "availableModels": [serialize_model(model) for model in result["availableModels"]],
+            "hiddenModels": result["hiddenModels"],
+        }
+    }
+
+
+def serialize_model(model: dict) -> dict:
+    adapter_config = model.get("adapterConfig") or {}
+    public_adapter_config = {
+        key: value
+        for key, value in adapter_config.items()
+        if key in {"protocol", "disabledReason", "reservedForFutureVersion"}
+    }
+    return {
+        "id": model["id"],
+        "officialModelName": model["officialModelName"],
+        "displayName": model["displayName"],
+        "provider": model["provider"],
+        "category": model["category"],
+        "runtime": model["runtime"],
+        "capabilities": model["capabilities"],
+        "inputTypes": model["inputTypes"],
+        "outputTypes": model["outputTypes"],
+        "taskTypes": model["taskTypes"],
+        "contextWindow": model.get("contextWindow"),
+        "async": model["async"],
+        "enabled": model["enabled"],
+        "paramsSchema": model["paramsSchema"],
+        "adapterConfig": public_adapter_config,
     }
 
 

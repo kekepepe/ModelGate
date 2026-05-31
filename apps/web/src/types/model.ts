@@ -1,11 +1,12 @@
 export type Provider = {
   id: string;
   name: string;
-  baseUrl: string;
+  baseUrl?: string;
   authType: string;
-  envKey: string;
+  envKey?: string | null;
   enabled: boolean;
   adapter: string;
+  configured?: boolean;
   metadata?: Record<string, unknown>;
 };
 
@@ -110,4 +111,10 @@ export type RequestLog = {
   latencyMs?: number | null;
   errorType?: string | null;
   createdAt?: string | null;
+};
+
+export type ApiErrorInfo = {
+  type?: string;
+  message: string;
+  requestId?: string;
 };
