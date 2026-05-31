@@ -9,7 +9,12 @@
     "web:dev": "npm --workspace apps/web run dev",
     "web:build": "npm --workspace apps/web run build",
     "web:lint": "npm --workspace apps/web run lint",
-    "web:typecheck": "npm --workspace apps/web run typecheck"
+    "web:typecheck": "npm --workspace apps/web run typecheck",
+    "e2e": "playwright test",
+    "e2e:headed": "playwright test --headed",
+    "e2e:ui": "playwright test --ui"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.60.0"
   }
 }
-

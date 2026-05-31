@@ -18,7 +18,21 @@ Phase 9 覆盖 ModelGate 第一版本地单用户范围内的核心链路：
 conda run -n modelgate env PYTHONPATH=apps/server python apps/server/scripts/validate_model_registry.py
 conda run -n modelgate env PYTHONPATH=apps/server pytest -q
 npm run typecheck --workspace apps/web
+npm run e2e
 ```
+
+首次运行真实浏览器 E2E 前安装 Playwright Chromium：
+
+```bash
+npx playwright install chromium
+```
+
+真实浏览器 E2E 当前覆盖：
+
+- 首页 Tailwind 样式加载，避免退化成原始 HTML。
+- 工作台任务切换，确认 URL 与页面标题同步。
+- 工作台核心控件可见，文件上传控件可交互。
+- Provider/API 错误在前端展示 message 和 requestId。
 
 可选真实 Provider smoke test：
 
@@ -27,6 +41,22 @@ conda run -n modelgate env PYTHONPATH=apps/server RUN_PROVIDER_SMOKE=1 pytest te
 ```
 
 ## 服务验收命令
+
+```bash
+docker compose up --build
+```
+
+端口冲突时可临时覆盖 host 端口：
+
+```bash
+HOST_WEB_PORT=13000 \
+HOST_API_PORT=18000 \
+NEXT_PUBLIC_API_BASE_URL=http://localhost:18000/api \
+CORS_ALLOW_ORIGINS=http://localhost:13000,http://127.0.0.1:13000 \
+docker compose up --build
+```
+
+手动开发模式：
 
 ```bash
 docker compose up -d postgres redis

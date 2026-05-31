@@ -21,6 +21,8 @@ node_modules/
 out/
 dist/
 coverage/
+playwright-report/
+test-results/
 *.tsbuildinfo
 
 # Logs
@@ -39,4 +41,3 @@ storage/previews/*
 .DS_Store
 .idea/
 .vscode/
-

@@ -1,0 +1,10 @@
+.git
+.pytest_cache
+.pycache
+node_modules
+apps/web/.next
+apps/web/node_modules
+apps/web/tsconfig.tsbuildinfo
+storage
+.env
+*.log

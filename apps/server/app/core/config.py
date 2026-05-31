@@ -10,6 +10,7 @@ class Settings(BaseSettings):
     api_port: int = 8000
     log_level: str = "INFO"
     log_partial_secrets: bool = False
+    cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
     database_url: str = "postgresql+psycopg://modelgate:modelgate_password@localhost:5432/modelgate"
     redis_url: str = "redis://localhost:6379/0"

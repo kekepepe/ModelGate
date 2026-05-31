@@ -28,13 +28,36 @@ cp .env.example .env
 
 2. Fill provider API keys in `.env`.
 
-3. Start PostgreSQL and Redis:
+3. Start the full local stack with Docker Compose:
+
+```bash
+docker compose up --build
+```
+
+Frontend: `http://localhost:3000`
+Backend: `http://localhost:8000`
+
+If the default ports are already in use, override the host ports and API URL:
+
+```bash
+HOST_WEB_PORT=13000 \
+HOST_API_PORT=18000 \
+HOST_POSTGRES_PORT=15432 \
+HOST_REDIS_PORT=16379 \
+NEXT_PUBLIC_API_BASE_URL=http://localhost:18000/api \
+CORS_ALLOW_ORIGINS=http://localhost:13000,http://127.0.0.1:13000 \
+docker compose up --build
+```
+
+## Manual Development Setup
+
+1. Start PostgreSQL and Redis:
 
 ```bash
 docker compose up -d postgres redis
 ```
 
-4. Create and activate backend Python environment.
+2. Create and activate backend Python environment.
 
 Recommended: use an isolated conda environment. Do not install backend dependencies into conda `base`.
 
@@ -52,7 +75,7 @@ source apps/server/.venv/bin/activate
 pip install -r apps/server/requirements.txt
 ```
 
-5. Start backend from the repository root:
+3. Start backend from the repository root:
 
 ```bash
 conda activate modelgate
@@ -60,14 +83,14 @@ PYTHONPATH=apps/server alembic -c apps/server/alembic.ini upgrade head
 PYTHONPATH=apps/server uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-6. Start worker from the repository root:
+4. Start worker from the repository root:
 
 ```bash
 conda activate modelgate
 PYTHONPATH=apps/server celery -A app.workers.celery_app worker --loglevel=info
 ```
 
-7. Start frontend:
+5. Start frontend:
 
 ```bash
 cd apps/web
@@ -93,6 +116,13 @@ Run the local verification suite from the repository root:
 conda run -n modelgate env PYTHONPATH=apps/server python apps/server/scripts/validate_model_registry.py
 conda run -n modelgate env PYTHONPATH=apps/server pytest -q
 npm run typecheck --workspace apps/web
+npm run e2e
+```
+
+Install Playwright browsers once before the first browser E2E run:
+
+```bash
+npx playwright install chromium
 ```
 
 For real Provider smoke tests, set provider API keys in `.env` and run:

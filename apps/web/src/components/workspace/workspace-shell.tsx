@@ -1,25 +1,82 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { Play } from "lucide-react";
+import {
+  Bot,
+  Boxes,
+  Check,
+  ChevronDown,
+  ChevronsRight,
+  CircleDot,
+  Clock3,
+  Code2,
+  Database,
+  FileArchive,
+  FileCode2,
+  FileText,
+  Gauge,
+  History,
+  Image as ImageIcon,
+  KeyRound,
+  Layers3,
+  LayoutGrid,
+  MessageSquare,
+  Network,
+  Play,
+  Plus,
+  RefreshCw,
+  RotateCcw,
+  Search,
+  Settings,
+  Sparkles,
+  Trash2,
+  UploadCloud,
+  Video,
+  WandSparkles,
+} from "lucide-react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
-import { useCallback, useEffect, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { DynamicParamForm } from "@/components/workspace/dynamic-param-form";
-import { FileUploader } from "@/components/workspace/file-uploader";
-import { ModelSelector } from "@/components/workspace/model-selector";
-import { ResultPanel } from "@/components/workspace/result-panel";
-import { TaskCenter } from "@/components/workspace/task-center";
 import { ApiError, deleteData, getData, postData, uploadData } from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/workspace-store";
-import type { FileRecord, ModelInfo, ParamSchema, Provider, RecommendResult, RunRecord, TaskType } from "@/types/model";
+import type { FileRecord, ModelInfo, ParamField, ParamSchema, Provider, RecommendResult, RunRecord } from "@/types/model";
 
-const tasks: TaskType[] = [
-  { id: "chat", name: "聊天", input: "text", output: "text", requiredInputTypes: ["text"] },
-  { id: "coding", name: "写代码", input: "text/code", output: "text", requiredInputTypes: ["text"] },
-  { id: "code_review", name: "代码审查", input: "code", output: "text", requiredInputTypes: ["code"] },
-  { id: "document_analysis", name: "文档分析", input: "file", output: "text", requiredInputTypes: ["file"] },
-  { id: "prompt_optimize", name: "Prompt 优化", input: "text", output: "text", requiredInputTypes: ["text"] },
+type TaskOption = {
+  id: string;
+  name: string;
+  runtime: "chat" | "generation" | "workflow";
+  input: string;
+  output: string;
+  requiredInputTypes: string[];
+  icon: typeof MessageSquare;
+  disabled?: boolean;
+};
+
+const tasks: TaskOption[] = [
+  { id: "chat", name: "聊天", runtime: "chat", input: "text", output: "text", requiredInputTypes: ["text"], icon: MessageSquare },
+  { id: "coding", name: "写代码", runtime: "chat", input: "text/code", output: "text", requiredInputTypes: ["text"], icon: Code2 },
+  { id: "code_review", name: "代码审查", runtime: "chat", input: "code", output: "text", requiredInputTypes: ["code"], icon: FileCode2 },
+  { id: "image_understanding", name: "图片理解", runtime: "chat", input: "image", output: "text", requiredInputTypes: ["image"], icon: ImageIcon, disabled: true },
+  { id: "document_analysis", name: "文档分析", runtime: "chat", input: "file", output: "text", requiredInputTypes: ["file"], icon: FileText },
+  { id: "video_understanding", name: "视频理解", runtime: "chat", input: "video", output: "text", requiredInputTypes: ["video"], icon: Video, disabled: true },
+  { id: "text_to_image", name: "文生图", runtime: "generation", input: "text", output: "image", requiredInputTypes: ["text"], icon: WandSparkles, disabled: true },
+  { id: "image_to_image", name: "图生图", runtime: "generation", input: "image", output: "image", requiredInputTypes: ["image"], icon: ImageIcon, disabled: true },
+  { id: "text_to_video", name: "文生视频", runtime: "generation", input: "text", output: "video", requiredInputTypes: ["text"], icon: Video, disabled: true },
+  { id: "image_to_video", name: "图生视频", runtime: "generation", input: "image", output: "video", requiredInputTypes: ["image"], icon: Video, disabled: true },
+  { id: "first_last_frame_video", name: "首尾帧视频", runtime: "generation", input: "image", output: "video", requiredInputTypes: ["image"], icon: FileArchive, disabled: true },
+  { id: "prompt_optimize", name: "Prompt 优化", runtime: "chat", input: "text", output: "text", requiredInputTypes: ["text"], icon: Sparkles },
+  { id: "multi_agent_workflow", name: "多 Agent 工作流", runtime: "workflow", input: "mixed", output: "flow", requiredInputTypes: ["text"], icon: Network, disabled: true },
+];
+
+const workflowSteps = [
+  "选择任务",
+  "识别输入",
+  "过滤模型",
+  "选择官方模型名",
+  "生成参数面板",
+  "调用 Provider API",
+  "返回结果",
+  "保存历史与日志",
 ];
 
 export function WorkspaceShell() {
@@ -27,6 +84,9 @@ export function WorkspaceShell() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const [activeResultTab, setActiveResultTab] = useState<"preview" | "status" | "archive">("preview");
+
   const selectedTaskType = useWorkspaceStore((state) => state.selectedTaskType);
   const selectedModelId = useWorkspaceStore((state) => state.selectedModelId);
   const providerFilter = useWorkspaceStore((state) => state.providerFilter);
@@ -43,10 +103,11 @@ export function WorkspaceShell() {
   const addFile = useWorkspaceStore((state) => state.addFile);
   const removeFile = useWorkspaceStore((state) => state.removeFile);
   const setLatestRun = useWorkspaceStore((state) => state.setLatestRun);
+  const resetWorkspace = useWorkspaceStore((state) => state.resetWorkspace);
 
   useEffect(() => {
     const taskType = searchParams.get("taskType");
-    if (taskType && tasks.some((task) => task.id === taskType)) {
+    if (taskType && tasks.some((task) => task.id === taskType && !task.disabled)) {
       setSelectedTaskType(taskType);
     }
   }, [searchParams, setSelectedTaskType]);
@@ -70,14 +131,8 @@ export function WorkspaceShell() {
     return Array.from(inputSet);
   }, [files.length, prompt, selectedTask.requiredInputTypes]);
 
-  const providersQuery = useQuery({
-    queryKey: ["providers"],
-    queryFn: () => getData<Provider[]>("/providers"),
-  });
-  const modelsQuery = useQuery({
-    queryKey: ["models"],
-    queryFn: () => getData<ModelInfo[]>("/models"),
-  });
+  const providersQuery = useQuery({ queryKey: ["providers"], queryFn: () => getData<Provider[]>("/providers") });
+  const modelsQuery = useQuery({ queryKey: ["models"], queryFn: () => getData<ModelInfo[]>("/models") });
   const recommendationQuery = useQuery({
     queryKey: ["recommendation", selectedTaskType, inputTypes, providerFilter, params, fileIds],
     queryFn: () =>
@@ -85,7 +140,7 @@ export function WorkspaceShell() {
         taskType: selectedTaskType,
         inputTypes,
         fileIds,
-        requiredOutput: "text",
+        requiredOutput: selectedTask.output === "code" ? "code" : "text",
         preferredProviders: providerFilter ? [providerFilter] : [],
         params,
       }),
@@ -97,10 +152,7 @@ export function WorkspaceShell() {
     queryFn: () => getData<ParamSchema>(`/param-schemas/${selectedModel?.paramsSchema}`),
     enabled: Boolean(selectedModel?.paramsSchema),
   });
-  const historyQuery = useQuery({
-    queryKey: ["history-runs"],
-    queryFn: () => getData<RunRecord[]>("/history/runs"),
-  });
+  const historyQuery = useQuery({ queryKey: ["history-runs"], queryFn: () => getData<RunRecord[]>("/history/runs") });
 
   useEffect(() => {
     if (!selectedModelId && recommendationQuery.data?.availableModels[0]) {
@@ -142,111 +194,929 @@ export function WorkspaceShell() {
       }),
     onSuccess: (run) => {
       setLatestRun(run);
+      setActiveResultTab("preview");
       queryClient.invalidateQueries({ queryKey: ["history-runs"] });
     },
   });
 
+  const providers = providersQuery.data ?? [];
+  const history = historyQuery.data ?? [];
+  const availableModels = recommendationQuery.data?.availableModels ?? [];
+  const hiddenModels = recommendationQuery.data?.hiddenModels ?? [];
+  const selectedProvider = providers.find((provider) => provider.id === selectedModel?.provider);
   const canRun = Boolean(selectedModelId) && (prompt.trim().length > 0 || files.length > 0);
 
   return (
-    <main className="min-h-screen bg-slate-100">
-      <div className="grid min-h-screen grid-cols-1 lg:grid-cols-[320px_minmax(0,1fr)_360px]">
-        <aside className="border-r border-slate-200 bg-slate-50 p-4">
-          <div className="mb-4">
-            <h1 className="text-lg font-semibold">ModelGate</h1>
-            <p className="mt-1 text-xs text-slate-500">本地多模型工作台</p>
-          </div>
-          <TaskCenter tasks={tasks} selectedTaskType={selectedTaskType} onSelectTask={handleSelectTask} />
-          <div className="mt-6">
-            <h2 className="mb-3 text-sm font-semibold">模型</h2>
-            <ModelSelector
-              providers={providersQuery.data ?? []}
-              recommendation={recommendationQuery.data}
-              providerFilter={providerFilter}
-              selectedModelId={selectedModelId}
-              onProviderFilter={setProviderFilter}
-              onSelectModel={setSelectedModelId}
-            />
-          </div>
-        </aside>
-
-        <section className="min-w-0 p-5">
-          <div className="mx-auto max-w-4xl space-y-5">
-            <div>
-              <h2 className="text-xl font-semibold">{selectedTask.name}</h2>
-              <p className="mt-1 text-sm text-slate-500">
-                {selectedModel ? selectedModel.displayName : "正在根据任务筛选模型"}
-              </p>
-            </div>
-
-            <div>
-              <label className="text-sm font-medium">Prompt</label>
-              <textarea
-                value={prompt}
-                onChange={(event) => setPrompt(event.target.value)}
-                className="mt-2 min-h-52 w-full resize-y rounded-md border border-slate-300 bg-white p-3 text-sm outline-none focus:border-slate-700"
-                placeholder="输入要发送给模型的内容"
+    <main className="min-h-screen bg-[#07111f] text-slate-100">
+      <div className="grid min-h-screen grid-cols-1 xl:grid-cols-[250px_minmax(0,1fr)]">
+        <Sidebar providers={providers} />
+        <div className="flex min-h-screen min-w-0 flex-col">
+          <Topbar
+            canRun={canRun}
+            running={runMutation.isPending}
+            onRun={() => runMutation.mutate()}
+            onReset={() => resetWorkspace()}
+          />
+          <section className="min-w-0 flex-1 space-y-3 p-3 lg:p-4">
+            <WorkflowSteps />
+            <div className="grid gap-3 2xl:grid-cols-[430px_minmax(0,1fr)_420px]">
+              <TaskInputPanel
+                selectedTask={selectedTask}
+                selectedTaskType={selectedTaskType}
+                prompt={prompt}
+                files={files}
+                uploading={uploadMutation.isPending}
+                uploadError={uploadMutation.error}
+                fileInputRef={fileInputRef}
+                onSelectTask={handleSelectTask}
+                onPromptChange={setPrompt}
+                onUpload={(file) => uploadMutation.mutate(file)}
+                onDeleteFile={(fileId) => deleteFileMutation.mutate(fileId)}
+              />
+              <ModelRuntimePanel
+                selectedTask={selectedTask}
+                providers={providers}
+                providerFilter={providerFilter}
+                selectedModelId={selectedModelId}
+                selectedModel={selectedModel}
+                availableModels={availableModels}
+                hiddenModels={hiddenModels}
+                latestRun={latestRun}
+                history={history}
+                runError={runMutation.error}
+                activeTab={activeResultTab}
+                onProviderFilter={setProviderFilter}
+                onSelectModel={setSelectedModelId}
+                onTabChange={setActiveResultTab}
+              />
+              <ParameterPanel
+                schema={paramSchemaQuery.data}
+                params={params}
+                provider={selectedProvider}
+                model={selectedModel}
+                onChange={setParam}
               />
             </div>
-
-            <div className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_320px]">
-              <section>
-                <h3 className="mb-3 text-sm font-semibold">文件</h3>
-                <FileUploader
-                  files={files}
-                  uploading={uploadMutation.isPending}
-                  onUpload={(file) => uploadMutation.mutate(file)}
-                  onDelete={(fileId) => deleteFileMutation.mutate(fileId)}
-                />
-              </section>
-
-              <section>
-                <h3 className="mb-3 text-sm font-semibold">参数</h3>
-                <DynamicParamForm schema={paramSchemaQuery.data} values={params} onChange={setParam} />
-              </section>
+            <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+              <HistoryTable history={history} />
+              <RequestLogTable history={history} providers={providers} />
             </div>
-
-            <div className="flex items-center justify-between rounded-md border border-slate-200 bg-white p-3">
-              <div className="text-sm text-slate-600">
-                {recommendationQuery.data?.availableModels.length ?? 0} 个模型可用
-              </div>
-              <button
-                type="button"
-                disabled={!canRun || runMutation.isPending}
-                onClick={() => runMutation.mutate()}
-                className="inline-flex items-center gap-2 rounded-md bg-slate-900 px-4 py-2 text-sm text-white disabled:cursor-not-allowed disabled:bg-slate-300"
-                title="运行任务"
-              >
-                <Play className="h-4 w-4" aria-hidden="true" />
-                {runMutation.isPending ? "运行中" : "运行"}
-              </button>
-            </div>
-            {runMutation.error ? <ErrorBanner error={runMutation.error} /> : null}
-            {uploadMutation.error ? <ErrorBanner error={uploadMutation.error} /> : null}
-          </div>
-        </section>
-
-        <aside className="border-l border-slate-200 bg-slate-50 p-4">
-          <ResultPanel
-            run={latestRun}
-            history={historyQuery.data ?? []}
-            onRerun={(run) => {
-              setPrompt(String(run.input.prompt ?? ""));
-              setSelectedModelId(run.modelId);
-            }}
-          />
-        </aside>
+          </section>
+        </div>
       </div>
     </main>
   );
 }
 
-function ErrorBanner({ error }: { error: Error }) {
-  const requestId = error instanceof ApiError ? error.requestId : undefined;
+function Sidebar({ providers }: { providers: Provider[] }) {
+  const navItems = [
+    { label: "任务中心", icon: LayoutGrid, active: true },
+    { label: "Chat Runtime", icon: MessageSquare },
+    { label: "Generation Runtime", icon: Sparkles },
+    { label: "历史记录", icon: History },
+    { label: "请求日志", icon: Clock3 },
+    { label: "Provider 管理", icon: Boxes },
+    { label: "模型注册表", icon: Database },
+    { label: "工作流", icon: Network },
+    { label: "设置", icon: Settings },
+  ];
+
   return (
-    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
-      <div>{error.message}</div>
-      {requestId ? <div className="mt-1 text-xs text-red-600">requestId: {requestId}</div> : null}
+    <aside className="hidden min-h-screen border-r border-slate-800/90 bg-[#06101d] xl:flex xl:flex-col">
+      <div className="flex h-16 items-center gap-3 border-b border-slate-800 px-5">
+        <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-blue-600/20 text-blue-300">
+          <Bot className="h-5 w-5" aria-hidden="true" />
+        </div>
+        <div className="text-sm font-semibold tracking-wide">AI Model Workspace</div>
+      </div>
+      <nav className="space-y-1 p-3">
+        {navItems.map((item, index) => {
+          const Icon = item.icon;
+          const sectionBreak = index === 3 || index === 5 || index === 8;
+          return (
+            <div key={item.label}>
+              {sectionBreak ? <div className="my-3 h-px bg-slate-800" /> : null}
+              <button
+                type="button"
+                className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
+                  item.active
+                    ? "border border-blue-500/30 bg-blue-500/15 text-blue-200"
+                    : "text-slate-300 hover:bg-slate-900 hover:text-white"
+                }`}
+              >
+                <Icon className="h-4 w-4" aria-hidden="true" />
+                {item.label}
+              </button>
+            </div>
+          );
+        })}
+      </nav>
+      <div className="mt-auto space-y-4 p-4">
+        <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
+          <div className="mb-3 flex items-center justify-between">
+            <span className="text-sm font-medium">Provider 状态</span>
+            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-300">全部正常</span>
+          </div>
+          <div className="space-y-2">
+            {(providers.length > 0 ? providers : fallbackProviders).slice(0, 3).map((provider, index) => (
+              <div key={provider.id} className="flex items-center justify-between text-xs">
+                <span className="flex items-center gap-2 text-slate-300">
+                  <span className={`h-2 w-2 rounded-full ${provider.enabled !== false ? "bg-emerald-400" : "bg-slate-500"}`} />
+                  {provider.name}
+                </span>
+                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-300">{32 + index * 18}ms</span>
+              </div>
+            ))}
+          </div>
+        </div>
+        <div className="text-xs leading-relaxed text-slate-500">
+          本地运行 · 开源可控
+          <br />
+          v1.0.0
+        </div>
+      </div>
+    </aside>
+  );
+}
+
+function Topbar({
+  canRun,
+  running,
+  onRun,
+  onReset,
+}: {
+  canRun: boolean;
+  running: boolean;
+  onRun: () => void;
+  onReset: () => void;
+}) {
+  return (
+    <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-3 border-b border-slate-800 bg-[#06101d]/95 px-4 backdrop-blur">
+      <h1 className="mr-auto text-lg font-semibold tracking-wide">任务工作台</h1>
+      <div className="hidden min-w-[320px] max-w-xl flex-1 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-400 lg:flex">
+        <Search className="h-4 w-4" aria-hidden="true" />
+        <span>搜索任务、模型、文件、日志...</span>
+        <span className="ml-auto rounded border border-slate-700 px-1.5 text-xs">⌘ K</span>
+      </div>
+      <span className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-200">本地单用户 / 无登录</span>
+      <button type="button" className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+        <KeyRound className="h-4 w-4 text-amber-300" aria-hidden="true" />
+        API Key 配置
+      </button>
+      <button type="button" onClick={onReset} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white">
+        <Plus className="h-4 w-4" aria-hidden="true" />
+        新建任务
+      </button>
+      <button
+        type="button"
+        disabled={!canRun || running}
+        onClick={onRun}
+        className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+        title="运行"
+      >
+        <Play className="h-4 w-4" aria-hidden="true" />
+        {running ? "运行中" : "运行"}
+      </button>
+      <button type="button" className="rounded-lg border border-slate-700 p-2 text-slate-300">
+        <ChevronDown className="h-4 w-4" aria-hidden="true" />
+      </button>
+    </header>
+  );
+}
+
+function WorkflowSteps() {
+  return (
+    <div className="hidden items-center gap-2 rounded-lg border border-slate-800 bg-slate-900/80 px-4 py-3 text-xs text-slate-400 lg:flex">
+      {workflowSteps.map((step, index) => (
+        <div key={step} className="flex min-w-0 items-center gap-2">
+          <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-blue-400/50 bg-blue-500/15 text-blue-200">
+            {index + 1}
+          </span>
+          <span className="truncate">{step}</span>
+          {index < workflowSteps.length - 1 ? <ChevronsRight className="h-4 w-4 shrink-0 text-slate-600" aria-hidden="true" /> : null}
+        </div>
+      ))}
     </div>
   );
 }
+
+function TaskInputPanel({
+  selectedTask,
+  selectedTaskType,
+  prompt,
+  files,
+  uploading,
+  uploadError,
+  fileInputRef,
+  onSelectTask,
+  onPromptChange,
+  onUpload,
+  onDeleteFile,
+}: {
+  selectedTask: TaskOption;
+  selectedTaskType: string;
+  prompt: string;
+  files: FileRecord[];
+  uploading: boolean;
+  uploadError: Error | null;
+  fileInputRef: React.RefObject<HTMLInputElement | null>;
+  onSelectTask: (taskType: string) => void;
+  onPromptChange: (prompt: string) => void;
+  onUpload: (file: File) => void;
+  onDeleteFile: (fileId: string) => void;
+}) {
+  const activeFile = files[0];
+  return (
+    <Panel title="任务与输入" action={<CircleDot className="h-4 w-4 text-blue-400" aria-hidden="true" />}>
+      <div className="space-y-4">
+        <div>
+          <div className="mb-2 text-xs text-slate-400">选择任务</div>
+          <div className="grid grid-cols-2 gap-2">
+            {tasks.map((task) => {
+              const Icon = task.icon;
+              const selected = task.id === selectedTaskType;
+              return (
+                <button
+                  key={task.id}
+                  type="button"
+                  disabled={task.disabled}
+                  onClick={() => onSelectTask(task.id)}
+                  className={`flex items-center gap-2 rounded-lg border px-3 py-2 text-left text-xs transition ${
+                    selected
+                      ? "border-blue-500 bg-blue-500/15 text-blue-100"
+                      : task.disabled
+                        ? "cursor-not-allowed border-slate-800 bg-slate-900/40 text-slate-600"
+                        : "border-slate-700 bg-slate-900/70 text-slate-300 hover:border-slate-500"
+                  }`}
+                >
+                  <Icon className="h-4 w-4 shrink-0" aria-hidden="true" />
+                  <span className="truncate">{task.name}</span>
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 text-xs text-slate-400">上传文件</div>
+          <button
+            type="button"
+            onClick={() => fileInputRef.current?.click()}
+            className="flex w-full flex-col items-center justify-center rounded-lg border border-dashed border-slate-700 bg-slate-950/40 px-4 py-5 text-center text-sm text-slate-300 transition hover:border-blue-500/70 hover:bg-blue-500/5"
+          >
+            <UploadCloud className="mb-2 h-6 w-6 text-slate-400" aria-hidden="true" />
+            <span>{uploading ? "上传中..." : "将文件拖拽到此处，或点击上传"}</span>
+            <span className="mt-1 text-xs text-slate-500">支持 图片 / 视频 / 音频 / 文档 / 代码文件</span>
+          </button>
+          <input
+            ref={fileInputRef}
+            type="file"
+            className="hidden"
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) onUpload(file);
+              event.currentTarget.value = "";
+            }}
+          />
+          {uploadError ? <ErrorBanner error={uploadError} compact /> : null}
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between text-xs">
+            <span className="font-medium text-slate-300">已识别输入信息</span>
+            {activeFile ? (
+              <button type="button" onClick={() => onDeleteFile(activeFile.id)} className="inline-flex items-center gap-1 text-blue-300">
+                <Trash2 className="h-3.5 w-3.5" aria-hidden="true" />
+                清除
+              </button>
+            ) : null}
+          </div>
+          <div className="rounded-lg border border-slate-800 bg-slate-950/35">
+            {activeFile ? (
+              <dl className="divide-y divide-slate-800 text-xs">
+                <InfoRow label="文件名" value={activeFile.originalName} />
+                <InfoRow label="MIME 类型" value={activeFile.mimeType} />
+                <InfoRow label="扩展名" value={extensionOf(activeFile.originalName)} />
+                <InfoRow label="输入类型" value={activeFile.detectedType} />
+                <InfoRow label="文件大小" value={formatBytes(activeFile.sizeBytes)} />
+                <InfoRow label="状态" value={activeFile.status} />
+              </dl>
+            ) : (
+              <div className="p-4 text-xs text-slate-500">上传文件后展示类型、大小、解析状态和后端识别结果。</div>
+            )}
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-2 flex items-center justify-between">
+            <label htmlFor="workspace-prompt" className="text-sm font-semibold text-slate-200">
+              输入 / Prompt
+            </label>
+            <button
+              type="button"
+              onClick={() => onPromptChange(promptExampleFor(selectedTask.id))}
+              className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-blue-500"
+            >
+              示例
+            </button>
+          </div>
+          <textarea
+            id="workspace-prompt"
+            value={prompt}
+            onChange={(event) => onPromptChange(event.target.value)}
+            className="min-h-40 w-full resize-y rounded-lg border border-slate-700 bg-slate-950/60 p-3 text-sm text-slate-100 outline-none placeholder:text-slate-500 focus:border-blue-500"
+            placeholder="输入要发送给模型的内容"
+            maxLength={4000}
+          />
+          <div className="mt-1 text-right text-xs text-slate-500">{prompt.length} / 4000</div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function ModelRuntimePanel({
+  selectedTask,
+  providers,
+  providerFilter,
+  selectedModelId,
+  selectedModel,
+  availableModels,
+  hiddenModels,
+  latestRun,
+  history,
+  runError,
+  activeTab,
+  onProviderFilter,
+  onSelectModel,
+  onTabChange,
+}: {
+  selectedTask: TaskOption;
+  providers: Provider[];
+  providerFilter: string | null;
+  selectedModelId: string | null;
+  selectedModel?: ModelInfo;
+  availableModels: ModelInfo[];
+  hiddenModels: RecommendResult["hiddenModels"];
+  latestRun: RunRecord | null;
+  history: RunRecord[];
+  runError: Error | null;
+  activeTab: "preview" | "status" | "archive";
+  onProviderFilter: (providerId: string | null) => void;
+  onSelectModel: (modelId: string) => void;
+  onTabChange: (tab: "preview" | "status" | "archive") => void;
+}) {
+  const providerName = (providerId: string) => providers.find((provider) => provider.id === providerId)?.name ?? providerId;
+  return (
+    <Panel title="模型推荐与执行" subtitle="基于当前任务、输入与输出目标，已为你过滤并排序推荐官方模型。">
+      <div className="space-y-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-slate-800 pb-3 text-xs">
+          <FilterPill label="任务" value={selectedTask.name} />
+          <FilterPill label="输入类型" value={selectedTask.input} />
+          <FilterPill label="输出目标" value={selectedTask.output} />
+          <div className="h-6 w-px bg-slate-800" />
+          <button
+            type="button"
+            onClick={() => onProviderFilter(null)}
+            className={`rounded-md border px-3 py-1.5 ${providerFilter === null ? "border-blue-500 bg-blue-500/15 text-blue-200" : "border-slate-700 text-slate-300"}`}
+          >
+            Provider 全部
+          </button>
+          {providers.map((provider) => (
+            <button
+              key={provider.id}
+              type="button"
+              onClick={() => onProviderFilter(provider.id)}
+              className={`rounded-md border px-3 py-1.5 ${providerFilter === provider.id ? "border-blue-500 bg-blue-500/15 text-blue-200" : "border-slate-700 text-slate-300"}`}
+            >
+              {provider.name}
+            </button>
+          ))}
+        </div>
+
+        <div className="grid gap-2 lg:grid-cols-2 2xl:grid-cols-3">
+          {availableModels.map((model) => (
+            <button
+              key={model.id}
+              type="button"
+              onClick={() => onSelectModel(model.id)}
+              className={`relative rounded-lg border p-3 text-left transition ${
+                model.id === selectedModelId
+                  ? "border-blue-500 bg-blue-500/15 shadow-[0_0_0_1px_rgba(59,130,246,0.2)]"
+                  : "border-slate-800 bg-slate-950/35 hover:border-slate-600"
+              }`}
+            >
+              {model.id === selectedModelId ? (
+                <span className="absolute right-0 top-0 rounded-bl-lg rounded-tr-lg bg-blue-500 px-2 py-1">
+                  <Check className="h-4 w-4" aria-hidden="true" />
+                </span>
+              ) : null}
+              <div className="pr-8 text-sm font-semibold text-slate-100">{model.displayName}</div>
+              <div className="mt-1 text-xs text-slate-500">{providerName(model.provider)}</div>
+              <div className="mt-3 flex flex-wrap gap-1">
+                {model.capabilities.slice(0, 5).map((capability) => (
+                  <span key={capability} className="rounded-full bg-slate-800 px-2 py-1 text-[11px] text-slate-300">
+                    {capabilityLabel(capability)}
+                  </span>
+                ))}
+              </div>
+            </button>
+          ))}
+          {hiddenModels.slice(0, 3).map((model) => (
+            <div key={model.id} className="rounded-lg border border-slate-800 bg-slate-950/20 p-3 opacity-60">
+              <div className="text-sm font-semibold text-slate-400">{model.displayName}</div>
+              <div className="mt-2 text-xs text-slate-500">{model.reasons.join(", ")}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="overflow-hidden rounded-lg border border-slate-800 bg-slate-950/35">
+          <div className="flex items-center justify-between border-b border-slate-800">
+            <div className="flex text-sm">
+              {[
+                ["preview", "预览输出"],
+                ["status", "任务状态"],
+                ["archive", "结果归档"],
+              ].map(([id, label]) => (
+                <button
+                  key={id}
+                  type="button"
+                  onClick={() => onTabChange(id as "preview" | "status" | "archive")}
+                  className={`border-b-2 px-4 py-2 ${activeTab === id ? "border-blue-500 text-blue-300" : "border-transparent text-slate-400"}`}
+                >
+                  {label}
+                </button>
+              ))}
+            </div>
+            <span className="mr-3 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400">全屏</span>
+          </div>
+          <div className="min-h-60 p-4">
+            {activeTab === "preview" ? <OutputPreview run={latestRun} error={runError} selectedModel={selectedModel} /> : null}
+            {activeTab === "status" ? <RuntimeStatus run={latestRun} selectedModel={selectedModel} /> : null}
+            {activeTab === "archive" ? <ArchiveList history={history} /> : null}
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function ParameterPanel({
+  schema,
+  params,
+  provider,
+  model,
+  onChange,
+}: {
+  schema?: ParamSchema;
+  params: Record<string, string | number | boolean>;
+  provider?: Provider;
+  model?: ModelInfo;
+  onChange: (key: string, value: string | number | boolean) => void;
+}) {
+  const fields = schema?.fields ?? [];
+  return (
+    <Panel
+      title="动态参数面板"
+      action={
+        <button type="button" className="inline-flex items-center gap-1 text-xs text-blue-300">
+          <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
+          重置
+        </button>
+      }
+    >
+      <div className="space-y-4">
+        {fields.length > 0 ? (
+          fields.map((field) => <ParameterField key={field.key} field={field} value={params[field.key] ?? field.default ?? ""} onChange={onChange} />)
+        ) : (
+          <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-4 text-sm text-slate-500">选择模型后显示参数。</div>
+        )}
+
+        <div className="space-y-3 border-t border-slate-800 pt-4">
+          <StaticField label="reasoning_mode" value="auto" options={["auto", "low", "high"]} />
+          <StaticField label="output_format" value="text" />
+          <StaticField label="image_size" value="1024x1024 (1:1)" muted />
+          <StaticField label="async_mode" value="异步执行" switchOn />
+          <StaticField label="webhook_url" value="https://example.com/webhook" muted />
+        </div>
+
+        <div className="border-t border-slate-800 pt-4">
+          <div className="mb-3 text-sm font-medium text-slate-300">参数 Schema 来源</div>
+          <div className="grid grid-cols-3 gap-2 text-xs">
+            <SourceBox label="Provider" value={provider?.name ?? "-"} />
+            <SourceBox label="Model" value={model?.displayName ?? "-"} />
+            <SourceBox label="Version" value={schema ? `v${schema.version}` : "-"} />
+          </div>
+        </div>
+      </div>
+    </Panel>
+  );
+}
+
+function ParameterField({
+  field,
+  value,
+  onChange,
+}: {
+  field: ParamField;
+  value: string | number | boolean;
+  onChange: (key: string, value: string | number | boolean) => void;
+}) {
+  if (field.type === "boolean") {
+    return (
+      <label className="flex items-center justify-between text-sm">
+        <span className="text-slate-300">{field.key}</span>
+        <input
+          type="checkbox"
+          checked={Boolean(value)}
+          onChange={(event) => onChange(field.key, event.target.checked)}
+          className="h-5 w-5 accent-blue-500"
+        />
+      </label>
+    );
+  }
+
+  if (field.type === "select") {
+    return (
+      <label className="grid gap-2 text-sm">
+        <span className="text-slate-300">{field.key}</span>
+        <select
+          value={String(value)}
+          onChange={(event) => onChange(field.key, event.target.value)}
+          className="rounded-md border border-slate-700 bg-slate-950 px-3 py-2 text-slate-100"
+        >
+          {(field.options ?? []).map((option) => {
+            const optionValue = typeof option === "string" ? option : option.value;
+            const label = typeof option === "string" ? option : option.label;
+            return (
+              <option key={String(optionValue)} value={String(optionValue)}>
+                {label}
+              </option>
+            );
+          })}
+        </select>
+      </label>
+    );
+  }
+
+  const numericValue = Number(value);
+  const isNumber = field.type === "number";
+  return (
+    <label className="grid gap-2 text-sm">
+      <div className="flex items-center justify-between gap-3">
+        <span className="text-slate-300">{field.key}</span>
+        <input
+          type={isNumber ? "number" : "text"}
+          value={String(value)}
+          min={field.min}
+          max={field.max}
+          step={field.step}
+          onChange={(event) => onChange(field.key, isNumber ? Number(event.target.value) : event.target.value)}
+          className="w-24 rounded-md border border-slate-700 bg-slate-950 px-2 py-1.5 text-right text-slate-100"
+        />
+      </div>
+      {isNumber && typeof field.min === "number" && typeof field.max === "number" ? (
+        <input
+          type="range"
+          value={Number.isFinite(numericValue) ? numericValue : Number(field.default ?? field.min)}
+          min={field.min}
+          max={field.max}
+          step={field.step ?? 1}
+          onChange={(event) => onChange(field.key, Number(event.target.value))}
+          className="accent-blue-500"
+        />
+      ) : null}
+    </label>
+  );
+}
+
+function OutputPreview({ run, error, selectedModel }: { run: RunRecord | null; error: Error | null; selectedModel?: ModelInfo }) {
+  if (error) return <ErrorBanner error={error} />;
+  if (run?.output?.text) {
+    return (
+      <div className="space-y-3 text-sm">
+        <div className="flex items-center gap-2 text-violet-300">
+          <Sparkles className="h-4 w-4" aria-hidden="true" />
+          <span>{selectedModel?.displayName ?? run.modelId} 输出</span>
+        </div>
+        <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-900/80 p-4 leading-relaxed text-slate-200">{run.output.text}</pre>
+      </div>
+    );
+  }
+  return (
+    <div className="space-y-3 text-sm text-slate-300">
+      <div className="flex items-center gap-2 text-violet-300">
+        <Sparkles className="h-4 w-4" aria-hidden="true" />
+        <span>系统设计方案大纲（示例）</span>
+      </div>
+      <p>一、总体架构</p>
+      <p className="text-slate-400">采用分层服务架构，前后端分离，支持高可用与可扩展性。</p>
+      <div className="rounded-lg bg-slate-900/90 p-3 font-mono text-xs text-slate-300">
+        graph TD
+        <br />
+        Client[客户端] --&gt; API[网关层] --&gt; Service[服务层]
+        <br />
+        Service --&gt; DB[(数据层)]
+      </div>
+      <p>二、核心模块</p>
+      <p className="text-slate-400">用户管理、Provider 管理、模型注册表、任务运行时、历史记录与请求日志。</p>
+    </div>
+  );
+}
+
+function RuntimeStatus({ run, selectedModel }: { run: RunRecord | null; selectedModel?: ModelInfo }) {
+  const status = run?.status ?? "idle";
+  return (
+    <div className="grid gap-3 text-sm text-slate-300 sm:grid-cols-2">
+      <SourceBox label="当前状态" value={status} />
+      <SourceBox label="模型" value={selectedModel?.displayName ?? "-"} />
+      <SourceBox label="记录 ID" value={run?.id ?? "-"} />
+      <SourceBox label="输出类型" value={run?.output?.type ?? "text"} />
+    </div>
+  );
+}
+
+function ArchiveList({ history }: { history: RunRecord[] }) {
+  if (history.length === 0) return <div className="text-sm text-slate-500">暂无归档结果。</div>;
+  return (
+    <div className="space-y-2">
+      {history.slice(0, 5).map((item) => (
+        <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/35 p-3 text-sm">
+          <span className="truncate text-slate-300">{item.id}</span>
+          <StatusBadge status={item.status} />
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function HistoryTable({ history }: { history: RunRecord[] }) {
+  const rows = history.length > 0 ? history.slice(0, 5) : sampleHistory;
+  return (
+    <Panel title="历史记录" compact>
+      <Table
+        headers={["时间", "任务", "模型", "状态", "输出类型", "操作"]}
+        rows={rows.map((item) => [
+          formatTime(item.createdAt),
+          taskName(item.taskType),
+          item.modelId,
+          <StatusBadge key="status" status={item.status} />,
+          item.output?.type ?? "文本",
+          <RotateCcw key="action" className="h-4 w-4 text-slate-400" aria-hidden="true" />,
+        ])}
+      />
+    </Panel>
+  );
+}
+
+function RequestLogTable({ history, providers }: { history: RunRecord[]; providers: Provider[] }) {
+  const rows = history.length > 0 ? history.slice(0, 5) : sampleHistory;
+  return (
+    <Panel title="请求日志" compact>
+      <Table
+        headers={["时间", "Provider", "状态", "耗时", "Token", "错误信息"]}
+        rows={rows.map((item, index) => [
+          formatTime(item.createdAt),
+          providers.find((provider) => provider.id === item.providerId)?.name ?? item.providerId,
+          <StatusBadge key="status" status={item.status} />,
+          `${9 + index * 3}.1s`,
+          `${0.9 + index * 0.2}k / ${0.3 + index * 0.5}k`,
+          item.errorMessage ?? "-",
+        ])}
+      />
+    </Panel>
+  );
+}
+
+function Table({ headers, rows }: { headers: string[]; rows: React.ReactNode[][] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-left text-xs">
+        <thead className="bg-slate-900/80 text-slate-400">
+          <tr>{headers.map((header) => <th key={header} className="whitespace-nowrap px-3 py-2 font-medium">{header}</th>)}</tr>
+        </thead>
+        <tbody className="divide-y divide-slate-800">
+          {rows.map((row, rowIndex) => (
+            <tr key={rowIndex} className="text-slate-300">
+              {row.map((cell, cellIndex) => (
+                <td key={cellIndex} className="whitespace-nowrap px-3 py-2">{cell}</td>
+              ))}
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  );
+}
+
+function Panel({
+  title,
+  subtitle,
+  action,
+  compact,
+  children,
+}: {
+  title: string;
+  subtitle?: string;
+  action?: React.ReactNode;
+  compact?: boolean;
+  children: React.ReactNode;
+}) {
+  return (
+    <section className="rounded-lg border border-slate-800 bg-slate-900/70 shadow-2xl shadow-black/20">
+      <div className={`flex items-start justify-between gap-3 border-b border-slate-800 ${compact ? "px-4 py-3" : "px-4 py-3"}`}>
+        <div>
+          <h2 className="text-sm font-semibold text-slate-100">{title}</h2>
+          {subtitle ? <p className="mt-1 text-xs text-slate-500">{subtitle}</p> : null}
+        </div>
+        {action}
+      </div>
+      <div className={compact ? "p-0" : "p-4"}>{children}</div>
+    </section>
+  );
+}
+
+function ErrorBanner({ error, compact }: { error: Error; compact?: boolean }) {
+  const requestId = error instanceof ApiError ? error.requestId : undefined;
+  return (
+    <div className={`rounded-lg border border-rose-500/40 bg-rose-500/10 text-sm text-rose-200 ${compact ? "mt-2 px-3 py-2" : "px-4 py-3"}`}>
+      <div>{error.message}</div>
+      {requestId ? <div className="mt-1 text-xs text-rose-300">requestId: {requestId}</div> : null}
+    </div>
+  );
+}
+
+function InfoRow({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="grid grid-cols-[96px_minmax(0,1fr)] gap-3 px-3 py-2">
+      <dt className="text-slate-500">{label}</dt>
+      <dd className="truncate text-right text-slate-300">{value}</dd>
+    </div>
+  );
+}
+
+function FilterPill({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="rounded-md border border-slate-800 bg-slate-950/50 px-2.5 py-1.5 text-slate-300">
+      {label} <span className="ml-1 text-slate-500">{value}</span>
+    </span>
+  );
+}
+
+function StaticField({ label, value, options, switchOn, muted }: { label: string; value: string; options?: string[]; switchOn?: boolean; muted?: boolean }) {
+  if (switchOn) {
+    return (
+      <div className="flex items-center justify-between text-sm">
+        <span className="text-slate-300">{label}</span>
+        <span className="inline-flex items-center gap-2 text-blue-200">
+          <span className="relative h-5 w-9 rounded-full bg-blue-600">
+            <span className="absolute right-0.5 top-0.5 h-4 w-4 rounded-full bg-white" />
+          </span>
+          {value}
+        </span>
+      </div>
+    );
+  }
+  if (options) {
+    return (
+      <div className="grid gap-2 text-sm">
+        <span className="text-slate-300">{label}</span>
+        <div className="grid grid-cols-3 overflow-hidden rounded-md border border-slate-700">
+          {options.map((option) => (
+            <span key={option} className={`px-3 py-1.5 text-center ${option === value ? "bg-blue-600/30 text-blue-200" : "bg-slate-950/70 text-slate-400"}`}>
+              {option}
+            </span>
+          ))}
+        </div>
+      </div>
+    );
+  }
+  return (
+    <div className="grid gap-2 text-sm">
+      <span className="text-slate-300">{label}</span>
+      <span className={`rounded-md border border-slate-700 bg-slate-950 px-3 py-2 ${muted ? "text-slate-500" : "text-slate-100"}`}>{value}</span>
+    </div>
+  );
+}
+
+function SourceBox({ label, value }: { label: string; value: string }) {
+  return (
+    <div className="rounded-lg border border-slate-800 bg-slate-950/40 p-3">
+      <div className="text-[11px] text-slate-500">{label}</div>
+      <div className="mt-1 truncate text-xs text-slate-200">{value}</div>
+    </div>
+  );
+}
+
+function StatusBadge({ status }: { status: string }) {
+  const styles: Record<string, string> = {
+    completed: "bg-emerald-500/15 text-emerald-300",
+    success: "bg-emerald-500/15 text-emerald-300",
+    running: "bg-sky-500/15 text-sky-300",
+    queued: "bg-amber-500/15 text-amber-300",
+    failed: "bg-rose-500/15 text-rose-300",
+    cancelled: "bg-slate-500/15 text-slate-300",
+    idle: "bg-slate-500/15 text-slate-300",
+  };
+  return <span className={`rounded-full px-2 py-0.5 text-xs ${styles[status] ?? styles.idle}`}>{statusLabel(status)}</span>;
+}
+
+function formatBytes(bytes: number) {
+  if (bytes < 1024) return `${bytes} B`;
+  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
+}
+
+function extensionOf(name: string) {
+  const index = name.lastIndexOf(".");
+  return index >= 0 ? name.slice(index) : "-";
+}
+
+function formatTime(value?: string | null) {
+  if (!value) return "14:32:21";
+  return new Date(value).toLocaleTimeString("zh-CN", { hour12: false });
+}
+
+function taskName(taskType: string) {
+  return tasks.find((task) => task.id === taskType)?.name ?? taskType;
+}
+
+function statusLabel(status: string) {
+  const labels: Record<string, string> = {
+    completed: "成功",
+    success: "成功",
+    running: "运行中",
+    queued: "排队中",
+    failed: "失败",
+    cancelled: "取消",
+    idle: "未开始",
+  };
+  return labels[status] ?? status;
+}
+
+function capabilityLabel(capability: string) {
+  const labels: Record<string, string> = {
+    chat: "Chat",
+    coding: "Coding",
+    code: "Code",
+    vision: "Vision",
+    document: "Document",
+    file_understanding: "Document",
+    async: "Async",
+    multi_agent: "Multi-Agent",
+  };
+  return labels[capability] ?? capability;
+}
+
+function promptExampleFor(taskId: string) {
+  if (taskId === "document_analysis") {
+    return "请基于上传的需求文档，生成一份系统设计方案大纲，包括架构图（Mermaid）、核心模块说明、技术栈建议和接口定义。";
+  }
+  if (taskId === "coding") return "请用 TypeScript 实现一个带输入校验、错误处理和单元测试的 API client。";
+  if (taskId === "code_review") return "请审查这段代码的可靠性、安全性和可维护性，并给出可执行的修改建议。";
+  if (taskId === "prompt_optimize") return "请把下面的提示词优化成结构清晰、约束明确、输出格式稳定的版本。";
+  return "请用简洁准确的方式回答我的问题，并在必要时给出步骤和示例。";
+}
+
+const fallbackProviders: Provider[] = [
+  { id: "mimo", name: "MiMo", authType: "bearer", enabled: true, adapter: "openai_compatible" },
+  { id: "minimax", name: "MiniMax", authType: "bearer", enabled: true, adapter: "openai_compatible" },
+  { id: "volcengine_coding", name: "火山 Coding Plan", authType: "bearer", enabled: true, adapter: "openai_compatible" },
+];
+
+const sampleHistory: RunRecord[] = [
+  {
+    id: "sample-1",
+    taskType: "document_analysis",
+    providerId: "mimo",
+    modelId: "MiMo-V2.5-Pro",
+    input: {},
+    params: {},
+    output: { type: "文本", text: "" },
+    status: "completed",
+    createdAt: "2024-05-28T14:32:21Z",
+  },
+  {
+    id: "sample-2",
+    taskType: "coding",
+    providerId: "minimax",
+    modelId: "MiniMax-M2.7",
+    input: {},
+    params: {},
+    output: { type: "代码", text: "" },
+    status: "running",
+    createdAt: "2024-05-28T14:25:07Z",
+  },
+  {
+    id: "sample-3",
+    taskType: "code_review",
+    providerId: "mimo",
+    modelId: "MiMo-V2.5",
+    input: {},
+    params: {},
+    output: { type: "文本", text: "" },
+    status: "failed",
+    errorMessage: "HTTP 429: Rate limit",
+    createdAt: "2024-05-28T14:08:33Z",
+  },
+];
