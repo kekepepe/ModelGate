@@ -31,12 +31,15 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => ({
   files: [],
   latestRun: null,
   setSelectedTaskType: (taskType) =>
-    set({
-      selectedTaskType: taskType,
-      selectedModelId: null,
-      prompt: "",
-      params: {},
-      latestRun: null,
+    set((state) => {
+      if (state.selectedTaskType === taskType) return state;
+      return {
+        selectedTaskType: taskType,
+        selectedModelId: null,
+        prompt: "",
+        params: {},
+        latestRun: null,
+      };
     }),
   setSelectedModelId: (modelId) => set({ selectedModelId: modelId }),
   setProviderFilter: (providerId) => set({ providerFilter: providerId, selectedModelId: null }),

@@ -2,8 +2,8 @@
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { Play } from "lucide-react";
-import { useSearchParams } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
+import { useCallback, useEffect, useMemo } from "react";
 
 import { DynamicParamForm } from "@/components/workspace/dynamic-param-form";
 import { FileUploader } from "@/components/workspace/file-uploader";
@@ -24,6 +24,8 @@ const tasks: TaskType[] = [
 
 export function WorkspaceShell() {
   const queryClient = useQueryClient();
+  const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
   const selectedTaskType = useWorkspaceStore((state) => state.selectedTaskType);
   const selectedModelId = useWorkspaceStore((state) => state.selectedModelId);
@@ -44,10 +46,20 @@ export function WorkspaceShell() {
 
   useEffect(() => {
     const taskType = searchParams.get("taskType");
-    if (taskType && taskType !== selectedTaskType) {
+    if (taskType && tasks.some((task) => task.id === taskType)) {
       setSelectedTaskType(taskType);
     }
-  }, [searchParams, selectedTaskType, setSelectedTaskType]);
+  }, [searchParams, setSelectedTaskType]);
+
+  const handleSelectTask = useCallback(
+    (taskType: string) => {
+      setSelectedTaskType(taskType);
+      const nextParams = new URLSearchParams(searchParams.toString());
+      nextParams.set("taskType", taskType);
+      router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
+    },
+    [pathname, router, searchParams, setSelectedTaskType],
+  );
 
   const selectedTask = tasks.find((task) => task.id === selectedTaskType) ?? tasks[0];
   const fileIds = useMemo(() => files.map((file) => file.id), [files]);
@@ -144,7 +156,7 @@ export function WorkspaceShell() {
             <h1 className="text-lg font-semibold">ModelGate</h1>
             <p className="mt-1 text-xs text-slate-500">本地多模型工作台</p>
           </div>
-          <TaskCenter tasks={tasks} selectedTaskType={selectedTaskType} onSelectTask={setSelectedTaskType} />
+          <TaskCenter tasks={tasks} selectedTaskType={selectedTaskType} onSelectTask={handleSelectTask} />
           <div className="mt-6">
             <h2 className="mb-3 text-sm font-semibold">模型</h2>
             <ModelSelector
