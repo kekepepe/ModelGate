@@ -1,5 +1,3 @@
-from uuid import uuid4
-
 from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -7,7 +5,7 @@ from sqlalchemy.orm import Session
 from app.core.errors import AppError
 from app.db.models import GenerationTask
 from app.db.session import get_db
-from app.services.model_registry import model_registry
+from app.services.generation_runtime import generation_runtime
 
 router = APIRouter()
 
@@ -36,6 +34,10 @@ def serialize_task(record: GenerationTask) -> dict:
         "errorType": record.error_type,
         "errorMessage": record.error_message,
         "createdAt": record.created_at.isoformat() if record.created_at else None,
+        "startedAt": record.started_at.isoformat() if record.started_at else None,
+        "completedAt": record.completed_at.isoformat() if record.completed_at else None,
+        "pollAfter": record.poll_after.isoformat() if record.poll_after else None,
+        "expiresAt": record.expires_at.isoformat() if record.expires_at else None,
     }
 
 
@@ -44,24 +46,14 @@ async def create_generation_task(
     input_data: CreateGenerationTaskInput,
     db: Session = Depends(get_db),
 ):
-    model = model_registry.get_model(input_data.modelId)
-    if input_data.taskType not in model.get("taskTypes", []):
-        raise AppError("MODEL_TASK_UNSUPPORTED", "Selected model does not support this task.", 400)
-
-    task = GenerationTask(
-        id=f"task_{uuid4().hex}",
-        provider_id=model["provider"],
-        model_id=model["id"],
+    task = await generation_runtime.create_task(
+        db=db,
         task_type=input_data.taskType,
+        model_id=input_data.modelId,
         input_json=input_data.input,
-        params_json=input_data.params,
-        status="queued",
-        progress=0,
+        params=input_data.params,
         idempotency_key=input_data.idempotencyKey,
     )
-    db.add(task)
-    db.commit()
-    db.refresh(task)
     return {"data": serialize_task(task)}
 
 
@@ -78,37 +70,25 @@ async def get_generation_task_result(task_id: str, db: Session = Depends(get_db)
     record = db.get(GenerationTask, task_id)
     if record is None:
         raise AppError("GENERATION_TASK_NOT_FOUND", f"Task not found: {task_id}", 404)
-    return {"data": record.output_json or {"status": record.status, "progress": record.progress}}
+    return {
+        "data": {
+            "taskId": record.id,
+            "status": record.status,
+            "progress": record.progress,
+            "output": record.output_json or {},
+        }
+    }
 
 
 @router.post("/tasks/{task_id}/cancel")
 async def cancel_generation_task(task_id: str, db: Session = Depends(get_db)):
-    record = db.get(GenerationTask, task_id)
-    if record is None:
-        raise AppError("GENERATION_TASK_NOT_FOUND", f"Task not found: {task_id}", 404)
-    if record.status not in {"completed", "failed", "cancelled", "expired"}:
-        record.status = "cancelled"
-        db.commit()
-        db.refresh(record)
-    return {"data": serialize_task(record)}
+    record, provider_cancelled = await generation_runtime.cancel_task(db=db, task_id=task_id)
+    data = serialize_task(record)
+    data["providerCancelled"] = provider_cancelled
+    return {"data": data}
 
 
 @router.post("/tasks/{task_id}/rerun")
 async def rerun_generation_task(task_id: str, db: Session = Depends(get_db)):
-    record = db.get(GenerationTask, task_id)
-    if record is None:
-        raise AppError("GENERATION_TASK_NOT_FOUND", f"Task not found: {task_id}", 404)
-    cloned = GenerationTask(
-        id=f"task_{uuid4().hex}",
-        provider_id=record.provider_id,
-        model_id=record.model_id,
-        task_type=record.task_type,
-        input_json=record.input_json,
-        params_json=record.params_json,
-        status="queued",
-        progress=0,
-    )
-    db.add(cloned)
-    db.commit()
-    db.refresh(cloned)
+    cloned = await generation_runtime.rerun_task(db=db, task_id=task_id)
     return {"data": serialize_task(cloned)}

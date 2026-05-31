@@ -3,6 +3,7 @@ from __future__ import annotations
 from app.core.config import settings
 from app.core.errors import AppError
 from app.providers.anthropic_compatible import AnthropicCompatibleAdapter
+from app.providers.base import GenerationInput
 from app.providers.openai_compatible import OpenAICompatibleAdapter
 
 
@@ -37,6 +38,45 @@ def create_chat_adapter(*, provider: dict, model: dict):
         f"Unsupported provider protocol: {protocol}",
         status_code=400,
     )
+
+
+def create_generation_adapter(*, provider: dict, model: dict):
+    adapter_config = model.get("adapterConfig") or {}
+    protocol = adapter_config.get("protocol")
+    if protocol in {"volcengine_seedance", "async_generation"}:
+        return UnsupportedGenerationAdapter(provider_id=provider["id"])
+
+    raise AppError(
+        "PROVIDER_GENERATION_UNSUPPORTED",
+        f"Generation adapter is not implemented for provider: {provider.get('id')}",
+        status_code=501,
+    )
+
+
+class UnsupportedGenerationAdapter:
+    def __init__(self, *, provider_id: str):
+        self.provider_id = provider_id
+
+    async def create_generation_task(self, input_data: GenerationInput):
+        raise AppError(
+            "PROVIDER_GENERATION_DISABLED",
+            "Generation provider is reserved but not enabled in this version.",
+            status_code=501,
+        )
+
+    async def get_generation_task(self, input_data: GenerationInput, provider_task_id: str):
+        raise AppError(
+            "PROVIDER_GENERATION_DISABLED",
+            "Generation provider is reserved but not enabled in this version.",
+            status_code=501,
+        )
+
+    async def cancel_generation_task(self, input_data: GenerationInput, provider_task_id: str):
+        raise AppError(
+            "PROVIDER_GENERATION_DISABLED",
+            "Generation provider is reserved but not enabled in this version.",
+            status_code=501,
+        )
 
 
 def _validate_base_url(*, provider: dict, base_url: str) -> None:

@@ -6,7 +6,8 @@ from pydantic import BaseModel, Field
 
 class TaskStatus(StrEnum):
     QUEUED = "queued"
-    RUNNING = "running"
+    SUBMITTED = "submitted"
+    PROCESSING = "processing"
     COMPLETED = "completed"
     FAILED = "failed"
     CANCELLED = "cancelled"
@@ -52,12 +53,29 @@ class GenerationInput(BaseModel):
 class GenerationOutput(BaseModel):
     status: TaskStatus
     provider_task_id: str | None = None
+    provider_status: str | None = None
+    progress: int | None = None
     output: dict[str, Any] = Field(default_factory=dict)
     metadata: dict[str, Any] = Field(default_factory=dict)
+    error_type: str | None = None
+    error_message: str | None = None
 
 
 class ProviderAdapter(Protocol):
     provider_id: str
 
     async def chat(self, input_data: ChatInput) -> ChatOutput:
+        ...
+
+
+class GenerationAdapter(Protocol):
+    provider_id: str
+
+    async def create_generation_task(self, input_data: GenerationInput) -> GenerationOutput:
+        ...
+
+    async def get_generation_task(self, input_data: GenerationInput, provider_task_id: str) -> GenerationOutput:
+        ...
+
+    async def cancel_generation_task(self, input_data: GenerationInput, provider_task_id: str) -> GenerationOutput:
         ...

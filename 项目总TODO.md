@@ -415,26 +415,30 @@
 
 ### 8.1 Worker 基础能力
 
-- [ ] Celery app 初始化。
-- [ ] Redis broker 配置。
-- [ ] Redis result backend 配置。
-- [ ] Worker 日志。
-- [ ] Worker 错误重试。
-- [ ] Worker 获取任务锁。
-- [ ] Worker 状态写回 PostgreSQL。
+- [X] Celery app 初始化。
+- [X] Redis broker 配置。
+- [X] Redis result backend 配置。
+- [X] Worker 日志。  
+  状态：通过 generation request_logs 记录 taskId / providerTaskId / providerId。
+- [X] Worker 错误重试。
+- [X] Worker 获取任务锁。
+- [X] Worker 状态写回 PostgreSQL。
 
 ### 8.2 Generation Runtime
 
-- [ ] 创建本地 generation_task。
-- [ ] 提交 Provider 任务。
-- [ ] 保存 providerTaskId。
-- [ ] 轮询 Provider 状态。
-- [ ] 指数退避。
-- [ ] 任务超时。
-- [ ] 任务取消。
-- [ ] 任务重跑。
-- [ ] 结果文件下载。
-- [ ] 输出文件持久化。
+- [X] 创建本地 generation_task。
+- [X] 提交 Provider 任务。  
+  状态：Provider Adapter 异步接口和 Worker 链路已完成；Seedance 真实接入仍保持禁用。
+- [X] 保存 providerTaskId。
+- [X] 轮询 Provider 状态。
+- [X] 指数退避。
+- [X] 任务超时。
+- [X] 任务取消。
+- [X] 任务重跑。
+- [ ] 结果文件下载。  
+  状态：已保留 `generation.download_outputs` Worker 占位；真实 provider URL 下载待接入生成模型时补齐。
+- [ ] 输出文件持久化。  
+  状态：已保留输出引用落库结构；真实二进制持久化待接入生成模型时补齐。
 
 ### 8.3 第一批 Generation Provider
 
@@ -448,9 +452,10 @@
 
 ### 8.4 幂等与成本控制
 
-- [ ] idempotency key。
-- [ ] 请求 hash。
-- [ ] 防重复点击。
+- [X] idempotency key。
+- [X] 请求 hash。
+- [X] 防重复点击。  
+  状态：后端 idempotency key 已避免重复创建；前端按钮禁用能力沿用当前任务运行态。
 - [ ] 相同任务短时间重复提交提示。
 - [ ] Provider rate limit 配置。
 - [ ] 轮询频率配置。

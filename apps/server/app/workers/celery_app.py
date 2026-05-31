@@ -33,6 +33,7 @@ celery_app.conf.update(
     enable_utc=True,
     task_acks_late=True,
     worker_prefetch_multiplier=1,
+    imports=("app.workers.file_tasks", "app.workers.generation_tasks"),
 )
 
 

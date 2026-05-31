@@ -59,6 +59,77 @@
         }
       }
     ]
+  },
+  {
+    "id": "video_generation_schema",
+    "name": "Video Generation Parameters",
+    "version": 1,
+    "runtime": "video_generation",
+    "fields": [
+      {
+        "key": "ratio",
+        "type": "select",
+        "label": "Ratio",
+        "default": "16:9",
+        "required": false,
+        "options": ["adaptive", "16:9", "9:16", "1:1", "4:3", "3:4"],
+        "providerMapping": {
+          "volcengine_seedance": "ratio"
+        }
+      },
+      {
+        "key": "duration",
+        "type": "number",
+        "label": "Duration",
+        "default": 5,
+        "required": false,
+        "min": -1,
+        "max": 15,
+        "providerMapping": {
+          "volcengine_seedance": "duration"
+        }
+      },
+      {
+        "key": "resolution",
+        "type": "select",
+        "label": "Resolution",
+        "default": "720p",
+        "required": false,
+        "options": ["720p", "1080p"],
+        "providerMapping": {
+          "volcengine_seedance": "resolution"
+        }
+      },
+      {
+        "key": "seed",
+        "type": "number",
+        "label": "Seed",
+        "default": -1,
+        "required": false,
+        "providerMapping": {
+          "volcengine_seedance": "seed"
+        }
+      },
+      {
+        "key": "generate_audio",
+        "type": "boolean",
+        "label": "Generate Audio",
+        "default": false,
+        "required": false,
+        "providerMapping": {
+          "volcengine_seedance": "generate_audio"
+        }
+      },
+      {
+        "key": "execution_expires_after",
+        "type": "number",
+        "label": "Execution Expires After",
+        "default": 172800,
+        "required": false,
+        "providerMapping": {
+          "volcengine_seedance": "execution_expires_after"
+        }
+      }
+    ]
   }
 ]
-

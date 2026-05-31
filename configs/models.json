@@ -207,5 +207,29 @@
       "providerModelName": "doubao-seed-2.0-pro",
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
     }
+  },
+  {
+    "id": "volcengine_seedance.doubao_seedance_2_0",
+    "officialModelName": "Doubao Seedance 2.0",
+    "displayName": "Doubao Seedance 2.0",
+    "provider": "volcengine_seedance",
+    "category": "generation",
+    "runtime": "video_generation",
+    "capabilities": ["text_to_video", "image_to_video", "first_last_frame_video", "async_generation"],
+    "inputTypes": ["text", "image"],
+    "outputTypes": ["video"],
+    "taskTypes": ["text_to_video", "image_to_video", "first_last_frame_video"],
+    "contextWindow": null,
+    "async": true,
+    "enabled": false,
+    "paramsSchema": "video_generation_schema",
+    "adapterConfig": {
+      "protocol": "volcengine_seedance",
+      "providerModelName": "doubao-seedance-2-0",
+      "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
+      "endpoint": "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks",
+      "reservedForFutureVersion": true,
+      "disabledReason": "Seedance generation is reserved for a later phase."
+    }
   }
 ]

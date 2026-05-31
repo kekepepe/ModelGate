@@ -43,6 +43,32 @@
     "outputTypes": ["text"],
     "runtime": "chat_completion",
     "requiredCapabilities": ["text"]
+  },
+  {
+    "id": "text_to_video",
+    "name": "文生视频",
+    "requiredInputTypes": ["text"],
+    "optionalInputTypes": [],
+    "outputTypes": ["video"],
+    "runtime": "video_generation",
+    "requiredCapabilities": ["text_to_video", "async_generation"]
+  },
+  {
+    "id": "image_to_video",
+    "name": "图生视频",
+    "requiredInputTypes": ["image", "text"],
+    "optionalInputTypes": [],
+    "outputTypes": ["video"],
+    "runtime": "video_generation",
+    "requiredCapabilities": ["image_to_video", "async_generation"]
+  },
+  {
+    "id": "first_last_frame_video",
+    "name": "首尾帧视频",
+    "requiredInputTypes": ["image", "text"],
+    "optionalInputTypes": [],
+    "outputTypes": ["video"],
+    "runtime": "video_generation",
+    "requiredCapabilities": ["first_last_frame_video", "async_generation"]
   }
 ]
-
