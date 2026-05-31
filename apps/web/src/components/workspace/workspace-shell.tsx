@@ -10,7 +10,7 @@ import { FileUploader } from "@/components/workspace/file-uploader";
 import { ModelSelector } from "@/components/workspace/model-selector";
 import { ResultPanel } from "@/components/workspace/result-panel";
 import { TaskCenter } from "@/components/workspace/task-center";
-import { deleteData, getData, postData, uploadData } from "@/lib/api";
+import { ApiError, deleteData, getData, postData, uploadData } from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import type { FileRecord, ModelInfo, ParamSchema, Provider, RecommendResult, RunRecord, TaskType } from "@/types/model";
 
@@ -209,6 +209,8 @@ export function WorkspaceShell() {
                 {runMutation.isPending ? "运行中" : "运行"}
               </button>
             </div>
+            {runMutation.error ? <ErrorBanner error={runMutation.error} /> : null}
+            {uploadMutation.error ? <ErrorBanner error={uploadMutation.error} /> : null}
           </div>
         </section>
 
@@ -224,5 +226,15 @@ export function WorkspaceShell() {
         </aside>
       </div>
     </main>
+  );
+}
+
+function ErrorBanner({ error }: { error: Error }) {
+  const requestId = error instanceof ApiError ? error.requestId : undefined;
+  return (
+    <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+      <div>{error.message}</div>
+      {requestId ? <div className="mt-1 text-xs text-red-600">requestId: {requestId}</div> : null}
+    </div>
   );
 }

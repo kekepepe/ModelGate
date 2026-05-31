@@ -84,3 +84,21 @@ Project planning and design documents live in `docs/`. The current document inde
 
 - [docs/README.md](./docs/README.md)
 - [项目总TODO.md](./项目总TODO.md)
+
+## Verification
+
+Run the local verification suite from the repository root:
+
+```bash
+conda run -n modelgate env PYTHONPATH=apps/server python apps/server/scripts/validate_model_registry.py
+conda run -n modelgate env PYTHONPATH=apps/server pytest -q
+npm run typecheck --workspace apps/web
+```
+
+For real Provider smoke tests, set provider API keys in `.env` and run:
+
+```bash
+conda run -n modelgate env PYTHONPATH=apps/server RUN_PROVIDER_SMOKE=1 pytest tests/test_provider_smoke_phase6.py -q
+```
+
+See [Phase9测试与验收清单.md](./docs/04-开发管理/Phase9测试与验收清单.md) for the current acceptance checklist.
