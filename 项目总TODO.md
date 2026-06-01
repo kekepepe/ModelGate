@@ -16,6 +16,8 @@
 - [X] 技术风险与问题清单产出：[技术风险与问题清单.md](./docs/03-安全与风险/技术风险与问题清单.md)
 - [X] 安全边界与 App 设计边界
   产出：[安全边界与App设计边界.md](./docs/03-安全与风险/安全边界与App设计边界.md)
+- [X] 待开发文档
+  产出：[待开发文档.md](./docs/04-开发管理/待开发文档.md)
 
 ---
 
@@ -354,7 +356,7 @@
 - [X] Worker 写回 `files.status`、`metadata_json`、`preview_path`、`error_message`。
 - [X] 文件解析失败展示错误。
 - [X] 只有可用文件进入模型推荐。
-- [ ] 文件内容进入模型时加 `BEGIN_USER_FILE_CONTEXT` 边界。
+- [X] 文件内容进入模型时加 `BEGIN_USER_FILE_CONTEXT` 边界。
 - [X] PDF / DOCX / TXT / MD / 代码文件各有至少一个解析测试。
 
 ---
