@@ -6,7 +6,6 @@ from typing import Any
 
 from app.core.config import settings
 
-
 SENSITIVE_KEYS = {
     "authorization",
     "api-key",

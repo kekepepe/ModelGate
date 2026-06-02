@@ -1,7 +1,18 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import chat, files, generation, health, history, logs, models, param_schemas, providers, usage
+from app.api import (
+    chat,
+    files,
+    generation,
+    health,
+    history,
+    logs,
+    models,
+    param_schemas,
+    providers,
+    usage,
+)
 from app.core.config import settings
 from app.core.errors import register_exception_handlers
 from app.core.middleware import RequestIdMiddleware

@@ -7,7 +7,6 @@ from pathlib import Path
 from app.core.config import settings
 from app.core.errors import AppError
 
-
 IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp", ".svg"}
 VIDEO_EXTENSIONS = {".mp4", ".mov", ".webm"}
 AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a"}

@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import base64
-from datetime import datetime, timezone
 import os
+from datetime import UTC, datetime
 
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
@@ -54,7 +54,7 @@ def set_local_provider_secret(provider_id: str, secret_value: str, db: Session) 
         record.nonce = nonce
         record.key_version = KEY_VERSION
         record.algorithm = ALGORITHM
-        record.updated_at = datetime.now(timezone.utc)
+        record.updated_at = datetime.now(UTC)
     db.commit()
     db.refresh(record)
     return record
@@ -133,7 +133,7 @@ def _derive_key() -> bytes:
 
 
 def _associated_data(provider_id: str) -> bytes:
-    return f"modelgate-provider-secret:{provider_id}".encode("utf-8")
+    return f"modelgate-provider-secret:{provider_id}".encode()
 
 
 def _b64encode(value: bytes) -> str:

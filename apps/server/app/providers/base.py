@@ -1,5 +1,5 @@
-from enum import StrEnum
 from collections.abc import AsyncIterator
+from enum import StrEnum
 from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
@@ -17,7 +17,30 @@ class TaskStatus(StrEnum):
 
 class ChatMessage(BaseModel):
     role: str
-    content: str
+    content: str | list[dict[str, Any]]
+
+    def as_text(self) -> str:
+        if isinstance(self.content, str):
+            return self.content
+        parts: list[str] = []
+        for block in self.content:
+            if not isinstance(block, dict):
+                continue
+            block_type = block.get("type")
+            if block_type == "text":
+                text = block.get("text")
+                if isinstance(text, str):
+                    parts.append(text)
+            elif block_type == "image_url":
+                url = (block.get("image_url") or {}).get("url")
+                if isinstance(url, str):
+                    parts.append(f"[image: {url[:120]}]")
+        return "\n".join(parts)
+
+    def has_multimodal_content(self) -> bool:
+        return isinstance(self.content, list) and any(
+            isinstance(block, dict) and block.get("type") == "image_url" for block in self.content
+        )
 
 
 class ChatInput(BaseModel):

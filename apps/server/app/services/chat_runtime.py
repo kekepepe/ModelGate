@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import base64
 from collections.abc import AsyncIterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from time import monotonic
 from uuid import uuid4
@@ -60,7 +61,7 @@ class ChatRuntime:
         latency_ms = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(task_type=task_type, prompt=prompt, files=files)
+            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files)
             provider_params = self._map_provider_params(model=model, params=params)
             chat_input = ChatInput(
                 provider_id=provider["id"],
@@ -185,7 +186,7 @@ class ChatRuntime:
         usage = {}
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(task_type=task_type, prompt=prompt, files=files)
+            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files)
             provider_params = self._map_provider_params(model=model, params=params)
             provider_params["stream"] = True
             chat_input = ChatInput(
@@ -298,15 +299,50 @@ class ChatRuntime:
     def _build_messages(
         self,
         *,
+        model: dict,
         task_type: str,
         prompt: str,
         files: list[FileRecord],
     ) -> list[ChatMessage]:
         system = _system_prompt(task_type)
-        user_content = prompt.strip()
+        user_content: str | list[dict] = prompt.strip()
         file_context = _file_context(files)
+        supports_vision = "vision_understanding" in (model.get("capabilities") or [])
+
         if file_context:
-            user_content = f"{file_context}\n\nUSER_PROMPT:\n{user_content}" if user_content else file_context
+            text_part = (
+                f"{file_context}\n\nUSER_PROMPT:\n{user_content}"
+                if isinstance(user_content, str) and user_content
+                else file_context
+            )
+        else:
+            text_part = user_content if isinstance(user_content, str) else ""
+
+        image_files = [
+            record for record in files
+            if (record.detected_type == "image" and (record.mime_type or "").startswith("image/"))
+        ]
+        if image_files and not supports_vision:
+            raise AppError(
+                "MODEL_VISION_UNSUPPORTED",
+                f"Selected model does not support image inputs: {model.get('id')}",
+                status_code=400,
+            )
+
+        if image_files and supports_vision:
+            content_blocks: list[dict] = []
+            for record in image_files:
+                data_url = _build_image_data_url(record)
+                if data_url:
+                    content_blocks.append(
+                        {"type": "image_url", "image_url": {"url": data_url, "detail": "auto"}}
+                    )
+            if text_part:
+                content_blocks.append({"type": "text", "text": text_part})
+            user_content = content_blocks
+        elif text_part:
+            user_content = text_part
+
         return [
             ChatMessage(role="system", content=system),
             ChatMessage(role="user", content=user_content),
@@ -530,7 +566,36 @@ def _serialize_stream_run(record: Run) -> dict:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
+
+
+def _build_image_data_url(record: FileRecord) -> str | None:
+    """Resolve a stored image to a data URL that downstream models can ingest.
+
+    Uses the preview blob (1024px WebP) when present; otherwise falls back to
+    the original upload. The MIME type is taken from the FileRecord.
+    """
+    from app.services.storage import get_storage
+
+    storage = get_storage()
+    mime = record.mime_type or "image/jpeg"
+    candidates: list[str | None] = [record.preview_path, record.stored_path]
+    for key in candidates:
+        if not key:
+            continue
+        try:
+            if not storage.exists(key):
+                continue
+        except ValueError:
+            continue
+        try:
+            path = storage.absolute_path(key)
+            data = path.read_bytes()
+        except OSError:
+            continue
+        encoded = base64.b64encode(data).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+    return None
 
 
 chat_runtime = ChatRuntime()

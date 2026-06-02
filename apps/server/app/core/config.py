@@ -43,6 +43,8 @@ class Settings(BaseSettings):
     enable_auth: bool = False
     enable_object_storage: bool = False
 
+    disable_celery: bool = False
+
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 
     def get_secret(self, env_key: str) -> str:
