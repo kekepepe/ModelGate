@@ -5,7 +5,7 @@ from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field
 
-from app.core.config import settings
+from app.services.provider_secrets import get_provider_secret
 
 
 class ProviderConfig(BaseModel):
@@ -218,7 +218,7 @@ class ModelRegistry:
 
     def get_provider_secret(self, provider_id: str) -> str:
         provider = self.get_provider(provider_id)
-        return settings.get_secret(provider.get("envKey") or "")
+        return get_provider_secret(provider_id, provider.get("envKey"))
 
     def get_param_schema(self, schema_id: str) -> dict:
         for schema in self.param_schemas:

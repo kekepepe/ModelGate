@@ -7,6 +7,7 @@ export type Provider = {
   enabled: boolean;
   adapter: string;
   configured?: boolean;
+  keySource?: "local" | "env" | null;
   metadata?: Record<string, unknown>;
 };
 

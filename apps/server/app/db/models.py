@@ -40,6 +40,17 @@ class Provider(Base):
     __table_args__ = (Index("idx_providers_enabled", "enabled"),)
 
 
+class ProviderSecret(Base):
+    __tablename__ = "provider_secrets"
+
+    provider_id: Mapped[str] = mapped_column(ForeignKey("providers.id"), primary_key=True)
+    secret_value: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+
 class Model(Base):
     __tablename__ = "models"
 

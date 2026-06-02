@@ -1,17 +1,17 @@
 from __future__ import annotations
 
-from app.core.config import settings
 from app.core.errors import AppError
 from app.providers.anthropic_compatible import AnthropicCompatibleAdapter
 from app.providers.base import GenerationInput
 from app.providers.openai_compatible import OpenAICompatibleAdapter
+from app.services.provider_secrets import get_provider_secret
 
 
 def create_chat_adapter(*, provider: dict, model: dict):
     adapter_config = model.get("adapterConfig") or {}
     provider_metadata = provider.get("metadata") or {}
     protocol = adapter_config.get("protocol")
-    api_key = settings.get_secret(provider.get("envKey") or "")
+    api_key = get_provider_secret(provider["id"], provider.get("envKey"))
     if not api_key:
         raise AppError(
             "PROVIDER_AUTH_MISSING",

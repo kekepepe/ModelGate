@@ -104,11 +104,68 @@ GET /api/providers
       "name": "Xiaomi MiMo",
       "enabled": true,
       "adapter": "mimo",
-      "authType": "bearer"
+      "authType": "bearer",
+      "configured": true,
+      "keySource": "local"
     }
   ]
 }
+	```
+
+说明：
+
+- `configured` 只表示后端是否可读取到可用 key。
+- `keySource` 可为 `local`、`env` 或 `null`。
+- Provider API Key 明文永远不返回给前端。
+
+### 3.1.1 写入 Provider API Key
+
+```http
+PUT /api/providers/{providerId}/key
+Content-Type: application/json
 ```
+
+请求：
+
+```json
+{
+  "apiKey": "provider-key"
+}
+```
+
+响应：
+
+```json
+{
+  "data": {
+    "id": "mimo",
+    "name": "Xiaomi MiMo",
+    "enabled": true,
+    "adapter": "mimo",
+    "authType": "bearer",
+    "configured": true,
+    "keySource": "local"
+  }
+}
+```
+
+安全要求：
+
+- 只支持本地单用户模式。
+- 响应不回显明文 key。
+- 后端运行时优先使用 UI 写入 key，其次使用环境变量 key。
+- 多用户或生产部署必须替换为 Keychain、KMS、Vault 或 Secret Manager。
+
+### 3.1.2 清除本地 Provider API Key
+
+```http
+DELETE /api/providers/{providerId}/key
+```
+
+行为：
+
+- 只清除 UI 写入的本地 key。
+- 如果环境变量仍存在，Provider 仍显示 `configured: true` 与 `keySource: env`。
 
 ### 3.2 获取模型列表
 
@@ -384,7 +441,9 @@ Phase 6 第一版说明：
 
 - `/api/chat/runs` 已进入 Chat Runtime，不再返回 Phase 3 placeholder。
 - 非流式请求会同步完成，并保存 `runs`、`request_logs`、`usage_logs`。
+- Chat Runtime 会按 `taskType` 注入不同 system prompt，让模型先获得当前功能身份、能力定位、工作规则和输出风格。
 - `fileIds` 对应文件的 `metadata.parsedText` 会用 `BEGIN_USER_FILE_CONTEXT` / `END_USER_FILE_CONTEXT` 边界注入用户消息。
+- 上传文件内容不进入 system prompt，避免文档内容覆盖系统规则。
 - `stream=true` 目前会被 Runtime 强制按非流式请求处理；SSE 为后续增强项。
 
 ### 5.2 获取 Chat Run

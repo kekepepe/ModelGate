@@ -65,13 +65,20 @@ def _is_sensitive_key(key: str) -> bool:
 
 
 def _configured_secrets() -> list[str]:
-    return [
+    secrets = [
         settings.mimo_api_key,
         settings.minimax_api_key,
         settings.volcengine_api_key,
         settings.moonshot_api_key,
         settings.zhipu_api_key,
     ]
+    try:
+        from app.services.provider_secrets import list_local_provider_secrets
+
+        secrets.extend(list_local_provider_secrets())
+    except Exception:
+        pass
+    return secrets
 
 
 def _redact_workspace_paths(value: str) -> str:

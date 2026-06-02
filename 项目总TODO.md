@@ -16,6 +16,8 @@
 - [X] 技术风险与问题清单产出：[技术风险与问题清单.md](./docs/03-安全与风险/技术风险与问题清单.md)
 - [X] 安全边界与 App 设计边界
   产出：[安全边界与App设计边界.md](./docs/03-安全与风险/安全边界与App设计边界.md)
+- [X] API Key 本地写入安全设计
+  产出：[APIKey本地写入安全设计.md](./docs/03-安全与风险/APIKey本地写入安全设计.md)
 - [X] 待开发文档
   产出：[待开发文档.md](./docs/04-开发管理/待开发文档.md)
 
@@ -392,6 +394,8 @@
   状态：第一版已支持图片上传 metadata / preview；尚未把图片二进制或 base64 注入多模态 Provider。
 - [X] 文档分析。
 - [X] Prompt 优化。
+- [X] 任务级 system prompt。
+  状态：`chat`、`coding`、`code_review`、`document_analysis`、`prompt_optimize` 已分别注入身份定位、能力边界、工作方式和输出规范；文件内容仍只进入 user context 边界。
 - [ ] 流式输出。  
   状态：第一版不作为硬性要求；如果实现难度高，先做非流式。
 - [ ] Abort / cancel。  
@@ -404,6 +408,7 @@
 
 - [X] Adapter mock 单元测试。
 - [X] Chat Runtime 单元测试。
+- [X] 任务级 system prompt 测试。
 - [X] Provider 错误映射测试。
 - [ ] 流式输出测试。  
   状态：随流式输出实现情况决定是否进入第一版验收。
@@ -471,6 +476,8 @@
 ### 9.1 API Key 安全
 
 - [X] API Key 只存在后端。
+- [X] UI 写入 Provider API Key。
+  状态：本地单用户模式下支持写入 PostgreSQL `provider_secrets`；不回显明文，运行时优先使用 UI key，其次使用环境变量。
 - [X] 前端构建产物检查不含 API Key。  
   状态：已增加前端源码安全扫描；真实 build artifact 扫描可在发布前补跑。
 - [X] 日志脱敏 Authorization。

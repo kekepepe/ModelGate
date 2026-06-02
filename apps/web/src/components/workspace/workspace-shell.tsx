@@ -5,20 +5,19 @@ import {
   Bot,
   Boxes,
   Check,
-  ChevronDown,
   ChevronsRight,
   CircleDot,
   Clock3,
   Code2,
+  Copy,
   Database,
+  Download,
   FileArchive,
   FileCode2,
   FileText,
-  Gauge,
   History,
   Image as ImageIcon,
   KeyRound,
-  Layers3,
   LayoutGrid,
   MessageSquare,
   Network,
@@ -26,7 +25,6 @@ import {
   Plus,
   RefreshCw,
   RotateCcw,
-  Search,
   Settings,
   Sparkles,
   Trash2,
@@ -34,10 +32,11 @@ import {
   Video,
   WandSparkles,
 } from "lucide-react";
+import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
-import { ApiError, deleteData, getData, postData, uploadData } from "@/lib/api";
+import { API_BASE_URL, ApiError, deleteData, getData, postData, uploadData } from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import type { FileRecord, ModelInfo, ParamField, ParamSchema, Provider, RecommendResult, RunRecord } from "@/types/model";
 
@@ -50,6 +49,14 @@ type TaskOption = {
   requiredInputTypes: string[];
   icon: typeof MessageSquare;
   disabled?: boolean;
+};
+
+type ChatRunPayload = {
+  taskType: string;
+  modelId: string | null;
+  prompt: string;
+  fileIds: string[];
+  params: Record<string, string | number | boolean>;
 };
 
 const tasks: TaskOption[] = [
@@ -184,14 +191,25 @@ export function WorkspaceShell() {
   });
 
   const runMutation = useMutation({
-    mutationFn: () =>
-      postData<RunRecord>("/chat/runs", {
+    mutationFn: (payload?: ChatRunPayload) => {
+      const runPayload = payload ?? {
         taskType: selectedTaskType,
         modelId: selectedModelId,
         prompt,
         fileIds,
         params,
-      }),
+      };
+      if (!runPayload.modelId) {
+        throw new Error("请选择模型后再运行。");
+      }
+      return postData<RunRecord>("/chat/runs", {
+        taskType: runPayload.taskType,
+        modelId: runPayload.modelId,
+        prompt: runPayload.prompt,
+        fileIds: runPayload.fileIds,
+        params: runPayload.params,
+      });
+    },
     onSuccess: (run) => {
       setLatestRun(run);
       setActiveResultTab("preview");
@@ -214,7 +232,7 @@ export function WorkspaceShell() {
           <Topbar
             canRun={canRun}
             running={runMutation.isPending}
-            onRun={() => runMutation.mutate()}
+            onRun={() => runMutation.mutate(undefined)}
             onReset={() => resetWorkspace()}
           />
           <section className="min-w-0 flex-1 space-y-3 p-3 lg:p-4">
@@ -248,6 +266,17 @@ export function WorkspaceShell() {
                 onProviderFilter={setProviderFilter}
                 onSelectModel={setSelectedModelId}
                 onTabChange={setActiveResultTab}
+                onRerun={(run) => {
+                  const runPrompt = typeof run.input?.prompt === "string" ? run.input.prompt : "";
+                  const runFileIds = Array.isArray(run.input?.fileIds) ? run.input.fileIds.map(String) : [];
+                  runMutation.mutate({
+                    taskType: run.taskType,
+                    modelId: run.modelId,
+                    prompt: runPrompt,
+                    fileIds: runFileIds,
+                    params: run.params as Record<string, string | number | boolean>,
+                  });
+                }}
               />
               <ParameterPanel
                 schema={paramSchemaQuery.data}
@@ -255,10 +284,28 @@ export function WorkspaceShell() {
                 provider={selectedProvider}
                 model={selectedModel}
                 onChange={setParam}
+                onReset={() => {
+                  const schema = paramSchemaQuery.data;
+                  if (!schema) return;
+                  setParams(Object.fromEntries(schema.fields.map((field) => [field.key, field.default ?? (field.type === "boolean" ? false : "")])));
+                }}
               />
             </div>
             <div className="grid gap-3 xl:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-              <HistoryTable history={history} />
+              <HistoryTable
+                history={history}
+                onRerun={(run) => {
+                  const runPrompt = typeof run.input?.prompt === "string" ? run.input.prompt : "";
+                  const runFileIds = Array.isArray(run.input?.fileIds) ? run.input.fileIds.map(String) : [];
+                  runMutation.mutate({
+                    taskType: run.taskType,
+                    modelId: run.modelId,
+                    prompt: runPrompt,
+                    fileIds: runFileIds,
+                    params: run.params as Record<string, string | number | boolean>,
+                  });
+                }}
+              />
               <RequestLogTable history={history} providers={providers} />
             </div>
           </section>
@@ -270,15 +317,13 @@ export function WorkspaceShell() {
 
 function Sidebar({ providers }: { providers: Provider[] }) {
   const navItems = [
-    { label: "任务中心", icon: LayoutGrid, active: true },
-    { label: "Chat Runtime", icon: MessageSquare },
-    { label: "Generation Runtime", icon: Sparkles },
-    { label: "历史记录", icon: History },
-    { label: "请求日志", icon: Clock3 },
-    { label: "Provider 管理", icon: Boxes },
-    { label: "模型注册表", icon: Database },
-    { label: "工作流", icon: Network },
-    { label: "设置", icon: Settings },
+    { label: "任务中心", icon: LayoutGrid, href: "/workspace?taskType=chat", active: true },
+    { label: "Chat Runtime", icon: MessageSquare, href: "/workspace?taskType=chat" },
+    { label: "历史记录", icon: History, href: "/history" },
+    { label: "请求日志", icon: Clock3, href: "/history" },
+    { label: "Provider 管理", icon: Boxes, href: "/settings" },
+    { label: "模型注册表", icon: Database, href: "/models" },
+    { label: "设置", icon: Settings, href: "/settings" },
   ];
 
   return (
@@ -296,8 +341,8 @@ function Sidebar({ providers }: { providers: Provider[] }) {
           return (
             <div key={item.label}>
               {sectionBreak ? <div className="my-3 h-px bg-slate-800" /> : null}
-              <button
-                type="button"
+              <Link
+                href={item.href}
                 className={`flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-left text-sm transition ${
                   item.active
                     ? "border border-blue-500/30 bg-blue-500/15 text-blue-200"
@@ -306,7 +351,7 @@ function Sidebar({ providers }: { providers: Provider[] }) {
               >
                 <Icon className="h-4 w-4" aria-hidden="true" />
                 {item.label}
-              </button>
+              </Link>
             </div>
           );
         })}
@@ -315,16 +360,18 @@ function Sidebar({ providers }: { providers: Provider[] }) {
         <div className="rounded-lg border border-slate-800 bg-slate-900/70 p-3">
           <div className="mb-3 flex items-center justify-between">
             <span className="text-sm font-medium">Provider 状态</span>
-            <span className="rounded-full bg-emerald-500/15 px-2 py-0.5 text-xs text-emerald-300">全部正常</span>
+            <span className="rounded-full bg-blue-500/15 px-2 py-0.5 text-xs text-blue-300">配置状态</span>
           </div>
           <div className="space-y-2">
-            {(providers.length > 0 ? providers : fallbackProviders).slice(0, 3).map((provider, index) => (
+            {(providers.length > 0 ? providers : fallbackProviders).slice(0, 3).map((provider) => (
               <div key={provider.id} className="flex items-center justify-between text-xs">
                 <span className="flex items-center gap-2 text-slate-300">
                   <span className={`h-2 w-2 rounded-full ${provider.enabled !== false ? "bg-emerald-400" : "bg-slate-500"}`} />
                   {provider.name}
                 </span>
-                <span className="rounded-full bg-emerald-500/10 px-2 py-0.5 text-emerald-300">{32 + index * 18}ms</span>
+                <span className={`rounded-full px-2 py-0.5 ${provider.configured ? "bg-emerald-500/10 text-emerald-300" : "bg-amber-500/10 text-amber-300"}`}>
+                  {provider.configured ? "已配置" : "未配置"}
+                </span>
               </div>
             ))}
           </div>
@@ -353,16 +400,11 @@ function Topbar({
   return (
     <header className="sticky top-0 z-20 flex min-h-16 flex-wrap items-center gap-3 border-b border-slate-800 bg-[#06101d]/95 px-4 backdrop-blur">
       <h1 className="mr-auto text-lg font-semibold tracking-wide">任务工作台</h1>
-      <div className="hidden min-w-[320px] max-w-xl flex-1 items-center gap-2 rounded-lg border border-slate-700 bg-slate-950/80 px-3 py-2 text-sm text-slate-400 lg:flex">
-        <Search className="h-4 w-4" aria-hidden="true" />
-        <span>搜索任务、模型、文件、日志...</span>
-        <span className="ml-auto rounded border border-slate-700 px-1.5 text-xs">⌘ K</span>
-      </div>
       <span className="rounded-lg border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs text-blue-200">本地单用户 / 无登录</span>
-      <button type="button" className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
+      <Link href="/settings" className="inline-flex items-center gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100">
         <KeyRound className="h-4 w-4 text-amber-300" aria-hidden="true" />
         API Key 配置
-      </button>
+      </Link>
       <button type="button" onClick={onReset} className="inline-flex items-center gap-2 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white">
         <Plus className="h-4 w-4" aria-hidden="true" />
         新建任务
@@ -376,9 +418,6 @@ function Topbar({
       >
         <Play className="h-4 w-4" aria-hidden="true" />
         {running ? "运行中" : "运行"}
-      </button>
-      <button type="button" className="rounded-lg border border-slate-700 p-2 text-slate-300">
-        <ChevronDown className="h-4 w-4" aria-hidden="true" />
       </button>
     </header>
   );
@@ -432,7 +471,7 @@ function TaskInputPanel({
         <div>
           <div className="mb-2 text-xs text-slate-400">选择任务</div>
           <div className="grid grid-cols-2 gap-2">
-            {tasks.map((task) => {
+            {tasks.filter((task) => !task.disabled).map((task) => {
               const Icon = task.icon;
               const selected = task.id === selectedTaskType;
               return (
@@ -493,14 +532,24 @@ function TaskInputPanel({
           </div>
           <div className="rounded-lg border border-slate-800 bg-slate-950/35">
             {activeFile ? (
-              <dl className="divide-y divide-slate-800 text-xs">
-                <InfoRow label="文件名" value={activeFile.originalName} />
-                <InfoRow label="MIME 类型" value={activeFile.mimeType} />
-                <InfoRow label="扩展名" value={extensionOf(activeFile.originalName)} />
-                <InfoRow label="输入类型" value={activeFile.detectedType} />
-                <InfoRow label="文件大小" value={formatBytes(activeFile.sizeBytes)} />
-                <InfoRow label="状态" value={activeFile.status} />
-              </dl>
+              <div>
+                <dl className="divide-y divide-slate-800 text-xs">
+                  <InfoRow label="文件名" value={activeFile.originalName} />
+                  <InfoRow label="MIME 类型" value={activeFile.mimeType} />
+                  <InfoRow label="扩展名" value={extensionOf(activeFile.originalName)} />
+                  <InfoRow label="输入类型" value={activeFile.detectedType} />
+                  <InfoRow label="文件大小" value={formatBytes(activeFile.sizeBytes)} />
+                  <InfoRow label="状态" value={activeFile.status} />
+                </dl>
+                {activeFile.detectedType === "image" && activeFile.previewUrl ? (
+                  <img
+                    src={`${API_BASE_URL.replace(/\/api$/, "")}${activeFile.previewUrl}`}
+                    alt={activeFile.originalName}
+                    className="m-3 h-24 w-36 rounded-md border border-slate-800 object-cover"
+                  />
+                ) : null}
+                {activeFile.errorMessage ? <div className="px-3 pb-3 text-xs text-rose-300">{activeFile.errorMessage}</div> : null}
+              </div>
             ) : (
               <div className="p-4 text-xs text-slate-500">上传文件后展示类型、大小、解析状态和后端识别结果。</div>
             )}
@@ -550,6 +599,7 @@ function ModelRuntimePanel({
   onProviderFilter,
   onSelectModel,
   onTabChange,
+  onRerun,
 }: {
   selectedTask: TaskOption;
   providers: Provider[];
@@ -565,6 +615,7 @@ function ModelRuntimePanel({
   onProviderFilter: (providerId: string | null) => void;
   onSelectModel: (modelId: string) => void;
   onTabChange: (tab: "preview" | "status" | "archive") => void;
+  onRerun: (run: RunRecord) => void;
 }) {
   const providerName = (providerId: string) => providers.find((provider) => provider.id === providerId)?.name ?? providerId;
   return (
@@ -648,12 +699,11 @@ function ModelRuntimePanel({
                 </button>
               ))}
             </div>
-            <span className="mr-3 rounded border border-slate-700 px-2 py-1 text-xs text-slate-400">全屏</span>
           </div>
           <div className="min-h-60 p-4">
             {activeTab === "preview" ? <OutputPreview run={latestRun} error={runError} selectedModel={selectedModel} /> : null}
             {activeTab === "status" ? <RuntimeStatus run={latestRun} selectedModel={selectedModel} /> : null}
-            {activeTab === "archive" ? <ArchiveList history={history} /> : null}
+            {activeTab === "archive" ? <ArchiveList history={history} onRerun={onRerun} /> : null}
           </div>
         </div>
       </div>
@@ -667,19 +717,21 @@ function ParameterPanel({
   provider,
   model,
   onChange,
+  onReset,
 }: {
   schema?: ParamSchema;
   params: Record<string, string | number | boolean>;
   provider?: Provider;
   model?: ModelInfo;
   onChange: (key: string, value: string | number | boolean) => void;
+  onReset: () => void;
 }) {
   const fields = schema?.fields ?? [];
   return (
     <Panel
       title="动态参数面板"
       action={
-        <button type="button" className="inline-flex items-center gap-1 text-xs text-blue-300">
+        <button type="button" onClick={onReset} disabled={!schema} className="inline-flex items-center gap-1 text-xs text-blue-300 disabled:text-slate-600">
           <RefreshCw className="h-3.5 w-3.5" aria-hidden="true" />
           重置
         </button>
@@ -691,15 +743,6 @@ function ParameterPanel({
         ) : (
           <div className="rounded-lg border border-slate-800 bg-slate-950/35 p-4 text-sm text-slate-500">选择模型后显示参数。</div>
         )}
-
-        <div className="space-y-3 border-t border-slate-800 pt-4">
-          <StaticField label="reasoning_mode" value="auto" options={["auto", "low", "high"]} />
-          <StaticField label="output_format" value="text" />
-          <StaticField label="image_size" value="1024x1024 (1:1)" muted />
-          <StaticField label="async_mode" value="异步执行" switchOn />
-          <StaticField label="webhook_url" value="https://example.com/webhook" muted />
-        </div>
-
         <div className="border-t border-slate-800 pt-4">
           <div className="mb-3 text-sm font-medium text-slate-300">参数 Schema 来源</div>
           <div className="grid grid-cols-3 gap-2 text-xs">
@@ -793,11 +836,40 @@ function ParameterField({
 function OutputPreview({ run, error, selectedModel }: { run: RunRecord | null; error: Error | null; selectedModel?: ModelInfo }) {
   if (error) return <ErrorBanner error={error} />;
   if (run?.output?.text) {
+    const downloadText = () => {
+      const blob = new Blob([run.output?.text ?? ""], { type: "text/plain;charset=utf-8" });
+      const url = URL.createObjectURL(blob);
+      const anchor = document.createElement("a");
+      anchor.href = url;
+      anchor.download = `${run.id}.txt`;
+      anchor.click();
+      URL.revokeObjectURL(url);
+    };
     return (
       <div className="space-y-3 text-sm">
-        <div className="flex items-center gap-2 text-violet-300">
-          <Sparkles className="h-4 w-4" aria-hidden="true" />
-          <span>{selectedModel?.displayName ?? run.modelId} 输出</span>
+        <div className="flex flex-wrap items-center gap-2 text-violet-300">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Sparkles className="h-4 w-4" aria-hidden="true" />
+            <span>{selectedModel?.displayName ?? run.modelId} 输出</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => navigator.clipboard.writeText(run.output?.text ?? "")}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300"
+            title="复制结果"
+          >
+            <Copy className="h-3.5 w-3.5" aria-hidden="true" />
+            复制
+          </button>
+          <button
+            type="button"
+            onClick={downloadText}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300"
+            title="下载结果"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            下载
+          </button>
         </div>
         <pre className="max-h-72 overflow-auto whitespace-pre-wrap rounded-lg bg-slate-900/80 p-4 leading-relaxed text-slate-200">{run.output.text}</pre>
       </div>
@@ -836,21 +908,26 @@ function RuntimeStatus({ run, selectedModel }: { run: RunRecord | null; selected
   );
 }
 
-function ArchiveList({ history }: { history: RunRecord[] }) {
+function ArchiveList({ history, onRerun }: { history: RunRecord[]; onRerun: (run: RunRecord) => void }) {
   if (history.length === 0) return <div className="text-sm text-slate-500">暂无归档结果。</div>;
   return (
     <div className="space-y-2">
       {history.slice(0, 5).map((item) => (
         <div key={item.id} className="flex items-center justify-between rounded-lg border border-slate-800 bg-slate-950/35 p-3 text-sm">
           <span className="truncate text-slate-300">{item.id}</span>
-          <StatusBadge status={item.status} />
+          <div className="flex items-center gap-2">
+            <StatusBadge status={item.status} />
+            <button type="button" onClick={() => onRerun(item)} className="rounded-md border border-slate-700 p-1.5 text-slate-400 hover:text-blue-300" title="重新运行">
+              <RotateCcw className="h-3.5 w-3.5" aria-hidden="true" />
+            </button>
+          </div>
         </div>
       ))}
     </div>
   );
 }
 
-function HistoryTable({ history }: { history: RunRecord[] }) {
+function HistoryTable({ history, onRerun }: { history: RunRecord[]; onRerun: (run: RunRecord) => void }) {
   const rows = history.length > 0 ? history.slice(0, 5) : sampleHistory;
   return (
     <Panel title="历史记录" compact>
@@ -862,7 +939,13 @@ function HistoryTable({ history }: { history: RunRecord[] }) {
           item.modelId,
           <StatusBadge key="status" status={item.status} />,
           item.output?.type ?? "文本",
-          <RotateCcw key="action" className="h-4 w-4 text-slate-400" aria-hidden="true" />,
+          item.id.startsWith("sample-") ? (
+            <span key="action" className="text-slate-600">-</span>
+          ) : (
+            <button key="action" type="button" onClick={() => onRerun(item)} className="rounded-md p-1 text-slate-400 hover:bg-slate-800 hover:text-blue-300" title="重新运行">
+              <RotateCcw className="h-4 w-4" aria-hidden="true" />
+            </button>
+          ),
         ])}
       />
     </Panel>
@@ -960,42 +1043,6 @@ function FilterPill({ label, value }: { label: string; value: string }) {
     <span className="rounded-md border border-slate-800 bg-slate-950/50 px-2.5 py-1.5 text-slate-300">
       {label} <span className="ml-1 text-slate-500">{value}</span>
     </span>
-  );
-}
-
-function StaticField({ label, value, options, switchOn, muted }: { label: string; value: string; options?: string[]; switchOn?: boolean; muted?: boolean }) {
-  if (switchOn) {
-    return (
-      <div className="flex items-center justify-between text-sm">
-        <span className="text-slate-300">{label}</span>
-        <span className="inline-flex items-center gap-2 text-blue-200">
-          <span className="relative h-5 w-9 rounded-full bg-blue-600">
-            <span className="absolute right-0.5 top-0.5 h-4 w-4 rounded-full bg-white" />
-          </span>
-          {value}
-        </span>
-      </div>
-    );
-  }
-  if (options) {
-    return (
-      <div className="grid gap-2 text-sm">
-        <span className="text-slate-300">{label}</span>
-        <div className="grid grid-cols-3 overflow-hidden rounded-md border border-slate-700">
-          {options.map((option) => (
-            <span key={option} className={`px-3 py-1.5 text-center ${option === value ? "bg-blue-600/30 text-blue-200" : "bg-slate-950/70 text-slate-400"}`}>
-              {option}
-            </span>
-          ))}
-        </div>
-      </div>
-    );
-  }
-  return (
-    <div className="grid gap-2 text-sm">
-      <span className="text-slate-300">{label}</span>
-      <span className={`rounded-md border border-slate-700 bg-slate-950 px-3 py-2 ${muted ? "text-slate-500" : "text-slate-100"}`}>{value}</span>
-    </div>
   );
 }
 

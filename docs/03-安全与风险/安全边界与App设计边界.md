@@ -47,7 +47,7 @@ ModelGate 不是：
 - 模型输出永远不可信。
 - Provider 原始响应永远不直接暴露给前端。
 - Redis 永远不是任务最终状态来源。
-- 前端永远不持有真实 API Key。
+- 前端永远不持久化真实 API Key；本地单用户模式允许用户在表单中一次性提交 key 到后端，但不回显、不缓存、不写入前端环境变量。
 
 ### 2.2 后端是唯一安全控制点
 
@@ -67,7 +67,7 @@ ModelGate 不是：
 
 前端不能做的事：
 
-- 不能读取或保存真实 Provider API Key。
+- 不能读取、缓存或持久化真实 Provider API Key；只能通过受控表单一次性提交给后端。
 - 不能直接调用 Provider API。
 - 不能直接访问本地文件物理路径。
 - 不能自行判断最终模型兼容性。
@@ -79,8 +79,9 @@ ModelGate 不是：
 
 ### 3.1 允许
 
-- API Key 存在后端 `.env`、Secret Manager 或加密数据库字段。
-- 前端只提交 `providerId`、`modelId`、`taskType`、`fileIds` 和任务参数。
+- API Key 存在后端 `.env`、Secret Manager、加密数据库字段，或第一版本地单用户的 `provider_secrets` 表。
+- 普通任务请求中，前端只提交 `providerId`、`modelId`、`taskType`、`fileIds` 和任务参数。
+- 本地单用户设置页允许通过 `PUT /api/providers/{providerId}/key` 提交 Provider API Key；响应只返回配置状态，不返回明文。
 - 后端 Adapter 根据 `providerId` 读取对应 API Key。
 - 请求日志保存脱敏后的 Provider 调用信息。
 
@@ -88,7 +89,7 @@ ModelGate 不是：
 
 - 禁止把 API Key 写入 Next.js 前端环境变量。
 - 禁止把 API Key 放入浏览器 LocalStorage、SessionStorage、Cookie 或 Zustand。
-- 禁止在前端请求体中传递 Provider API Key。
+- 禁止在普通任务请求体中传递 Provider API Key；唯一例外是本地单用户设置页的受控 key 写入接口。
 - 禁止在日志中记录完整 Authorization header。
 - 禁止把 `.env`、`.env.local`、`.env.*.local` 提交到仓库。
 
@@ -98,6 +99,7 @@ ModelGate 不是：
 - 启动时检查必需 Provider Key 是否存在。
 - 日志脱敏函数统一处理 `authorization`、`api-key`、`token`、`secret`。
 - 后端错误响应不能包含真实密钥、内部路径或完整请求头。
+- UI 写入 key 后，运行时优先读取 `provider_secrets`，其次读取环境变量；日志脱敏必须覆盖两类来源。
 
 ---
 
@@ -729,7 +731,7 @@ ModelGate 只作为 Provider 调用编排层。
 
 | 模块 | 可以做 | 禁止做 |
 |---|---|---|
-| Frontend | UI、表单、展示、上传体验 | 管理 API Key、直连 Provider、最终权限判断 |
+| Frontend | UI、表单、展示、上传体验、本地单用户 key 写入表单 | 读取或持久化 API Key、直连 Provider、最终权限判断 |
 | FastAPI API | 鉴权、校验、调用 Service | 长任务轮询、同步大文件处理 |
 | Capability Router | 模型推荐、兼容性校验 | Provider 请求拼接 |
 | Runtime | 任务编排、状态控制 | 直接处理 UI 状态 |

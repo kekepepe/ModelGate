@@ -13,7 +13,7 @@ sys.path.insert(0, str(SERVER_ROOT))
 
 from app.core.config import settings  # noqa: E402
 from app.core.logging import redact  # noqa: E402
-from app.db.models import RequestLog, UsageLog  # noqa: E402
+from app.db.models import ProviderSecret, RequestLog, UsageLog  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.providers.errors import map_provider_status  # noqa: E402
@@ -45,6 +45,32 @@ def test_provider_and_model_api_do_not_expose_internal_urls_or_keys() -> None:
     assert "openaiBaseUrl" not in provider.get("metadata", {})
     assert isinstance(provider["configured"], bool)
     assert "baseUrl" not in model["adapterConfig"]
+
+
+def test_provider_key_can_be_set_and_cleared_without_echoing_secret() -> None:
+    require_local_port(5432)
+    require_local_port(6379)
+    secret = "phase8-ui-provider-key"
+
+    with SessionLocal() as db:
+        existing = db.get(ProviderSecret, "mimo")
+        if existing is not None:
+            db.delete(existing)
+            db.commit()
+
+    with TestClient(app) as client:
+        set_response = client.put("/api/providers/mimo/key", json={"apiKey": secret})
+        providers_response = client.get("/api/providers")
+        clear_response = client.delete("/api/providers/mimo/key")
+
+    assert set_response.status_code == 200
+    assert clear_response.status_code == 200
+    set_payload = set_response.json()["data"]
+    serialized_providers = str(providers_response.json())
+    assert set_payload["configured"] is True
+    assert set_payload["keySource"] == "local"
+    assert secret not in str(set_response.json())
+    assert secret not in serialized_providers
 
 
 def test_request_and_usage_logs_are_queryable_and_redacted() -> None:
