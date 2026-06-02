@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
+import json
 from typing import Any
 
 import httpx
 
-from app.providers.base import ChatInput, ChatOutput
+from app.providers.base import ChatInput, ChatOutput, ChatStreamEvent
 from app.providers.errors import map_httpx_error
 
 
@@ -46,6 +48,50 @@ class OpenAICompatibleAdapter:
             metadata["reasoningContent"] = message["reasoning_content"]
         return ChatOutput(content=content, metadata=metadata, usage=_normalize_usage(usage))
 
+    async def stream_chat(self, input_data: ChatInput) -> AsyncIterator[ChatStreamEvent]:
+        payload = {
+            "model": input_data.provider_model_name,
+            "messages": [message.model_dump() for message in input_data.messages],
+            "stream": True,
+            "stream_options": {"include_usage": True},
+        }
+        payload.update(_normalize_params(input_data.params, stream=True))
+
+        content_parts: list[str] = []
+        metadata: dict[str, Any] = {}
+        usage: dict[str, int] = {}
+        async with httpx.AsyncClient(timeout=input_data.timeout_seconds) as client:
+            try:
+                async with client.stream(
+                    "POST",
+                    f"{self.base_url}/chat/completions",
+                    headers=self._headers(),
+                    json=payload,
+                ) as response:
+                    response.raise_for_status()
+                    async for line in response.aiter_lines():
+                        event = _parse_openai_stream_line(line)
+                        if event is None:
+                            continue
+                        if event.type == "delta":
+                            content_parts.append(event.delta)
+                            yield event
+                        elif event.type == "metadata":
+                            metadata.update(event.metadata)
+                            if event.usage:
+                                usage = event.usage
+                        elif event.type == "done":
+                            break
+            except httpx.HTTPError as exc:
+                raise map_httpx_error(exc) from exc
+
+        yield ChatStreamEvent(
+            type="done",
+            content="".join(content_parts),
+            metadata=metadata,
+            usage=usage,
+        )
+
     def _headers(self) -> dict[str, str]:
         headers = {
             "Authorization": f"Bearer {self.api_key}",
@@ -56,10 +102,42 @@ class OpenAICompatibleAdapter:
         return headers
 
 
-def _normalize_params(params: dict[str, Any]) -> dict[str, Any]:
+def _normalize_params(params: dict[str, Any], *, stream: bool = False) -> dict[str, Any]:
     normalized = dict(params)
-    normalized["stream"] = False
+    normalized["stream"] = stream
     return {key: value for key, value in normalized.items() if value not in ("", None)}
+
+
+def _parse_openai_stream_line(line: str) -> ChatStreamEvent | None:
+    if not line.startswith("data:"):
+        return None
+    payload = line.removeprefix("data:").strip()
+    if not payload:
+        return None
+    if payload == "[DONE]":
+        return ChatStreamEvent(type="done")
+    try:
+        data = json.loads(payload)
+    except json.JSONDecodeError:
+        return None
+
+    choice = (data.get("choices") or [{}])[0]
+    delta = choice.get("delta") or {}
+    content = delta.get("content") or ""
+    metadata = {
+        key: value
+        for key, value in {
+            "providerResponseId": data.get("id"),
+            "finishReason": choice.get("finish_reason"),
+        }.items()
+        if value
+    }
+    usage = data.get("usage") if isinstance(data.get("usage"), dict) else {}
+    if content:
+        return ChatStreamEvent(type="delta", delta=content, metadata=metadata)
+    if metadata or usage:
+        return ChatStreamEvent(type="metadata", metadata=metadata, usage=_normalize_usage(usage))
+    return None
 
 
 def _normalize_usage(usage: dict[str, Any]) -> dict[str, int]:

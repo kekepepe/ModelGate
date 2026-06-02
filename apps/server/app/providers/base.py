@@ -1,4 +1,5 @@
 from enum import StrEnum
+from collections.abc import AsyncIterator
 from typing import Any, Protocol
 
 from pydantic import BaseModel, Field
@@ -38,6 +39,14 @@ class ChatOutput(BaseModel):
     usage: dict[str, int] = Field(default_factory=dict)
 
 
+class ChatStreamEvent(BaseModel):
+    type: str
+    delta: str = ""
+    content: str = ""
+    metadata: dict[str, Any] = Field(default_factory=dict)
+    usage: dict[str, int] = Field(default_factory=dict)
+
+
 class GenerationInput(BaseModel):
     provider_id: str
     model_id: str
@@ -65,6 +74,9 @@ class ProviderAdapter(Protocol):
     provider_id: str
 
     async def chat(self, input_data: ChatInput) -> ChatOutput:
+        ...
+
+    def stream_chat(self, input_data: ChatInput) -> AsyncIterator[ChatStreamEvent]:
         ...
 
 

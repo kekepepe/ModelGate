@@ -444,7 +444,7 @@ Phase 6 第一版说明：
 - Chat Runtime 会按 `taskType` 注入不同 system prompt，让模型先获得当前功能身份、能力定位、工作规则和输出风格。
 - `fileIds` 对应文件的 `metadata.parsedText` 会用 `BEGIN_USER_FILE_CONTEXT` / `END_USER_FILE_CONTEXT` 边界注入用户消息。
 - 上传文件内容不进入 system prompt，避免文档内容覆盖系统规则。
-- `stream=true` 目前会被 Runtime 强制按非流式请求处理；SSE 为后续增强项。
+- `POST /api/chat/runs/stream` 支持 `text/event-stream`，OpenAI-compatible Provider 可按 SSE delta 返回；前端工作台运行按钮已按流式响应逐步更新输出。
 
 ### 5.2 获取 Chat Run
 
@@ -452,7 +452,32 @@ Phase 6 第一版说明：
 GET /api/chat/runs/{runId}
 ```
 
-### 5.3 Chat Run 流式事件
+### 5.3 Chat Run 流式创建
+
+```http
+POST /api/chat/runs/stream
+Content-Type: application/json
+```
+
+请求体与 `POST /api/chat/runs` 相同。
+
+响应：
+
+```text
+data: {"type":"run","runId":"run_xxx","status":"running"}
+
+data: {"type":"delta","delta":"partial text"}
+
+data: {"type":"done","run":{"id":"run_xxx","status":"completed"}}
+```
+
+说明：
+
+- `delta` 事件只包含增量文本。
+- `done` 事件返回最终 run 摘要。
+- Provider 错误会返回 `error` 事件，并在数据库中保存 failed run。
+
+### 5.4 Chat Run 流式事件
 
 ```http
 GET /api/chat/runs/{runId}/events

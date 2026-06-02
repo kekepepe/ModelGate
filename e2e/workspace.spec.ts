@@ -96,17 +96,20 @@ test("workspace core controls are visible and file upload is interactive", async
 });
 
 test("chat run provider errors are shown with requestId", async ({ page }) => {
-  await page.route("**/api/chat/runs", async (route) => {
+  await page.route("**/api/chat/runs/stream", async (route) => {
     await route.fulfill({
-      status: 502,
-      contentType: "application/json",
-      body: JSON.stringify({
-        error: {
-          type: "PROVIDER_AUTH_ERROR",
-          message: "Provider authentication failed",
-          requestId: "req_e2e_error",
-        },
-      }),
+      contentType: "text/event-stream",
+      body:
+        "data: " +
+        JSON.stringify({
+          type: "error",
+          error: {
+            type: "PROVIDER_AUTH_ERROR",
+            message: "Provider authentication failed",
+            requestId: "req_e2e_error",
+          },
+        }) +
+        "\n\n",
     });
   });
 
@@ -177,21 +180,26 @@ async function mockApi(page: Page) {
     });
   });
 
-  await page.route("**/api/chat/runs", async (route) => {
+  await page.route("**/api/chat/runs/stream", async (route) => {
+    const run = {
+      id: "run_e2e_ok",
+      taskType: "chat",
+      providerId: "mimo",
+      modelId: "mimo.mimo_v2_5",
+      input: { prompt: "hello" },
+      params: { temperature: 0.2 },
+      output: { type: "text", text: "browser e2e ok" },
+      status: "completed",
+      createdAt: "2026-06-01T00:00:00Z",
+    };
     await route.fulfill({
-      json: {
-        data: {
-          id: "run_e2e_ok",
-          taskType: "chat",
-          providerId: "mimo",
-          modelId: "mimo.mimo_v2_5",
-          input: { prompt: "hello" },
-          params: { temperature: 0.2 },
-          output: { type: "text", text: "browser e2e ok" },
-          status: "completed",
-          createdAt: "2026-06-01T00:00:00Z",
-        },
-      },
+      contentType: "text/event-stream",
+      body: [
+        "data: " + JSON.stringify({ type: "run", run: { ...run, output: { type: "text", text: "" }, status: "running" } }),
+        "data: " + JSON.stringify({ type: "delta", delta: "browser e2e ok" }),
+        "data: " + JSON.stringify({ type: "done", run }),
+        "",
+      ].join("\n\n"),
     });
   });
 }

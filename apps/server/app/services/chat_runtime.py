@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import AsyncIterator
 from datetime import datetime, timezone
 from decimal import Decimal
 from time import monotonic
@@ -9,7 +10,7 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.db.models import FileRecord, RequestLog, Run, UsageLog
-from app.providers.base import ChatInput, ChatMessage, ChatOutput
+from app.providers.base import ChatInput, ChatMessage
 from app.providers.errors import ProviderError
 from app.providers.factory import create_chat_adapter
 from app.services.model_registry import model_registry
@@ -136,6 +137,146 @@ class ChatRuntime:
             db.refresh(run)
 
         return run
+
+    async def stream_chat(
+        self,
+        *,
+        db: Session,
+        task_type: str,
+        model_id: str,
+        prompt: str,
+        file_ids: list[str],
+        params: dict,
+        idempotency_key: str | None = None,
+    ) -> AsyncIterator[dict]:
+        if idempotency_key:
+            existing = db.query(Run).filter(Run.idempotency_key == idempotency_key).one_or_none()
+            if existing is not None and existing.status == "completed":
+                yield {"type": "run", "runId": existing.id, "status": existing.status}
+                yield {"type": "delta", "delta": (existing.output_json or {}).get("text") or ""}
+                yield {"type": "done", "run": _serialize_stream_run(existing)}
+                return
+
+        model = model_registry.get_model(model_id)
+        provider = model_registry.get_provider(model["provider"])
+        self._validate_model_for_task(model=model, task_type=task_type)
+
+        run = Run(
+            id=f"run_{uuid4().hex}",
+            task_type=task_type,
+            provider_id=model["provider"],
+            model_id=model["id"],
+            input_json={"prompt": prompt, "fileIds": file_ids},
+            params_json=params,
+            output_json=None,
+            status="running",
+            idempotency_key=idempotency_key,
+            started_at=_now(),
+        )
+        db.add(run)
+        db.commit()
+        db.refresh(run)
+        yield {"type": "run", "runId": run.id, "status": run.status}
+
+        request_payload = {}
+        latency_ms = None
+        content_parts: list[str] = []
+        metadata = {}
+        usage = {}
+        try:
+            files = self._load_files(db=db, file_ids=file_ids)
+            messages = self._build_messages(task_type=task_type, prompt=prompt, files=files)
+            provider_params = self._map_provider_params(model=model, params=params)
+            provider_params["stream"] = True
+            chat_input = ChatInput(
+                provider_id=provider["id"],
+                model_id=model["id"],
+                provider_model_name=(model.get("adapterConfig") or {}).get("providerModelName")
+                or model["officialModelName"],
+                task_type=task_type,
+                messages=messages,
+                params=provider_params,
+                adapter_config=model.get("adapterConfig") or {},
+                request_id=run.id,
+            )
+            request_payload = _safe_request_payload(chat_input)
+            adapter = create_chat_adapter(provider=provider, model=model)
+            started = monotonic()
+
+            if hasattr(adapter, "stream_chat"):
+                async for event in adapter.stream_chat(chat_input):
+                    if event.type == "delta":
+                        content_parts.append(event.delta)
+                        yield {"type": "delta", "delta": event.delta}
+                    elif event.type == "done":
+                        if event.content and not content_parts:
+                            content_parts.append(event.content)
+                        metadata.update(event.metadata)
+                        usage = event.usage
+            else:
+                output = await adapter.chat(chat_input)
+                content_parts.append(output.content)
+                metadata = output.metadata
+                usage = output.usage
+                yield {"type": "delta", "delta": output.content}
+
+            latency_ms = int((monotonic() - started) * 1000)
+            output_text = "".join(content_parts)
+            run.status = "completed"
+            run.output_json = {"type": "text", "text": output_text, "metadata": metadata}
+            run.completed_at = _now()
+            self._write_request_log(
+                db=db,
+                run=run,
+                request_payload=request_payload,
+                response_payload={"type": "text", "metadata": metadata},
+                status_code=200,
+                latency_ms=latency_ms,
+            )
+            self._write_usage_log(db=db, run=run, usage=usage)
+        except ProviderError as exc:
+            run.status = "failed"
+            run.error_type = exc.error_type
+            run.error_message = exc.message
+            run.completed_at = _now()
+            self._write_request_log(
+                db=db,
+                run=run,
+                request_payload=request_payload,
+                response_payload=None,
+                status_code=exc.details.get("providerStatusCode") if exc.details else None,
+                latency_ms=latency_ms,
+                error_type=exc.error_type,
+                error_message=exc.message,
+            )
+            yield {"type": "error", "errorType": exc.error_type, "message": exc.message}
+        except AppError as exc:
+            run.status = "failed"
+            run.error_type = exc.error_type
+            run.error_message = exc.message
+            run.completed_at = _now()
+            yield {"type": "error", "errorType": exc.error_type, "message": exc.message}
+        except Exception as exc:
+            run.status = "failed"
+            run.error_type = "CHAT_RUNTIME_ERROR"
+            run.error_message = "Chat runtime failed."
+            run.completed_at = _now()
+            self._write_request_log(
+                db=db,
+                run=run,
+                request_payload=request_payload,
+                response_payload=None,
+                status_code=None,
+                latency_ms=latency_ms,
+                error_type="CHAT_RUNTIME_ERROR",
+                error_message=str(exc)[:500],
+            )
+            yield {"type": "error", "errorType": "CHAT_RUNTIME_ERROR", "message": "Chat runtime failed."}
+        finally:
+            db.commit()
+            db.refresh(run)
+
+        yield {"type": "done", "run": _serialize_stream_run(run)}
 
     def _validate_model_for_task(self, *, model: dict, task_type: str) -> None:
         if task_type not in model.get("taskTypes", []):
@@ -370,6 +511,21 @@ def _safe_request_payload(input_data: ChatInput) -> dict:
         "taskType": input_data.task_type,
         "params": input_data.params,
         "messageCount": len(input_data.messages),
+    }
+
+
+def _serialize_stream_run(record: Run) -> dict:
+    return {
+        "id": record.id,
+        "taskType": record.task_type,
+        "providerId": record.provider_id,
+        "modelId": record.model_id,
+        "input": record.input_json,
+        "params": record.params_json,
+        "output": record.output_json,
+        "status": record.status,
+        "errorType": record.error_type,
+        "errorMessage": record.error_message,
     }
 
 

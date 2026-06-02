@@ -44,7 +44,10 @@ class ProviderSecret(Base):
     __tablename__ = "provider_secrets"
 
     provider_id: Mapped[str] = mapped_column(ForeignKey("providers.id"), primary_key=True)
-    secret_value: Mapped[str] = mapped_column(Text, nullable=False)
+    encrypted_value: Mapped[str] = mapped_column(Text, nullable=False)
+    nonce: Mapped[str] = mapped_column(String, nullable=False)
+    key_version: Mapped[str] = mapped_column(String, nullable=False, default="v1")
+    algorithm: Mapped[str] = mapped_column(String, nullable=False, default="AES-256-GCM")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

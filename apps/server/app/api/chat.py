@@ -1,4 +1,7 @@
+import json
+
 from fastapi import APIRouter, Depends
+from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
@@ -49,6 +52,23 @@ async def create_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
         idempotency_key=input_data.idempotencyKey,
     )
     return {"data": serialize_run(record)}
+
+
+@router.post("/runs/stream")
+async def stream_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
+    async def event_stream():
+        async for event in chat_runtime.stream_chat(
+            db=db,
+            task_type=input_data.taskType,
+            model_id=input_data.modelId,
+            prompt=input_data.prompt,
+            file_ids=input_data.fileIds,
+            params=input_data.params,
+            idempotency_key=input_data.idempotencyKey,
+        ):
+            yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
 @router.get("/runs/{run_id}")

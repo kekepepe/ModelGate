@@ -79,7 +79,7 @@ ModelGate 不是：
 
 ### 3.1 允许
 
-- API Key 存在后端 `.env`、Secret Manager、加密数据库字段，或第一版本地单用户的 `provider_secrets` 表。
+- API Key 存在后端 `.env`、Secret Manager，或第一版本地单用户的 `provider_secrets` 加密表。
 - 普通任务请求中，前端只提交 `providerId`、`modelId`、`taskType`、`fileIds` 和任务参数。
 - 本地单用户设置页允许通过 `PUT /api/providers/{providerId}/key` 提交 Provider API Key；响应只返回配置状态，不返回明文。
 - 后端 Adapter 根据 `providerId` 读取对应 API Key。
@@ -99,7 +99,8 @@ ModelGate 不是：
 - 启动时检查必需 Provider Key 是否存在。
 - 日志脱敏函数统一处理 `authorization`、`api-key`、`token`、`secret`。
 - 后端错误响应不能包含真实密钥、内部路径或完整请求头。
-- UI 写入 key 后，运行时优先读取 `provider_secrets`，其次读取环境变量；日志脱敏必须覆盖两类来源。
+- UI 写入 key 后，运行时优先读取并解密 `provider_secrets`，其次读取环境变量；日志脱敏必须覆盖两类来源。
+- 生产环境必须配置强随机 `MODELGATE_SECRET_KEY`，不能依赖 development fallback。
 
 ---
 

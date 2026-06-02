@@ -13,3 +13,4 @@ pillow>=11.0.0
 pypdf>=5.1.0
 python-docx>=1.1.2
 openpyxl>=3.1.5
+cryptography>=42.0.0

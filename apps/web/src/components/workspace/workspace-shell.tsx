@@ -202,13 +202,19 @@ export function WorkspaceShell() {
       if (!runPayload.modelId) {
         throw new Error("请选择模型后再运行。");
       }
-      return postData<RunRecord>("/chat/runs", {
-        taskType: runPayload.taskType,
-        modelId: runPayload.modelId,
-        prompt: runPayload.prompt,
-        fileIds: runPayload.fileIds,
-        params: runPayload.params,
-      });
+      return streamChatRun(
+        {
+          taskType: runPayload.taskType,
+          modelId: runPayload.modelId,
+          prompt: runPayload.prompt,
+          fileIds: runPayload.fileIds,
+          params: runPayload.params,
+        },
+        (run) => {
+          setLatestRun(run);
+          setActiveResultTab("preview");
+        },
+      );
     },
     onSuccess: (run) => {
       setLatestRun(run);
@@ -313,6 +319,118 @@ export function WorkspaceShell() {
       </div>
     </main>
   );
+}
+
+async function streamChatRun(
+  payload: {
+    taskType: string;
+    modelId: string;
+    prompt: string;
+    fileIds: string[];
+    params: Record<string, string | number | boolean>;
+  },
+  onPartialRun: (run: RunRecord) => void,
+): Promise<RunRecord> {
+  const response = await fetch(`${API_BASE_URL}/chat/runs/stream`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) throw await buildStreamingError(response);
+  if (!response.body) throw new Error("Streaming response is empty.");
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "";
+  let runId = "";
+  let outputText = "";
+  let doneRun: RunRecord | null = null;
+
+  const applyEvent = (event: Record<string, unknown>) => {
+    if (event.type === "run") {
+      runId = String(event.runId ?? "");
+      onPartialRun({
+        id: runId,
+        taskType: payload.taskType,
+        providerId: "",
+        modelId: payload.modelId,
+        input: { prompt: payload.prompt, fileIds: payload.fileIds },
+        params: payload.params,
+        output: { type: "text", text: "" },
+        status: String(event.status ?? "running"),
+      });
+    }
+    if (event.type === "delta") {
+      outputText += String(event.delta ?? "");
+      if (runId) {
+        onPartialRun({
+          id: runId,
+          taskType: payload.taskType,
+          providerId: "",
+          modelId: payload.modelId,
+          input: { prompt: payload.prompt, fileIds: payload.fileIds },
+          params: payload.params,
+          output: { type: "text", text: outputText },
+          status: "running",
+        });
+      }
+    }
+    if (event.type === "error") {
+      throw buildStreamingEventError(event);
+    }
+    if (event.type === "done" && event.run && typeof event.run === "object") {
+      doneRun = event.run as RunRecord;
+    }
+  };
+
+  while (true) {
+    const { value, done } = await reader.read();
+    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    const parts = buffer.split("\n\n");
+    buffer = parts.pop() ?? "";
+    for (const part of parts) {
+      const line = part.split("\n").find((item) => item.startsWith("data:"));
+      if (!line) continue;
+      applyEvent(JSON.parse(line.slice(5).trim()));
+    }
+    if (done) break;
+  }
+
+  if (doneRun) return doneRun;
+  return {
+    id: runId || "streaming-run",
+    taskType: payload.taskType,
+    providerId: "",
+    modelId: payload.modelId,
+    input: { prompt: payload.prompt, fileIds: payload.fileIds },
+    params: payload.params,
+    output: { type: "text", text: outputText },
+    status: "completed",
+  };
+}
+
+function buildStreamingEventError(event: Record<string, unknown>): Error {
+  const error = event.error && typeof event.error === "object" ? (event.error as Record<string, unknown>) : event;
+  return new ApiError(
+    String(error.message ?? "Streaming chat failed."),
+    200,
+    String(error.type ?? error.errorType ?? "STREAM_ERROR"),
+    typeof error.requestId === "string" ? error.requestId : undefined,
+  );
+}
+
+async function buildStreamingError(response: Response): Promise<Error> {
+  try {
+    const payload = await response.json();
+    return new ApiError(
+      String(payload?.error?.message ?? `API request failed: ${response.status}`),
+      response.status,
+      payload?.error?.type,
+      payload?.error?.requestId,
+    );
+  } catch {
+    return new ApiError(`API request failed: ${response.status}`, response.status);
+  }
 }
 
 function Sidebar({ providers }: { providers: Provider[] }) {

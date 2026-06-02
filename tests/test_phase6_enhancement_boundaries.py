@@ -12,7 +12,10 @@ sys.path.insert(0, str(SERVER_ROOT))
 
 from app.main import app  # noqa: E402
 from app.providers.base import ChatOutput  # noqa: E402
-from app.providers.openai_compatible import _normalize_params as normalize_openai_params  # noqa: E402
+from app.providers.openai_compatible import (  # noqa: E402
+    _normalize_params as normalize_openai_params,
+    _parse_openai_stream_line,
+)
 from app.services.chat_runtime import FILE_CONTEXT_BEGIN  # noqa: E402
 
 
@@ -37,6 +40,18 @@ def test_stream_param_is_forced_to_non_stream_in_openai_adapter() -> None:
 
     assert payload["temperature"] == 0.2
     assert payload["stream"] is False
+
+
+def test_openai_adapter_stream_param_and_sse_delta_parsing() -> None:
+    payload = normalize_openai_params({"temperature": 0.2, "stream": False}, stream=True)
+    event = _parse_openai_stream_line(
+        'data: {"id":"resp_1","choices":[{"delta":{"content":"hello"},"finish_reason":null}]}'
+    )
+
+    assert payload["stream"] is True
+    assert event is not None
+    assert event.type == "delta"
+    assert event.delta == "hello"
 
 
 def test_cancel_completed_run_keeps_terminal_status(monkeypatch) -> None:

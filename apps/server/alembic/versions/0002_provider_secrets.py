@@ -20,7 +20,10 @@ def upgrade() -> None:
     op.create_table(
         "provider_secrets",
         sa.Column("provider_id", sa.String(), sa.ForeignKey("providers.id"), primary_key=True),
-        sa.Column("secret_value", sa.Text(), nullable=False),
+        sa.Column("encrypted_value", sa.Text(), nullable=False),
+        sa.Column("nonce", sa.String(), nullable=False),
+        sa.Column("key_version", sa.String(), nullable=False, server_default="v1"),
+        sa.Column("algorithm", sa.String(), nullable=False, server_default="AES-256-GCM"),
         sa.Column("created_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
         sa.Column("updated_at", sa.DateTime(timezone=True), server_default=sa.func.now()),
     )

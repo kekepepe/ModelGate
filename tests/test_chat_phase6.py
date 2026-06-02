@@ -10,7 +10,7 @@ sys.path.insert(0, str(SERVER_ROOT))
 
 from app.db.models import FileRecord, RequestLog, UsageLog  # noqa: E402
 from app.main import app  # noqa: E402
-from app.providers.base import ChatOutput  # noqa: E402
+from app.providers.base import ChatOutput, ChatStreamEvent  # noqa: E402
 from app.services.chat_runtime import FILE_CONTEXT_BEGIN, FILE_CONTEXT_END, _system_prompt  # noqa: E402
 
 
@@ -32,6 +32,13 @@ class CapturingAdapter:
             metadata={"providerResponseId": "fake_response"},
             usage={"input_tokens": 5, "output_tokens": 7, "total_tokens": 12},
         )
+
+
+class StreamingAdapter:
+    async def stream_chat(self, input_data):
+        yield ChatStreamEvent(type="delta", delta="stream ")
+        yield ChatStreamEvent(type="delta", delta="ok")
+        yield ChatStreamEvent(type="done", content="stream ok", usage={"total_tokens": 3})
 
 
 def test_chat_runtime_injects_file_context_and_saves_logs(monkeypatch) -> None:
@@ -86,6 +93,30 @@ def test_chat_runtime_injects_file_context_and_saves_logs(monkeypatch) -> None:
         assert request_log.status_code == 200
         assert usage_log.total_tokens == 12
         assert file_record.status == "parsed"
+
+
+def test_chat_runtime_stream_endpoint_saves_completed_run(monkeypatch) -> None:
+    require_local_port(5432)
+    require_local_port(6379)
+    monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: StreamingAdapter())
+
+    with TestClient(app) as client:
+        response = client.post(
+            "/api/chat/runs/stream",
+            json={
+                "taskType": "chat",
+                "modelId": "mimo.mimo_v2_5",
+                "prompt": "hello",
+                "params": {"temperature": 0.2},
+            },
+        )
+
+    assert response.status_code == 200
+    body = response.text
+    assert '"type": "delta", "delta": "stream "' in body
+    assert '"type": "delta", "delta": "ok"' in body
+    assert '"type": "done"' in body
+    assert '"status": "completed"' in body
 
 
 def test_task_system_prompts_are_role_specific_and_keep_file_context_out_of_system_prompt() -> None:

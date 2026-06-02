@@ -17,6 +17,7 @@ from app.db.models import ProviderSecret, RequestLog, UsageLog  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.providers.errors import map_provider_status  # noqa: E402
+from app.services.provider_secrets import decrypt_provider_secret, encrypt_provider_secret  # noqa: E402
 
 
 def require_local_port(port: int) -> None:
@@ -61,16 +62,42 @@ def test_provider_key_can_be_set_and_cleared_without_echoing_secret() -> None:
     with TestClient(app) as client:
         set_response = client.put("/api/providers/mimo/key", json={"apiKey": secret})
         providers_response = client.get("/api/providers")
-        clear_response = client.delete("/api/providers/mimo/key")
 
     assert set_response.status_code == 200
-    assert clear_response.status_code == 200
     set_payload = set_response.json()["data"]
     serialized_providers = str(providers_response.json())
     assert set_payload["configured"] is True
     assert set_payload["keySource"] == "local"
     assert secret not in str(set_response.json())
     assert secret not in serialized_providers
+
+    with SessionLocal() as db:
+        stored = db.get(ProviderSecret, "mimo")
+        assert stored is not None
+        assert stored.encrypted_value != secret
+        assert secret not in stored.encrypted_value
+        assert decrypt_provider_secret(stored) == secret
+
+    with TestClient(app) as client:
+        clear_response = client.delete("/api/providers/mimo/key")
+
+    assert clear_response.status_code == 200
+
+
+def test_provider_secret_encryption_round_trips_without_plaintext() -> None:
+    secret = "phase8-encrypted-provider-key"
+    encrypted_value, nonce = encrypt_provider_secret("mimo", secret)
+    record = ProviderSecret(
+        provider_id="mimo",
+        encrypted_value=encrypted_value,
+        nonce=nonce,
+        key_version="v1",
+        algorithm="AES-256-GCM",
+    )
+
+    assert secret not in encrypted_value
+    assert secret not in nonce
+    assert decrypt_provider_secret(record) == secret
 
 
 def test_request_and_usage_logs_are_queryable_and_redacted() -> None:

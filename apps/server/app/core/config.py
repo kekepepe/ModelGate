@@ -22,6 +22,7 @@ class Settings(BaseSettings):
     volcengine_api_key: str = ""
     moonshot_api_key: str = ""
     zhipu_api_key: str = ""
+    modelgate_secret_key: str = ""
 
     storage_driver: str = "local"
     storage_root: str = "./storage"
