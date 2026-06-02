@@ -1,6 +1,10 @@
 from __future__ import annotations
 
+import json
+import logging
 import re
+import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -31,6 +35,105 @@ PHYSICAL_PATH_KEYS = {
 }
 
 REDACTED = "[REDACTED]"
+_VALID_LOG_FORMATS = {"text", "json"}
+
+
+def configure_logging() -> None:
+    """Install the application-wide logging handlers.
+
+    Honors ``settings.log_format`` (``text`` or ``json``) and
+    ``settings.log_level``. Idempotent: a second call only swaps the
+    handler on the root logger, it does not duplicate handlers.
+    """
+    fmt = settings.log_format.lower()
+    if fmt not in _VALID_LOG_FORMATS:
+        raise ValueError(
+            f"Invalid LOG_FORMAT: {settings.log_format!r}. Expected one of: {sorted(_VALID_LOG_FORMATS)}"
+        )
+
+    handler: logging.Handler
+    if fmt == "json":
+        handler = logging.StreamHandler(sys.stdout)
+        handler.setFormatter(JSONFormatter())
+    else:
+        handler = logging.StreamHandler(sys.stderr)
+        handler.setFormatter(
+            logging.Formatter("%(asctime)s %(levelname)s %(name)s :: %(message)s")
+        )
+
+    level = getattr(logging, settings.log_level.upper(), logging.INFO)
+    root = logging.getLogger()
+    root.handlers = [handler]
+    root.setLevel(level)
+
+
+class JSONFormatter(logging.Formatter):
+    """Render log records as one JSON object per line.
+
+    Reserved keys (``timestamp``, ``level``, ``logger``, ``message``) are
+    emitted on every record. Any extra fields passed via
+    ``logger.info("msg", extra={"k": "v"})`` are merged in. The message
+    body is run through :func:`redact_text` so secrets leaked into log
+    format strings are scrubbed before emission.
+    """
+
+    RESERVED_KEYS = frozenset(
+        {
+            "name",
+            "msg",
+            "args",
+            "levelname",
+            "levelno",
+            "pathname",
+            "filename",
+            "module",
+            "exc_info",
+            "exc_text",
+            "stack_info",
+            "lineno",
+            "funcName",
+            "created",
+            "msecs",
+            "relativeCreated",
+            "thread",
+            "threadName",
+            "processName",
+            "process",
+            "asctime",
+            "message",
+            "taskName",
+        }
+    )
+
+    def format(self, record: logging.LogRecord) -> str:
+        timestamp = datetime.fromtimestamp(record.created, tz=UTC).isoformat()
+        payload: dict[str, Any] = {
+            "timestamp": timestamp,
+            "level": record.levelname,
+            "logger": record.name,
+            "message": redact_text(record.getMessage()),
+        }
+        if record.exc_info:
+            payload["exception"] = self.formatException(record.exc_info)
+        if record.stack_info:
+            payload["stack"] = self.formatStack(record.stack_info)
+
+        for key, value in record.__dict__.items():
+            if key in self.RESERVED_KEYS or key.startswith("_"):
+                continue
+            payload[key] = _safe_json_value(value)
+
+        return json.dumps(payload, ensure_ascii=False, default=str)
+
+
+def _safe_json_value(value: Any) -> Any:
+    if isinstance(value, (str, int, float, bool, type(None))):
+        return value
+    if isinstance(value, dict):
+        return {str(k): _safe_json_value(v) for k, v in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_safe_json_value(v) for v in value]
+    return str(value)
 
 
 def redact(value: Any) -> Any:

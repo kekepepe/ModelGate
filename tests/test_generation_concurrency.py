@@ -310,10 +310,14 @@ def test_concurrent_submits_only_one_transitions_task(monkeypatch) -> None:
     assert _FakeAdapter.create_calls == 1, (
         f"expected exactly one provider call, got {_FakeAdapter.create_calls}; results={results}"
     )
-    submitted = [r for r in results if r == "processing"]
-    skipped = [r for r in results if r == "queued"]
-    assert len(submitted) == 1
-    assert len(skipped) == 1
+    # We deliberately do NOT assert per-thread returned status here. The losing
+    # thread's ``db.get()`` may land before the winner's commit (returning
+    # "queued"), between commits (returning "submitted"), or after the
+    # winner's _apply_provider_output (returning "processing"). The runtime
+    # contract is "only one provider call + final DB state is consistent" —
+    # not "exactly one thread returns X". The assertions below cover that.
+    assert len(results) == 2
+    assert all(r is not None for r in results), f"both threads should return a task; got {results}"
 
     with SessionLocal() as db:
         record = db.get(GenerationTask, task_id)

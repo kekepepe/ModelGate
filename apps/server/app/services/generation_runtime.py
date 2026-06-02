@@ -83,7 +83,7 @@ class GenerationRuntime:
         db.refresh(task)
 
         if enqueue:
-            self._dispatch_submit(task.id)
+            _dispatch_submit(task.id)
 
         return task
 
@@ -284,34 +284,6 @@ class GenerationRuntime:
             idempotency_key=None,
             enqueue=enqueue,
         )
-
-    @staticmethod
-    def _dispatch_submit(task_id: str) -> None:
-        """Submit a generation task to the configured worker backend.
-
-        In production, this enqueues a Celery job. In dev mode (or any
-        environment where ``MODELGATE_DISABLE_CELERY=true``), it runs the
-        submit handler in a background thread so the developer does not
-        need a separate worker process. Polling is the caller's
-        responsibility (UI refetches or a separate poller triggers it).
-        """
-        from app.core.config import settings
-
-        if settings.disable_celery:
-            import threading
-
-            thread = threading.Thread(
-                target=_sync_submit_task,
-                args=(task_id,),
-                name=f"mg-submit-{task_id[:8]}",
-                daemon=True,
-            )
-            thread.start()
-            return
-
-        from app.workers.generation_tasks import submit_generation_task
-
-        submit_generation_task.delay(task_id)
 
     def _validate_generation_model(self, *, model: dict, provider: dict, task_type: str) -> None:
         if not provider.get("enabled", False):
@@ -672,6 +644,38 @@ def _is_expired(task: GenerationTask) -> bool:
 
 def _now() -> datetime:
     return datetime.now(UTC)
+
+
+def _dispatch_submit(task_id: str) -> None:
+    """Submit a generation task to the configured worker backend.
+
+    In production, this enqueues a Celery job. In dev mode (or any
+    environment where ``MODELGATE_DISABLE_CELERY=true``), it runs the
+    submit handler in a background thread so the developer does not
+    need a separate worker process. Polling is the caller's
+    responsibility (UI refetches or a separate poller triggers it).
+
+    Module-level (not a method) so tests can patch it via
+    ``monkeypatch.setattr("app.services.generation_runtime._dispatch_submit", ...)``
+    without going through the class.
+    """
+    from app.core.config import settings
+
+    if settings.disable_celery:
+        import threading
+
+        thread = threading.Thread(
+            target=_sync_submit_task,
+            args=(task_id,),
+            name=f"mg-submit-{task_id[:8]}",
+            daemon=True,
+        )
+        thread.start()
+        return
+
+    from app.workers.generation_tasks import submit_generation_task
+
+    submit_generation_task.delay(task_id)
 
 
 def _sync_submit_task(task_id: str) -> None:
