@@ -4,6 +4,8 @@ import { useQuery } from "@tanstack/react-query";
 
 import { getData } from "@/lib/api";
 import type { ModelInfo, Provider } from "@/types/model";
+import { Badge } from "@/components/ui/badge";
+import { PageHeader } from "@/components/layout/page-header";
 
 export function ModelManagement() {
   const providersQuery = useQuery({ queryKey: ["providers"], queryFn: () => getData<Provider[]>("/providers") });
@@ -12,44 +14,51 @@ export function ModelManagement() {
   const models = modelsQuery.data ?? [];
 
   return (
-    <main className="min-h-screen bg-slate-100 p-6">
-      <section className="mx-auto max-w-6xl">
-        <div className="mb-5 flex items-end justify-between gap-4">
-          <div>
-            <h1 className="text-2xl font-semibold">模型管理</h1>
-            <p className="mt-1 text-sm text-slate-500">{models.length} 个模型 / {providers.length} 个 Provider</p>
-          </div>
-        </div>
+    <div className="space-y-6">
+      <PageHeader
+        title="Models"
+        description={`${models.length} models / ${providers.length} providers`}
+      />
 
-        <div className="overflow-hidden rounded-md border border-slate-200 bg-white">
-          <table className="w-full border-collapse text-left text-sm">
-            <thead className="bg-slate-50 text-xs text-slate-500">
-              <tr>
-                <th className="px-3 py-2">模型</th>
-                <th className="px-3 py-2">Provider</th>
-                <th className="px-3 py-2">Runtime</th>
-                <th className="px-3 py-2">能力</th>
-                <th className="px-3 py-2">状态</th>
+      <div className="overflow-hidden rounded-lg border">
+        <table className="w-full border-collapse text-left text-sm">
+          <thead className="bg-muted/50">
+            <tr>
+              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Model</th>
+              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Provider</th>
+              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Runtime</th>
+              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Capabilities</th>
+              <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Status</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-border">
+            {models.map((model) => (
+              <tr key={model.id} className="hover:bg-muted/30">
+                <td className="px-3 py-3">
+                  <div className="font-medium">{model.displayName}</div>
+                  <div className="text-xs text-muted-foreground font-mono">{model.officialModelName}</div>
+                </td>
+                <td className="px-3 py-3 text-muted-foreground">
+                  {providers.find((provider) => provider.id === model.provider)?.name ?? model.provider}
+                </td>
+                <td className="px-3 py-3 text-muted-foreground">{model.runtime}</td>
+                <td className="px-3 py-3">
+                  <div className="flex flex-wrap gap-1">
+                    {model.capabilities.slice(0, 4).map((cap) => (
+                      <Badge key={cap} variant="secondary" className="text-[10px]">{cap}</Badge>
+                    ))}
+                  </div>
+                </td>
+                <td className="px-3 py-3">
+                  <Badge variant={model.enabled ? "success" : "secondary"}>
+                    {model.enabled ? "Enabled" : "Disabled"}
+                  </Badge>
+                </td>
               </tr>
-            </thead>
-            <tbody>
-              {models.map((model) => (
-                <tr key={model.id} className="border-t border-slate-100">
-                  <td className="px-3 py-3 font-medium">{model.displayName}</td>
-                  <td className="px-3 py-3">{providers.find((provider) => provider.id === model.provider)?.name ?? model.provider}</td>
-                  <td className="px-3 py-3 text-slate-600">{model.runtime}</td>
-                  <td className="px-3 py-3 text-slate-600">{model.capabilities.slice(0, 4).join(", ")}</td>
-                  <td className="px-3 py-3">
-                    <span className={`rounded px-2 py-1 text-xs ${model.enabled ? "bg-emerald-50 text-emerald-700" : "bg-slate-100 text-slate-500"}`}>
-                      {model.enabled ? "启用" : "禁用"}
-                    </span>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </section>
-    </main>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
   );
 }
