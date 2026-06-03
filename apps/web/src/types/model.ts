@@ -108,9 +108,12 @@ export type RequestLog = {
   recordId: string;
   providerId: string;
   modelId?: string | null;
+  request?: unknown;
+  response?: unknown;
   statusCode?: number | null;
   latencyMs?: number | null;
   errorType?: string | null;
+  errorMessage?: string | null;
   createdAt?: string | null;
 };
 

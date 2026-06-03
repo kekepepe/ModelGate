@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import httpx
 
-from app.core.logging import redact_text
 from app.core.errors import AppError
+from app.core.logging import redact_text
 
 
 class ProviderError(AppError):

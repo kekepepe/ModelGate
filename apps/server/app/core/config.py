@@ -9,6 +9,7 @@ class Settings(BaseSettings):
     api_host: str = "0.0.0.0"
     api_port: int = 8000
     log_level: str = "INFO"
+    log_format: str = "text"
     log_partial_secrets: bool = False
     cors_allow_origins: str = "http://localhost:3000,http://127.0.0.1:3000"
 
@@ -42,6 +43,8 @@ class Settings(BaseSettings):
     enable_seedance: bool = False
     enable_auth: bool = False
     enable_object_storage: bool = False
+
+    disable_celery: bool = False
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", extra="ignore")
 

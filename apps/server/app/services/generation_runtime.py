@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from time import monotonic
+from urllib.parse import urlparse
 from uuid import uuid4
 
+import httpx
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
@@ -12,7 +14,12 @@ from app.db.models import GenerationTask, RequestLog
 from app.providers.base import GenerationInput, GenerationOutput, TaskStatus
 from app.providers.errors import ProviderError
 from app.providers.factory import create_generation_adapter
+from app.providers.volcengine_seedance import is_volcengine_hosted_url
 from app.services.model_registry import model_registry
+from app.services.storage import build_dated_key, get_storage
+
+MAX_OUTPUT_DOWNLOAD_BYTES = 200 * 1024 * 1024
+OUTPUT_DOWNLOAD_TIMEOUT_SECONDS = 60.0
 
 TERMINAL_STATUSES = {"completed", "failed", "cancelled", "expired"}
 POLLABLE_STATUSES = {"submitted", "processing"}
@@ -76,9 +83,7 @@ class GenerationRuntime:
         db.refresh(task)
 
         if enqueue:
-            from app.workers.generation_tasks import submit_generation_task
-
-            submit_generation_task.delay(task.id)
+            _dispatch_submit(task.id)
 
         return task
 
@@ -384,6 +389,10 @@ def _apply_provider_output(task: GenerationTask, output: GenerationOutput) -> No
         return
 
     if status == "completed":
+        merged_output = dict(output.output or {})
+        persisted = _persist_generation_artifacts(task=task, output=merged_output)
+        merged_output.update(persisted)
+
         transition_generation_task(
             task,
             to_status="completed",
@@ -391,7 +400,7 @@ def _apply_provider_output(task: GenerationTask, output: GenerationOutput) -> No
             reason="provider_completed",
         )
         task.progress = 100
-        task.output_json = output.output or {}
+        task.output_json = merged_output
         task.completed_at = _now()
         task.poll_after = None
         return
@@ -409,6 +418,155 @@ def _apply_provider_output(task: GenerationTask, output: GenerationOutput) -> No
         return
 
     raise AppError("PROVIDER_STATUS_UNSUPPORTED", f"Unsupported provider status: {status}", 502)
+
+
+def _persist_generation_artifacts(*, task: GenerationTask, output: dict) -> dict:
+    """Best-effort download of provider-returned media into local storage.
+
+    Updates ``output`` in-place by adding ``videoStorageKey`` / ``imageStorageKey``
+    fields. Failures are stored in ``output["downloadErrors"]`` so the user can
+    still inspect the original provider URL.
+    """
+    if not output:
+        return {}
+
+    additions: dict = {}
+    download_errors: list[dict] = []
+
+    for field, key_prefix, ext in (
+        ("videoUrl", "videos", ".mp4"),
+        ("imageUrl", "images", ".bin"),
+    ):
+        url = output.get(field)
+        if not url or f"{field.rstrip('Url')}StorageKey" in output:
+            continue
+        result = _download_to_storage(
+            url=url,
+            task_id=task.id,
+            field=field,
+            key_prefix=key_prefix,
+            default_extension=ext,
+        )
+        if result is None:
+            continue
+        storage_key, error = result
+        if error is not None:
+            download_errors.append({"field": field, "url": url, "error": error})
+            continue
+        additions[f"{field.rstrip('Url')}StorageKey"] = storage_key
+        additions[f"{field.rstrip('Url')}StorageUrl"] = f"/api/files/_by_key/{storage_key}"
+
+    if download_errors:
+        additions["downloadErrors"] = download_errors
+    return additions
+
+
+def resolve_primary_artifact(task: GenerationTask) -> tuple[str | None, str | None]:
+    """Return ``(storage_key, kind)`` for the single primary artifact, or
+    ``(None, None)`` for multi-artifact or no-artifact tasks.
+
+    The ``/tasks/{id}/result`` endpoint uses this to decide between a
+    single-file redirect (for video-only or image-only tasks) and the JSON
+    envelope (for first_last_frame_video or any task with multiple outputs).
+    """
+    output = task.output_json or {}
+    keys: list[tuple[str, str]] = []
+    for field in ("videoStorageKey", "imageStorageKey"):
+        if output.get(field):
+            keys.append((output[field], field.replace("StorageKey", "").lower()))
+    if len(keys) == 1:
+        return keys[0]
+    return None, None
+
+
+def _download_to_storage(
+    *,
+    url: str,
+    task_id: str,
+    field: str,
+    key_prefix: str,
+    default_extension: str,
+) -> tuple[str, dict] | None:
+    if not _is_safe_download_url(url):
+        return None, {
+            "type": "DOWNLOAD_URL_BLOCKED",
+            "message": "Provider URL host is not in the ModelGate allowlist.",
+        }
+    try:
+        with httpx.Client(
+            timeout=OUTPUT_DOWNLOAD_TIMEOUT_SECONDS,
+            follow_redirects=False,
+        ) as client, client.stream("GET", url) as response:
+            response.raise_for_status()
+            content_type = response.headers.get("content-type") or ""
+            extension = _extension_for_content_type(content_type) or default_extension
+            if response.headers.get("content-length"):
+                try:
+                    size = int(response.headers["content-length"])
+                    if size > MAX_OUTPUT_DOWNLOAD_BYTES:
+                        return None, {
+                            "type": "OUTPUT_TOO_LARGE",
+                            "message": f"Provider response too large: {size} bytes.",
+                        }
+                except ValueError:
+                    pass
+            buf = bytearray()
+            for chunk in response.iter_bytes():
+                buf.extend(chunk)
+                if len(buf) > MAX_OUTPUT_DOWNLOAD_BYTES:
+                    return None, {
+                        "type": "OUTPUT_TOO_LARGE",
+                        "message": f"Provider response exceeded {MAX_OUTPUT_DOWNLOAD_BYTES} bytes.",
+                    }
+        bytes_content = bytes(buf)
+    except Exception as exc:
+        return None, {
+            "type": "DOWNLOAD_FAILED",
+            "message": f"{type(exc).__name__}: {str(exc)[:200]}",
+        }
+
+    storage_key = build_dated_key(
+        prefix=f"outputs/{key_prefix}",
+        name=f"{task_id}_{field.rstrip('Url').lower()}{extension}",
+    )
+    stored = get_storage().put_bytes(
+        bytes_content,
+        key=storage_key,
+        content_type=content_type or None,
+    )
+    return stored.key, None
+
+
+def _is_safe_download_url(url: str) -> bool:
+    try:
+        parsed = urlparse(url)
+    except ValueError:
+        return False
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    if not parsed.netloc:
+        return False
+    if is_volcengine_hosted_url(url):
+        return True
+    trusted_hosts = {
+        "ark.cn-beijing.volces.com",
+        "ark.cn-shanghai.volces.com",
+        "files.volcengine.com",
+    }
+    return parsed.hostname and parsed.hostname.lower() in trusted_hosts
+
+
+def _extension_for_content_type(content_type: str) -> str | None:
+    mapping = {
+        "video/mp4": ".mp4",
+        "video/quicktime": ".mov",
+        "image/png": ".png",
+        "image/jpeg": ".jpg",
+        "image/webp": ".webp",
+        "application/octet-stream": ".bin",
+    }
+    primary = content_type.split(";", 1)[0].strip().lower()
+    return mapping.get(primary)
 
 
 def _mark_failed(task: GenerationTask, error_type: str, error_message: str) -> None:
@@ -503,7 +661,95 @@ def _is_expired(task: GenerationTask) -> bool:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
+
+
+def _dispatch_submit(task_id: str) -> None:
+    """Submit a generation task to the configured worker backend.
+
+    In production, this enqueues a Celery job. In dev mode (or any
+    environment where ``MODELGATE_DISABLE_CELERY=true``), it runs the
+    submit handler in a background thread so the developer does not
+    need a separate worker process. Polling is the caller's
+    responsibility (UI refetches or a separate poller triggers it).
+
+    Module-level (not a method) so tests can patch it via
+    ``monkeypatch.setattr("app.services.generation_runtime._dispatch_submit", ...)``
+    without going through the class.
+    """
+    from app.core.config import settings
+
+    if settings.disable_celery:
+        import threading
+
+        thread = threading.Thread(
+            target=_sync_submit_task,
+            args=(task_id,),
+            name=f"mg-submit-{task_id[:8]}",
+            daemon=True,
+        )
+        thread.start()
+        return
+
+    from app.workers.generation_tasks import submit_generation_task
+
+    submit_generation_task.delay(task_id)
+
+
+def _sync_submit_task(task_id: str) -> None:
+    """Inline replacement for the ``generation.submit`` Celery task.
+
+    Used only when ``MODELGATE_DISABLE_CELERY=true``. Each call gets its
+    own DB session, submits the task to the provider, and (if still
+    pollable) schedules a synchronous poll loop in another daemon
+    thread that re-runs the same handler with a delay.
+    """
+    import asyncio
+    import threading
+    import time
+
+    from app.db.session import SessionLocal
+
+    def _run_poll_loop(target_id: str) -> None:
+        time.sleep(_poll_delay_seconds(target_id))
+        for _ in range(60):  # cap at ~5 min of polling
+            try:
+                with SessionLocal() as db:
+                    task = asyncio.run(
+                        generation_runtime.poll_provider_task(db=db, task_id=target_id)
+                    )
+                if task is None or task.status in {"completed", "failed", "cancelled", "expired"}:
+                    return
+            except Exception:
+                return
+            time.sleep(_poll_delay_seconds(target_id))
+        return
+
+    try:
+        with SessionLocal() as db:
+            task = asyncio.run(generation_runtime.submit_provider_task(db=db, task_id=task_id))
+        if task and task.status in {"submitted", "processing"}:
+            threading.Thread(
+                target=_run_poll_loop,
+                args=(task_id,),
+                name=f"mg-poll-{task_id[:8]}",
+                daemon=True,
+            ).start()
+    except Exception:
+        return
+
+
+def _poll_delay_seconds(task_id: str) -> int:
+    from app.db.session import SessionLocal
+
+    with SessionLocal() as db:
+        from app.db.models import GenerationTask
+
+        task = db.get(GenerationTask, task_id)
+        if task is None or task.poll_after is None:
+            return 5
+        delta = (task.poll_after - _now()).total_seconds()
+    return max(1, min(int(delta), 60))
 
 
 generation_runtime = GenerationRuntime()

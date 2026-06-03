@@ -289,6 +289,11 @@ class ModelRegistry:
             reasons.append("provider_missing")
         elif not provider.enabled:
             reasons.append("provider_disabled")
+
+        feature_flag = (model.adapter_config or {}).get("featureFlag")
+        if feature_flag and not _feature_flag_enabled(feature_flag):
+            reasons.append(f"feature_flag_disabled:{feature_flag}")
+
         if preferred_providers and model.provider not in preferred_providers:
             reasons.append("provider_not_preferred")
         if task_type not in model.task_types:
@@ -330,6 +335,27 @@ def raise_app_error(error_type: str, message: str, status_code: int):
     from app.core.errors import AppError
 
     raise AppError(error_type, message, status_code=status_code)
+
+
+def _feature_flag_enabled(name: str) -> bool:
+    from app.core.config import settings
+
+    if not name:
+        return True
+    camel = "".join(part.capitalize() for part in name.split("_"))
+    camelized = camel[0].lower() + camel[1:] if camel else ""
+    candidates = {name, name.lower(), camelized, camelized.lower()}
+    for attr in candidates:
+        if not attr:
+            continue
+        if hasattr(settings, attr):
+            value = getattr(settings, attr)
+            if isinstance(value, bool):
+                return value
+            if value in (None, ""):
+                continue
+            return bool(value)
+    return True
 
 
 model_registry = ModelRegistry()

@@ -59,14 +59,34 @@ jobs:
       - name: Ruff
         run: ruff check apps/server/app tests
 
+      - name: Black
+        run: black --check apps/server/app tests
+
       - name: Compile backend
         run: python -m compileall apps/server/app
+
+      - name: Validate config consistency
+        run: PYTHONPATH=apps/server python apps/server/scripts/validate_settings.py
+
+      - name: Validate model registry
+        run: PYTHONPATH=apps/server python apps/server/scripts/validate_model_registry.py
 
       - name: Alembic upgrade
         run: PYTHONPATH=apps/server alembic -c apps/server/alembic.ini upgrade head
 
-      - name: Pytest
-        run: PYTHONPATH=apps/server pytest -q
+      - name: Pytest with coverage
+        run: |
+          PYTHONPATH=apps/server pytest -q \
+            --cov=apps/server/app \
+            --cov-report=term-missing:skip-covered \
+            --cov-report=xml:apps/server/coverage.xml
+
+      - name: Upload coverage artifact
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: backend-coverage
+          path: apps/server/coverage.xml
 
   frontend:
     name: Frontend
@@ -86,8 +106,14 @@ jobs:
       - name: Install frontend dependencies
         run: npm ci
 
+      - name: Prettier
+        run: npx prettier --check "apps/web/**/*.{ts,tsx,js,jsx,json,md,css}"
+
       - name: ESLint
         run: npm run web:lint
+
+      - name: Stylelint
+        run: npx stylelint "apps/web/**/*.{css,scss}"
 
       - name: Typecheck
         run: npm run web:typecheck

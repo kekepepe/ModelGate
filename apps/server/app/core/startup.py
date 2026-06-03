@@ -5,9 +5,12 @@ from redis import Redis
 from sqlalchemy import text
 
 from app.core.config import settings
+from app.core.logging import configure_logging
 from app.db.session import SessionLocal, engine
 from app.services.model_registry import RegistryValidationError, model_registry
 from app.services.registry_sync import sync_registry_to_db
+
+configure_logging()
 
 
 @asynccontextmanager

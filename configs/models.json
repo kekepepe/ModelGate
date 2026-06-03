@@ -6,8 +6,8 @@
     "provider": "mimo",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding", "streaming", "tool_calling"],
-    "inputTypes": ["text", "code", "file"],
+    "capabilities": ["text", "code", "vision_understanding", "file_understanding", "streaming", "tool_calling"],
+    "inputTypes": ["text", "code", "file", "image"],
     "outputTypes": ["text"],
     "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
     "contextWindow": null,
@@ -42,27 +42,6 @@
     }
   },
   {
-    "id": "minimax.m2_7_highspeed",
-    "officialModelName": "MiniMax-M2.7-highspeed",
-    "displayName": "MiniMax-M2.7-highspeed",
-    "provider": "minimax",
-    "category": "chat",
-    "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
-    "contextWindow": null,
-    "async": false,
-    "enabled": false,
-    "paramsSchema": "chat_openai_compatible_schema",
-    "adapterConfig": {
-      "protocol": "anthropic_compatible",
-      "providerModelName": "MiniMax-M2.7-highspeed",
-      "disabledReason": "Current Token Plan only supports MiniMax-M2.7."
-    }
-  },
-  {
     "id": "minimax.m2_7",
     "officialModelName": "MiniMax-M2.7",
     "displayName": "MiniMax-M2.7",
@@ -80,6 +59,26 @@
     "adapterConfig": {
       "protocol": "anthropic_compatible",
       "providerModelName": "MiniMax-M2.7"
+    }
+  },
+  {
+    "id": "minimax.m3",
+    "officialModelName": "MiniMax-M3",
+    "displayName": "MiniMax-M3",
+    "provider": "minimax",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": 1000000,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "anthropic_compatible",
+      "providerModelName": "MiniMax-M3"
     }
   },
   {
@@ -194,8 +193,8 @@
     "provider": "volcengine_coding",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding", "streaming"],
-    "inputTypes": ["text", "code", "file"],
+    "capabilities": ["text", "code", "vision_understanding", "file_understanding", "streaming"],
+    "inputTypes": ["text", "code", "file", "image"],
     "outputTypes": ["text"],
     "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
     "contextWindow": null,
@@ -221,15 +220,15 @@
     "taskTypes": ["text_to_video", "image_to_video", "first_last_frame_video"],
     "contextWindow": null,
     "async": true,
-    "enabled": false,
+    "enabled": true,
     "paramsSchema": "video_generation_schema",
     "adapterConfig": {
       "protocol": "volcengine_seedance",
       "providerModelName": "doubao-seedance-2-0",
       "baseUrl": "https://ark.cn-beijing.volces.com/api/v3",
       "endpoint": "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks",
-      "reservedForFutureVersion": true,
-      "disabledReason": "Seedance generation is reserved for a later phase."
+      "featureFlag": "enable_seedance",
+      "description": "Volcengine Seedance async video generation. Gated by MODELGATE_ENABLE_SEEDANCE."
     }
   }
 ]

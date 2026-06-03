@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from redis import Redis
@@ -9,7 +9,6 @@ from app.db.models import GenerationTask
 from app.db.session import SessionLocal
 from app.services.generation_runtime import generation_runtime, transition_generation_task
 from app.workers.celery_app import celery_app
-
 
 LOCK_TTL_SECONDS = 120
 
@@ -115,5 +114,5 @@ def _release_lock(task_id: str, token: str) -> None:
 def _poll_delay(task: GenerationTask) -> int:
     if task.poll_after is None:
         return 5
-    seconds = int((task.poll_after - datetime.now(timezone.utc)).total_seconds())
+    seconds = int((task.poll_after - datetime.now(UTC)).total_seconds())
     return max(1, min(seconds, 60))

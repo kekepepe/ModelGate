@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-from collections.abc import AsyncIterator
+import asyncio
 import json
+from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
@@ -24,6 +25,9 @@ class OpenAICompatibleAdapter:
         }
         payload.update(_normalize_params(input_data.params))
 
+        if input_data.cancel_event is not None and input_data.cancel_event.is_set():
+            raise asyncio.CancelledError()
+
         async with httpx.AsyncClient(timeout=input_data.timeout_seconds) as client:
             try:
                 response = await client.post(
@@ -32,6 +36,9 @@ class OpenAICompatibleAdapter:
                     json=payload,
                 )
                 response.raise_for_status()
+            except asyncio.CancelledError:
+                # The AsyncClient context manager closes the in-flight connection on exit.
+                raise
             except httpx.HTTPError as exc:
                 raise map_httpx_error(exc) from exc
 
@@ -57,6 +64,9 @@ class OpenAICompatibleAdapter:
         }
         payload.update(_normalize_params(input_data.params, stream=True))
 
+        if input_data.cancel_event is not None and input_data.cancel_event.is_set():
+            raise asyncio.CancelledError()
+
         content_parts: list[str] = []
         metadata: dict[str, Any] = {}
         usage: dict[str, int] = {}
@@ -70,6 +80,9 @@ class OpenAICompatibleAdapter:
                 ) as response:
                     response.raise_for_status()
                     async for line in response.aiter_lines():
+                        if input_data.cancel_event is not None and input_data.cancel_event.is_set():
+                            await response.aclose()
+                            raise asyncio.CancelledError()
                         event = _parse_openai_stream_line(line)
                         if event is None:
                             continue
@@ -82,6 +95,8 @@ class OpenAICompatibleAdapter:
                                 usage = event.usage
                         elif event.type == "done":
                             break
+            except asyncio.CancelledError:
+                raise
             except httpx.HTTPError as exc:
                 raise map_httpx_error(exc) from exc
 

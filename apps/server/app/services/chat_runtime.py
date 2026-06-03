@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import asyncio
+import base64
 from collections.abc import AsyncIterator
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from decimal import Decimal
 from time import monotonic
 from uuid import uuid4
@@ -20,6 +22,28 @@ FILE_CONTEXT_END = "END_USER_FILE_CONTEXT"
 
 
 class ChatRuntime:
+    def __init__(self) -> None:
+        # run_id -> (cancel_event, owning_task). ``owning_task`` is the asyncio task
+        # for non-streaming runs (so we can ``task.cancel()`` to abort the in-flight
+        # httpx request). For streaming runs the task reference is omitted — the
+        # stream generator watches the event between SSE deltas instead.
+        self._inflight: dict[str, tuple[asyncio.Event, asyncio.Task | None]] = {}
+
+    def register_inflight(self, run_id: str, *, task: asyncio.Task | None = None) -> asyncio.Event:
+        event = asyncio.Event()
+        self._inflight[run_id] = (event, task)
+        return event
+
+    def request_cancel(self, run_id: str) -> tuple[asyncio.Event | None, asyncio.Task | None]:
+        entry = self._inflight.get(run_id)
+        if entry is None:
+            return None, None
+        event, task = entry
+        event.set()
+        return event, task
+
+    def _deregister(self, run_id: str) -> None:
+        self._inflight.pop(run_id, None)
     async def run_chat(
         self,
         *,
@@ -56,11 +80,13 @@ class ChatRuntime:
         db.commit()
         db.refresh(run)
 
+        cancel_event = self.register_inflight(run.id, task=asyncio.current_task())
+
         request_payload = {}
         latency_ms = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(task_type=task_type, prompt=prompt, files=files)
+            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files)
             provider_params = self._map_provider_params(model=model, params=params)
             chat_input = ChatInput(
                 provider_id=provider["id"],
@@ -72,6 +98,7 @@ class ChatRuntime:
                 params=provider_params,
                 adapter_config=model.get("adapterConfig") or {},
                 request_id=run.id,
+                cancel_event=cancel_event,
             )
             request_payload = _safe_request_payload(chat_input)
 
@@ -96,6 +123,22 @@ class ChatRuntime:
                 latency_ms=latency_ms,
             )
             self._write_usage_log(db=db, run=run, usage=output.usage)
+        except asyncio.CancelledError:
+            run.status = "cancelled"
+            run.error_type = "RUN_CANCELLED"
+            run.error_message = "Run cancelled by user."
+            run.completed_at = _now()
+            self._write_request_log(
+                db=db,
+                run=run,
+                request_payload=request_payload,
+                response_payload=None,
+                status_code=None,
+                latency_ms=latency_ms,
+                error_type="RUN_CANCELLED",
+                error_message="Run cancelled by user.",
+            )
+            raise
         except ProviderError as exc:
             run.status = "failed"
             run.error_type = exc.error_type
@@ -133,6 +176,7 @@ class ChatRuntime:
                 error_message=str(exc)[:500],
             )
         finally:
+            self._deregister(run.id)
             db.commit()
             db.refresh(run)
 
@@ -178,14 +222,21 @@ class ChatRuntime:
         db.refresh(run)
         yield {"type": "run", "runId": run.id, "status": run.status}
 
+        # Streaming registers both the event and the current task. The event
+        # is checked by adapters between deltas for a graceful stop; the task
+        # handle is used as a backstop to interrupt adapter coroutines that
+        # are blocked in a long ``asyncio.sleep`` (e.g. provider backoff).
+        cancel_event = self.register_inflight(run.id, task=asyncio.current_task())
+
         request_payload = {}
         latency_ms = None
         content_parts: list[str] = []
         metadata = {}
         usage = {}
+        terminal_event: dict | None = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(task_type=task_type, prompt=prompt, files=files)
+            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files)
             provider_params = self._map_provider_params(model=model, params=params)
             provider_params["stream"] = True
             chat_input = ChatInput(
@@ -198,6 +249,7 @@ class ChatRuntime:
                 params=provider_params,
                 adapter_config=model.get("adapterConfig") or {},
                 request_id=run.id,
+                cancel_event=cancel_event,
             )
             request_payload = _safe_request_payload(chat_input)
             adapter = create_chat_adapter(provider=provider, model=model)
@@ -234,6 +286,22 @@ class ChatRuntime:
                 latency_ms=latency_ms,
             )
             self._write_usage_log(db=db, run=run, usage=usage)
+        except asyncio.CancelledError:
+            run.status = "cancelled"
+            run.error_type = "RUN_CANCELLED"
+            run.error_message = "Run cancelled by user."
+            run.completed_at = _now()
+            self._write_request_log(
+                db=db,
+                run=run,
+                request_payload=request_payload,
+                response_payload=None,
+                status_code=None,
+                latency_ms=latency_ms,
+                error_type="RUN_CANCELLED",
+                error_message="Run cancelled by user.",
+            )
+            terminal_event = {"type": "cancelled", "runId": run.id}
         except ProviderError as exc:
             run.status = "failed"
             run.error_type = exc.error_type
@@ -249,13 +317,13 @@ class ChatRuntime:
                 error_type=exc.error_type,
                 error_message=exc.message,
             )
-            yield {"type": "error", "errorType": exc.error_type, "message": exc.message}
+            terminal_event = {"type": "error", "errorType": exc.error_type, "message": exc.message}
         except AppError as exc:
             run.status = "failed"
             run.error_type = exc.error_type
             run.error_message = exc.message
             run.completed_at = _now()
-            yield {"type": "error", "errorType": exc.error_type, "message": exc.message}
+            terminal_event = {"type": "error", "errorType": exc.error_type, "message": exc.message}
         except Exception as exc:
             run.status = "failed"
             run.error_type = "CHAT_RUNTIME_ERROR"
@@ -271,12 +339,23 @@ class ChatRuntime:
                 error_type="CHAT_RUNTIME_ERROR",
                 error_message=str(exc)[:500],
             )
-            yield {"type": "error", "errorType": "CHAT_RUNTIME_ERROR", "message": "Chat runtime failed."}
+            terminal_event = {"type": "error", "errorType": "CHAT_RUNTIME_ERROR", "message": "Chat runtime failed."}
         finally:
-            db.commit()
-            db.refresh(run)
+            self._deregister(run.id)
+            # Yielding inside the except/finally can cause the cleanup path
+            # to throw at a suspended yield when the consumer breaks out of
+            # the async-for loop, which then trips ``db.refresh`` against a
+            # detached instance. Defer terminal events to *after* the commit.
+            try:
+                db.commit()
+                db.refresh(run)
+            except Exception:
+                pass
 
-        yield {"type": "done", "run": _serialize_stream_run(run)}
+        if terminal_event is not None:
+            yield terminal_event
+        else:
+            yield {"type": "done", "run": _serialize_stream_run(run)}
 
     def _validate_model_for_task(self, *, model: dict, task_type: str) -> None:
         if task_type not in model.get("taskTypes", []):
@@ -298,15 +377,50 @@ class ChatRuntime:
     def _build_messages(
         self,
         *,
+        model: dict,
         task_type: str,
         prompt: str,
         files: list[FileRecord],
     ) -> list[ChatMessage]:
         system = _system_prompt(task_type)
-        user_content = prompt.strip()
+        user_content: str | list[dict] = prompt.strip()
         file_context = _file_context(files)
+        supports_vision = "vision_understanding" in (model.get("capabilities") or [])
+
         if file_context:
-            user_content = f"{file_context}\n\nUSER_PROMPT:\n{user_content}" if user_content else file_context
+            text_part = (
+                f"{file_context}\n\nUSER_PROMPT:\n{user_content}"
+                if isinstance(user_content, str) and user_content
+                else file_context
+            )
+        else:
+            text_part = user_content if isinstance(user_content, str) else ""
+
+        image_files = [
+            record for record in files
+            if (record.detected_type == "image" and (record.mime_type or "").startswith("image/"))
+        ]
+        if image_files and not supports_vision:
+            raise AppError(
+                "MODEL_VISION_UNSUPPORTED",
+                f"Selected model does not support image inputs: {model.get('id')}",
+                status_code=400,
+            )
+
+        if image_files and supports_vision:
+            content_blocks: list[dict] = []
+            for record in image_files:
+                data_url = _build_image_data_url(record)
+                if data_url:
+                    content_blocks.append(
+                        {"type": "image_url", "image_url": {"url": data_url, "detail": "auto"}}
+                    )
+            if text_part:
+                content_blocks.append({"type": "text", "text": text_part})
+            user_content = content_blocks
+        elif text_part:
+            user_content = text_part
+
         return [
             ChatMessage(role="system", content=system),
             ChatMessage(role="user", content=user_content),
@@ -380,7 +494,7 @@ class ChatRuntime:
 def _system_prompt(task_type: str) -> str:
     prompts = {
         "chat": """
-You are ModelGate Chat Runtime, a general-purpose AI assistant for direct problem solving.
+You are ModelGate Chat Bot, a general-purpose AI assistant for direct problem solving.
 
 Identity and positioning:
 - Act as a clear, pragmatic assistant.
@@ -400,7 +514,7 @@ Output style:
 - Avoid filler, generic disclaimers, and unnecessary motivational wording.
 """.strip(),
         "coding": """
-You are ModelGate Coding Runtime, a senior software engineering assistant.
+You are ModelGate Coding Bot, a senior software engineering assistant.
 
 Identity and positioning:
 - Act as an implementation-focused engineer.
@@ -420,7 +534,7 @@ Output style:
 - Keep explanations concrete and tied to the code.
 """.strip(),
         "code_review": """
-You are ModelGate Code Review Runtime, a senior reviewer focused on defects and risk.
+You are ModelGate Code Review Bot, a senior reviewer focused on defects and risk.
 
 Identity and positioning:
 - Act as a rigorous code reviewer, not a style commentator.
@@ -439,7 +553,7 @@ Output style:
 - Avoid broad praise or generic best-practice lectures.
 """.strip(),
         "document_analysis": """
-You are ModelGate Document Analysis Runtime, a document-reading and extraction specialist.
+You are ModelGate Document Analysis Bot, a document-reading and extraction specialist.
 
 Identity and positioning:
 - Act as an analyst who reads uploaded user files carefully.
@@ -459,7 +573,7 @@ Output style:
 - Include concise citations to file names or sections when they are available in context.
 """.strip(),
         "prompt_optimize": """
-You are ModelGate Prompt Optimization Runtime, a prompt engineer for reliable model outputs.
+You are ModelGate Prompt Optimization Bot, a prompt engineer for reliable model outputs.
 
 Identity and positioning:
 - Act as a specialist who turns rough user prompts into precise, testable instructions.
@@ -530,7 +644,36 @@ def _serialize_stream_run(record: Run) -> dict:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
+
+
+def _build_image_data_url(record: FileRecord) -> str | None:
+    """Resolve a stored image to a data URL that downstream models can ingest.
+
+    Uses the preview blob (1024px WebP) when present; otherwise falls back to
+    the original upload. The MIME type is taken from the FileRecord.
+    """
+    from app.services.storage import get_storage
+
+    storage = get_storage()
+    mime = record.mime_type or "image/jpeg"
+    candidates: list[str | None] = [record.preview_path, record.stored_path]
+    for key in candidates:
+        if not key:
+            continue
+        try:
+            if not storage.exists(key):
+                continue
+        except ValueError:
+            continue
+        try:
+            path = storage.absolute_path(key)
+            data = path.read_bytes()
+        except OSError:
+            continue
+        encoded = base64.b64encode(data).decode("ascii")
+        return f"data:{mime};base64,{encoded}"
+    return None
 
 
 chat_runtime = ChatRuntime()

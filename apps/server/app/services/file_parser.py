@@ -6,10 +6,11 @@ import re
 import zipfile
 from dataclasses import dataclass
 from html import unescape
+from io import BytesIO
 from pathlib import Path
 from uuid import uuid4
 
-from app.core.config import settings
+from app.services.storage import build_dated_key, get_storage
 
 PARSE_VERSION = 1
 MAX_PARSED_TEXT_CHARS = 200_000
@@ -22,7 +23,7 @@ class ParseResult:
     status: str
     direct_usable: bool
     metadata: dict
-    preview_path: str | None = None
+    preview_key: str | None = None
     error_message: str | None = None
 
 
@@ -43,7 +44,12 @@ def parse_uploaded_file(
 
     try:
         if detected_type == "image":
-            return _parse_image(stored_path=stored_path, metadata=base_metadata, mime_type=mime_type)
+            return _parse_image(
+                stored_path=stored_path,
+                metadata=base_metadata,
+                mime_type=mime_type,
+                extension=safe_extension,
+            )
         if safe_extension == ".pdf":
             metadata = base_metadata | _parse_pdf(stored_path)
             return _parsed(metadata)
@@ -87,8 +93,10 @@ def _parsed(metadata: dict) -> ParseResult:
     return ParseResult(status="parsed", direct_usable=True, metadata=metadata)
 
 
-def _parse_image(*, stored_path: Path, metadata: dict, mime_type: str) -> ParseResult:
-    if mime_type == "image/svg+xml" or stored_path.suffix.lower() == ".svg":
+def _parse_image(
+    *, stored_path: Path, metadata: dict, mime_type: str, extension: str
+) -> ParseResult:
+    if mime_type == "image/svg+xml" or extension.lower() == ".svg":
         text = _read_text(stored_path)
         return ParseResult(
             status="parsed",
@@ -99,13 +107,33 @@ def _parse_image(*, stored_path: Path, metadata: dict, mime_type: str) -> ParseR
                 "parsedText": _truncate(text, MAX_PARSED_TEXT_CHARS),
                 "chunks": _line_chunks(text, chunk_type="svg"),
             },
-            preview_path=None,
+            preview_key=None,
         )
 
     from PIL import Image
 
     with Image.open(stored_path) as image:
         width, height = image.size
+        preview_key = None
+        if mime_type != "image/svg+xml":
+            preview_buf = BytesIO()
+            image_copy = image.copy()
+            image_copy.thumbnail((1024, 1024))
+            converted = image_copy.convert("RGBA")
+            background = Image.new("RGBA", converted.size, (255, 255, 255, 0))
+            background.paste(converted, (0, 0))
+            background.save(preview_buf, "WEBP", quality=82, exif=b"")
+            preview_buf.seek(0)
+            preview_key = build_dated_key(
+                prefix="previews",
+                name=f"{uuid4().hex}.webp",
+            )
+            get_storage().put_bytes(
+                preview_buf.getvalue(),
+                key=preview_key,
+                content_type="image/webp",
+            )
+
         image_metadata = metadata | {
             "width": width,
             "height": height,
@@ -116,22 +144,11 @@ def _parse_image(*, stored_path: Path, metadata: dict, mime_type: str) -> ParseR
             "chunks": [],
         }
 
-        preview_path = None
-        if mime_type != "image/svg+xml":
-            preview_root = _dated_root(Path(settings.previews_dir))
-            preview_path_obj = preview_root / f"{uuid4().hex}.webp"
-            image.thumbnail((1024, 1024))
-            preview = Image.new("RGBA", image.size, (255, 255, 255, 0))
-            converted = image.convert("RGBA")
-            preview.paste(converted, (0, 0))
-            preview.save(preview_path_obj, "WEBP", quality=82, exif=b"")
-            preview_path = str(preview_path_obj)
-
     return ParseResult(
         status="parsed",
         direct_usable=True,
         metadata=image_metadata,
-        preview_path=preview_path,
+        preview_key=preview_key,
     )
 
 
@@ -368,12 +385,3 @@ def _truncate(value: str, max_chars: int) -> str:
     if len(value) <= max_chars:
         return value
     return value[:max_chars]
-
-
-def _dated_root(root: Path) -> Path:
-    from datetime import datetime
-
-    now = datetime.utcnow()
-    path = root / f"{now:%Y}" / f"{now:%m}"
-    path.mkdir(parents=True, exist_ok=True)
-    return path

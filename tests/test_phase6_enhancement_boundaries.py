@@ -78,7 +78,15 @@ def test_cancel_completed_run_keeps_terminal_status(monkeypatch) -> None:
     assert cancel_response.json()["data"]["status"] == "completed"
 
 
-def test_image_file_current_boundary_is_metadata_context_not_multimodal(monkeypatch) -> None:
+def test_image_file_with_non_vision_model_is_rejected(monkeypatch) -> None:
+    """Boundary updated in the WIP commit that introduced multimodal support.
+
+    The previous contract (image is treated as metadata text for any model) is
+    gone. The new contract: a chat model that lacks ``vision_understanding``
+    cannot accept image file inputs and the run must be rejected with a 400
+    error code. The vision-capable happy path is covered separately in
+    ``test_multimodal_phase6.py``.
+    """
     require_local_port(5432)
     require_local_port(6379)
     monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CapturingAdapter())
@@ -105,8 +113,6 @@ def test_image_file_current_boundary_is_metadata_context_not_multimodal(monkeypa
             },
         )
 
-    assert run_response.status_code == 200
-    user_message = CapturingAdapter.last_input.messages[1].content
-    assert FILE_CONTEXT_BEGIN in user_message
-    assert "DETECTED_TYPE: image" in user_message
-    assert "data:image/png;base64" not in user_message
+    assert run_response.status_code == 400
+    body = run_response.json()
+    assert body["error"]["type"] == "MODEL_VISION_UNSUPPORTED"
