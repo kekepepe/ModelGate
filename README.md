@@ -2,6 +2,8 @@
 
 > Local-first multi-model AI workspace for token plan APIs.
 
+**[English](README.md)** · **[简体中文](README.zh-CN.md)**
+
 ModelGate is a self-hosted, single-user AI workbench that unifies multiple
 "token plan" providers (Xiaomi MiMo, MiniMax, Volcengine Coding Plan,
 Volcengine Seedance, …) behind one capability-aware UI, one history, and
@@ -86,6 +88,44 @@ for the full request flows, data model, and deployment topology.
 
 ---
 
+## Screenshots
+
+### Overview
+
+![ModelGate Overview — providers, models, recent runs, and capabilities](github-picture/github1.png)
+
+The Overview dashboard surfaces everything you need to know about the
+local installation: provider health, model count, run / failure
+statistics, and the last few runs with status badges.
+
+### Playground
+
+![ModelGate Playground — task type, model, parameter schema, and output panel](github-picture/github2.png)
+
+The Playground is the work surface. Pick a task type (chat, coding,
+code review, document analysis, prompt optimize, …), pick a model from
+the ones that can answer it, and edit parameters rendered live from the
+JSON Schema in `configs/param-schemas.json`.
+
+### Models
+
+![ModelGate Models — registry with capabilities, parameter schema, and runtime](github-picture/github3.png)
+
+Every model in the system is declared in `configs/models.json`. The
+table is the same data the capability router uses to pick models, so
+"what the UI shows" and "what runs" cannot drift apart.
+
+### Usage
+
+![ModelGate Usage — daily token chart, provider distribution, and per-model ranking](github-picture/github4.png)
+
+Usage analytics is sourced from `usage_logs` and `request_logs`: daily
+token spend, provider distribution, per-model ranking, success rate,
+and a recent request log with the same `requestId` you can grep in the
+backend logs.
+
+---
+
 ## Quick start
 
 ### 1. Copy and edit environment
@@ -96,6 +136,10 @@ cp .env.example .env
 # Optional: set MODELGATE_ENABLE_SEEDANCE=true to enable Volcengine Seedance video generation
 # Optional: set MODELGATE_SECRET_KEY=<random 32+ chars> for encrypted provider secret storage
 ```
+
+> The app **starts** with all API keys empty — every provider will show
+> "No Key" in the Providers panel, but the UI is fully navigable. Fill
+> in at least one key to make real requests.
 
 ### 2. Start the full local stack with Docker Compose
 
