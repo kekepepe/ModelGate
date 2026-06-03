@@ -461,6 +461,24 @@ def _persist_generation_artifacts(*, task: GenerationTask, output: dict) -> dict
     return additions
 
 
+def resolve_primary_artifact(task: GenerationTask) -> tuple[str | None, str | None]:
+    """Return ``(storage_key, kind)`` for the single primary artifact, or
+    ``(None, None)`` for multi-artifact or no-artifact tasks.
+
+    The ``/tasks/{id}/result`` endpoint uses this to decide between a
+    single-file redirect (for video-only or image-only tasks) and the JSON
+    envelope (for first_last_frame_video or any task with multiple outputs).
+    """
+    output = task.output_json or {}
+    keys: list[tuple[str, str]] = []
+    for field in ("videoStorageKey", "imageStorageKey"):
+        if output.get(field):
+            keys.append((output[field], field.replace("StorageKey", "").lower()))
+    if len(keys) == 1:
+        return keys[0]
+    return None, None
+
+
 def _download_to_storage(
     *,
     url: str,

@@ -198,3 +198,103 @@ def test_generation_worker_submit_poll_and_logs(monkeypatch) -> None:
     assert task.progress == 100
     assert task.output_json["outputs"][0]["type"] == "video"
     assert len(logs) == 2
+
+
+def _make_completed_task(*, output_json: dict, task_id: str) -> None:
+    """Insert a completed GenerationTask with the given output_json, bypassing
+    the worker so the tests don't need to wait for or mock a download path.
+    """
+    with SessionLocal() as db:
+        db.add(
+            GenerationTask(
+                id=task_id,
+                provider_id="mimo",
+                model_id="mimo.mimo_v2_5",
+                task_type="text_to_video",
+                input_json={"prompt": "result test"},
+                params_json={},
+                output_json=output_json,
+                status="completed",
+                progress=100,
+                completed_at=datetime.now(timezone.utc),
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        db.commit()
+
+
+def test_result_redirects_to_storage_key_for_single_video() -> None:
+    require_local_port(5432)
+    require_local_port(6379)
+    task_id = f"task_result_redir_{datetime.now(timezone.utc).timestamp()}"
+    storage_key = "outputs/videos/2026/06/03/fake.mp4"
+    _make_completed_task(
+        task_id=task_id,
+        output_json={"videoStorageKey": storage_key, "videoStorageUrl": f"/api/files/_by_key/{storage_key}"},
+    )
+
+    with TestClient(app) as client:
+        # follow_redirects=False so we can inspect the 302 itself.
+        response = client.get(f"/api/generation/tasks/{task_id}/result", follow_redirects=False)
+
+    assert response.status_code == 302
+    assert response.headers["location"] == f"/api/files/_by_key/{storage_key}"
+    assert "Content-Disposition" in response.headers
+    assert task_id in response.headers["Content-Disposition"]
+
+
+def test_result_returns_descriptor_for_multi_artifact() -> None:
+    require_local_port(5432)
+    require_local_port(6379)
+    task_id = f"task_result_multi_{datetime.now(timezone.utc).timestamp()}"
+    video_key = "outputs/videos/2026/06/03/first.mp4"
+    image_key = "outputs/images/2026/06/03/last.jpg"
+    _make_completed_task(
+        task_id=task_id,
+        output_json={
+            "videoStorageKey": video_key,
+            "videoStorageUrl": f"/api/files/_by_key/{video_key}",
+            "imageStorageKey": image_key,
+            "imageStorageUrl": f"/api/files/_by_key/{image_key}",
+        },
+    )
+
+    with TestClient(app) as client:
+        response = client.get(f"/api/generation/tasks/{task_id}/result")
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["data"]["taskId"] == task_id
+    assert body["data"]["status"] == "completed"
+    assert body["data"]["output"]["videoStorageUrl"] == f"/api/files/_by_key/{video_key}"
+    assert body["data"]["output"]["imageStorageUrl"] == f"/api/files/_by_key/{image_key}"
+
+
+def test_result_not_completed_returns_409() -> None:
+    require_local_port(5432)
+    require_local_port(6379)
+    task_id = f"task_result_409_{datetime.now(timezone.utc).timestamp()}"
+    with SessionLocal() as db:
+        db.add(
+            GenerationTask(
+                id=task_id,
+                provider_id="mimo",
+                model_id="mimo.mimo_v2_5",
+                task_type="text_to_video",
+                input_json={"prompt": "still running"},
+                params_json={},
+                output_json={},
+                status="processing",
+                progress=42,
+                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+            )
+        )
+        db.commit()
+
+    with TestClient(app) as client:
+        response = client.get(f"/api/generation/tasks/{task_id}/result")
+
+    assert response.status_code == 409
+    body = response.json()
+    assert body["data"]["status"] == "processing"
+    assert body["data"]["progress"] == 42

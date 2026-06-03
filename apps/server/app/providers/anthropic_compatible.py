@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 from typing import Any
 
 import httpx
@@ -9,12 +10,15 @@ from app.providers.errors import map_httpx_error
 
 
 class AnthropicCompatibleAdapter:
-    def __init__(self, *, provider_id: str, base_url: str, api_key: str):
+    def __init__(self, provider_id: str, base_url: str, api_key: str):
         self.provider_id = provider_id
         self.base_url = base_url.rstrip("/")
         self.api_key = api_key
 
     async def chat(self, input_data: ChatInput) -> ChatOutput:
+        if input_data.cancel_event is not None and input_data.cancel_event.is_set():
+            raise asyncio.CancelledError()
+
         system, messages = _split_system_messages(input_data)
         payload: dict[str, Any] = {
             "model": input_data.provider_model_name,
@@ -34,6 +38,8 @@ class AnthropicCompatibleAdapter:
                     json=payload,
                 )
                 response.raise_for_status()
+            except asyncio.CancelledError:
+                raise
             except httpx.HTTPError as exc:
                 raise map_httpx_error(exc) from exc
 

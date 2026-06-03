@@ -53,6 +53,7 @@ class ChatInput(BaseModel):
     adapter_config: dict[str, Any] = Field(default_factory=dict)
     request_id: str
     timeout_seconds: float = 120
+    cancel_event: Any = None  # asyncio.Event | None — typed as Any so pydantic keeps it out of the schema
 
 
 class ChatOutput(BaseModel):

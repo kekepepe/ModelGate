@@ -1,11 +1,12 @@
 from fastapi import APIRouter, Depends
+from fastapi.responses import JSONResponse, RedirectResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.db.models import GenerationTask
 from app.db.session import get_db
-from app.services.generation_runtime import generation_runtime
+from app.services.generation_runtime import generation_runtime, resolve_primary_artifact
 
 router = APIRouter()
 
@@ -70,14 +71,49 @@ async def get_generation_task_result(task_id: str, db: Session = Depends(get_db)
     record = db.get(GenerationTask, task_id)
     if record is None:
         raise AppError("GENERATION_TASK_NOT_FOUND", f"Task not found: {task_id}", 404)
+    if record.status != "completed":
+        # Not ready yet — surface the current state with 409 so the frontend
+        # can distinguish "still running" from "done" without parsing JSON.
+        return JSONResponse(
+            status_code=409,
+            content={
+                "data": {
+                    "taskId": record.id,
+                    "status": record.status,
+                    "progress": record.progress,
+                    "output": record.output_json or {},
+                }
+            },
+        )
+
+    storage_key, kind = resolve_primary_artifact(record)
+    if storage_key is not None and kind is not None:
+        # Single-artifact tasks (text_to_image / image_to_image / text_to_video /
+        # image_to_video): redirect to the streaming-by-key endpoint so the
+        # browser handles the download directly. Using a redirect (rather than
+        # streaming the bytes through this endpoint) avoids buffering large
+        # videos in memory twice.
+        return RedirectResponse(
+            url=f"/api/files/_by_key/{storage_key}",
+            status_code=302,
+            headers={"Content-Disposition": f'attachment; filename="{record.id}_{kind}{_extension_for_kind(kind)}"'},
+        )
+
+    # Multi-artifact or no-artifact: return the JSON descriptor so the
+    # client can render multiple previews / pick which to download.
+    output = dict(record.output_json or {})
     return {
         "data": {
             "taskId": record.id,
             "status": record.status,
             "progress": record.progress,
-            "output": record.output_json or {},
+            "output": output,
         }
     }
+
+
+def _extension_for_kind(kind: str) -> str:
+    return ".mp4" if kind == "video" else ".bin"
 
 
 @router.post("/tasks/{task_id}/cancel")

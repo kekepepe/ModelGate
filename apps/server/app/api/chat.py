@@ -92,6 +92,16 @@ async def cancel_run(run_id: str, db: Session = Depends(get_db)):
     record = db.get(Run, run_id)
     if record is None:
         raise AppError("RUN_NOT_FOUND", f"Run not found: {run_id}", 404)
+
+    # Signal the in-flight chat coroutine first; the runtime will write the
+    # terminal cancelled state to the DB inside its except CancelledError
+    # branch. Streaming runs rely on the event alone (the SSE generator
+    # checks it between deltas); non-streaming runs additionally get a
+    # task.cancel() so the in-flight httpx request is interrupted.
+    _event, task = chat_runtime.request_cancel(run_id)
+    if task is not None and not task.done():
+        task.cancel()
+
     if record.status not in {"completed", "failed", "cancelled"}:
         record.status = "cancelled"
         db.commit()

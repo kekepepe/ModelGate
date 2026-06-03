@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 from collections.abc import AsyncIterator
 from datetime import UTC, datetime
@@ -21,6 +22,28 @@ FILE_CONTEXT_END = "END_USER_FILE_CONTEXT"
 
 
 class ChatRuntime:
+    def __init__(self) -> None:
+        # run_id -> (cancel_event, owning_task). ``owning_task`` is the asyncio task
+        # for non-streaming runs (so we can ``task.cancel()`` to abort the in-flight
+        # httpx request). For streaming runs the task reference is omitted — the
+        # stream generator watches the event between SSE deltas instead.
+        self._inflight: dict[str, tuple[asyncio.Event, asyncio.Task | None]] = {}
+
+    def register_inflight(self, run_id: str, *, task: asyncio.Task | None = None) -> asyncio.Event:
+        event = asyncio.Event()
+        self._inflight[run_id] = (event, task)
+        return event
+
+    def request_cancel(self, run_id: str) -> tuple[asyncio.Event | None, asyncio.Task | None]:
+        entry = self._inflight.get(run_id)
+        if entry is None:
+            return None, None
+        event, task = entry
+        event.set()
+        return event, task
+
+    def _deregister(self, run_id: str) -> None:
+        self._inflight.pop(run_id, None)
     async def run_chat(
         self,
         *,
@@ -57,6 +80,8 @@ class ChatRuntime:
         db.commit()
         db.refresh(run)
 
+        cancel_event = self.register_inflight(run.id, task=asyncio.current_task())
+
         request_payload = {}
         latency_ms = None
         try:
@@ -73,6 +98,7 @@ class ChatRuntime:
                 params=provider_params,
                 adapter_config=model.get("adapterConfig") or {},
                 request_id=run.id,
+                cancel_event=cancel_event,
             )
             request_payload = _safe_request_payload(chat_input)
 
@@ -97,6 +123,22 @@ class ChatRuntime:
                 latency_ms=latency_ms,
             )
             self._write_usage_log(db=db, run=run, usage=output.usage)
+        except asyncio.CancelledError:
+            run.status = "cancelled"
+            run.error_type = "RUN_CANCELLED"
+            run.error_message = "Run cancelled by user."
+            run.completed_at = _now()
+            self._write_request_log(
+                db=db,
+                run=run,
+                request_payload=request_payload,
+                response_payload=None,
+                status_code=None,
+                latency_ms=latency_ms,
+                error_type="RUN_CANCELLED",
+                error_message="Run cancelled by user.",
+            )
+            raise
         except ProviderError as exc:
             run.status = "failed"
             run.error_type = exc.error_type
@@ -134,6 +176,7 @@ class ChatRuntime:
                 error_message=str(exc)[:500],
             )
         finally:
+            self._deregister(run.id)
             db.commit()
             db.refresh(run)
 
@@ -179,11 +222,18 @@ class ChatRuntime:
         db.refresh(run)
         yield {"type": "run", "runId": run.id, "status": run.status}
 
+        # Streaming registers both the event and the current task. The event
+        # is checked by adapters between deltas for a graceful stop; the task
+        # handle is used as a backstop to interrupt adapter coroutines that
+        # are blocked in a long ``asyncio.sleep`` (e.g. provider backoff).
+        cancel_event = self.register_inflight(run.id, task=asyncio.current_task())
+
         request_payload = {}
         latency_ms = None
         content_parts: list[str] = []
         metadata = {}
         usage = {}
+        terminal_event: dict | None = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
             messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files)
@@ -199,6 +249,7 @@ class ChatRuntime:
                 params=provider_params,
                 adapter_config=model.get("adapterConfig") or {},
                 request_id=run.id,
+                cancel_event=cancel_event,
             )
             request_payload = _safe_request_payload(chat_input)
             adapter = create_chat_adapter(provider=provider, model=model)
@@ -235,6 +286,22 @@ class ChatRuntime:
                 latency_ms=latency_ms,
             )
             self._write_usage_log(db=db, run=run, usage=usage)
+        except asyncio.CancelledError:
+            run.status = "cancelled"
+            run.error_type = "RUN_CANCELLED"
+            run.error_message = "Run cancelled by user."
+            run.completed_at = _now()
+            self._write_request_log(
+                db=db,
+                run=run,
+                request_payload=request_payload,
+                response_payload=None,
+                status_code=None,
+                latency_ms=latency_ms,
+                error_type="RUN_CANCELLED",
+                error_message="Run cancelled by user.",
+            )
+            terminal_event = {"type": "cancelled", "runId": run.id}
         except ProviderError as exc:
             run.status = "failed"
             run.error_type = exc.error_type
@@ -250,13 +317,13 @@ class ChatRuntime:
                 error_type=exc.error_type,
                 error_message=exc.message,
             )
-            yield {"type": "error", "errorType": exc.error_type, "message": exc.message}
+            terminal_event = {"type": "error", "errorType": exc.error_type, "message": exc.message}
         except AppError as exc:
             run.status = "failed"
             run.error_type = exc.error_type
             run.error_message = exc.message
             run.completed_at = _now()
-            yield {"type": "error", "errorType": exc.error_type, "message": exc.message}
+            terminal_event = {"type": "error", "errorType": exc.error_type, "message": exc.message}
         except Exception as exc:
             run.status = "failed"
             run.error_type = "CHAT_RUNTIME_ERROR"
@@ -272,12 +339,23 @@ class ChatRuntime:
                 error_type="CHAT_RUNTIME_ERROR",
                 error_message=str(exc)[:500],
             )
-            yield {"type": "error", "errorType": "CHAT_RUNTIME_ERROR", "message": "Chat runtime failed."}
+            terminal_event = {"type": "error", "errorType": "CHAT_RUNTIME_ERROR", "message": "Chat runtime failed."}
         finally:
-            db.commit()
-            db.refresh(run)
+            self._deregister(run.id)
+            # Yielding inside the except/finally can cause the cleanup path
+            # to throw at a suspended yield when the consumer breaks out of
+            # the async-for loop, which then trips ``db.refresh`` against a
+            # detached instance. Defer terminal events to *after* the commit.
+            try:
+                db.commit()
+                db.refresh(run)
+            except Exception:
+                pass
 
-        yield {"type": "done", "run": _serialize_stream_run(run)}
+        if terminal_event is not None:
+            yield terminal_event
+        else:
+            yield {"type": "done", "run": _serialize_stream_run(run)}
 
     def _validate_model_for_task(self, *, model: dict, task_type: str) -> None:
         if task_type not in model.get("taskTypes", []):

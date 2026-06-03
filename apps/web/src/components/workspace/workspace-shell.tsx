@@ -31,12 +31,14 @@ import {
   UploadCloud,
   Video,
   WandSparkles,
+  XCircle,
 } from "lucide-react";
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE_URL, ApiError, deleteData, getData, postData, uploadData } from "@/lib/api";
+import { getTemplatesForTask, type PromptTemplate } from "@/lib/prompt-templates";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import type { FileRecord, ModelInfo, ParamField, ParamSchema, Provider, RecommendResult, RunRecord } from "@/types/model";
 
@@ -92,6 +94,7 @@ export function WorkspaceShell() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const currentRunIdRef = useRef<string | null>(null);
   const [activeResultTab, setActiveResultTab] = useState<"preview" | "status" | "archive">("preview");
 
   const selectedTaskType = useWorkspaceStore((state) => state.selectedTaskType);
@@ -202,6 +205,7 @@ export function WorkspaceShell() {
       if (!runPayload.modelId) {
         throw new Error("请选择模型后再运行。");
       }
+      currentRunIdRef.current = null;
       return streamChatRun(
         {
           taskType: runPayload.taskType,
@@ -211,6 +215,7 @@ export function WorkspaceShell() {
           params: runPayload.params,
         },
         (run) => {
+          if (run.id) currentRunIdRef.current = run.id;
           setLatestRun(run);
           setActiveResultTab("preview");
         },
@@ -219,6 +224,29 @@ export function WorkspaceShell() {
     onSuccess: (run) => {
       setLatestRun(run);
       setActiveResultTab("preview");
+      queryClient.invalidateQueries({ queryKey: ["history-runs"] });
+      currentRunIdRef.current = null;
+    },
+    onError: () => {
+      currentRunIdRef.current = null;
+    },
+    onSettled: () => {
+      currentRunIdRef.current = null;
+    },
+  });
+
+  const cancelMutation = useMutation({
+    mutationFn: () => {
+      const runId = currentRunIdRef.current;
+      if (!runId) {
+        return Promise.resolve(null);
+      }
+      return postData<{ data: RunRecord }>(`/chat/runs/${runId}/cancel`, {});
+    },
+    onSuccess: (response) => {
+      if (response?.data) {
+        setLatestRun({ ...response.data, status: "cancelled" });
+      }
       queryClient.invalidateQueries({ queryKey: ["history-runs"] });
     },
   });
@@ -239,6 +267,7 @@ export function WorkspaceShell() {
             canRun={canRun}
             running={runMutation.isPending}
             onRun={() => runMutation.mutate(undefined)}
+            onCancel={() => cancelMutation.mutate()}
             onReset={() => resetWorkspace()}
           />
           <section className="min-w-0 flex-1 space-y-3 p-3 lg:p-4">
@@ -375,6 +404,23 @@ async function streamChatRun(
         });
       }
     }
+    if (event.type === "cancelled") {
+      // Backend signaled cancellation (event between deltas, or in response
+      // to /cancel). Stop reading further chunks and surface the cancelled
+      // state through the latestRun — the caller also triggers the cancel
+      // HTTP request, so the run is fully terminal on the server side too.
+      onPartialRun({
+        id: runId || String(event.runId ?? ""),
+        taskType: payload.taskType,
+        providerId: "",
+        modelId: payload.modelId,
+        input: { prompt: payload.prompt, fileIds: payload.fileIds },
+        params: payload.params,
+        output: { type: "text", text: outputText },
+        status: "cancelled",
+      });
+      throw new CancelledRunError(runId || String(event.runId ?? ""));
+    }
     if (event.type === "error") {
       throw buildStreamingEventError(event);
     }
@@ -385,15 +431,39 @@ async function streamChatRun(
 
   while (true) {
     const { value, done } = await reader.read();
-    buffer += decoder.decode(value ?? new Uint8Array(), { stream: !done });
+    if (done) break;
+    buffer += decoder.decode(value, { stream: true });
     const parts = buffer.split("\n\n");
     buffer = parts.pop() ?? "";
     for (const part of parts) {
       const line = part.split("\n").find((item) => item.startsWith("data:"));
       if (!line) continue;
-      applyEvent(JSON.parse(line.slice(5).trim()));
+      try {
+        applyEvent(JSON.parse(line.slice(5).trim()));
+      } catch (eventError) {
+        // CancelledRunError is the signal to short-circuit out of the
+        // stream without surfacing an error to the caller — the run is in
+        // a terminal cancelled state and the UI already reflects that.
+        if (eventError instanceof CancelledRunError) {
+          try {
+            await reader.cancel();
+          } catch {
+            // best-effort: the stream is already being torn down
+          }
+          return {
+            id: eventError.runId,
+            taskType: payload.taskType,
+            providerId: "",
+            modelId: payload.modelId,
+            input: { prompt: payload.prompt, fileIds: payload.fileIds },
+            params: payload.params,
+            output: { type: "text", text: outputText },
+            status: "cancelled",
+          };
+        }
+        throw eventError;
+      }
     }
-    if (done) break;
   }
 
   if (doneRun) return doneRun;
@@ -407,6 +477,13 @@ async function streamChatRun(
     output: { type: "text", text: outputText },
     status: "completed",
   };
+}
+
+class CancelledRunError extends Error {
+  constructor(public runId: string) {
+    super(`Run ${runId} cancelled.`);
+    this.name = "CancelledRunError";
+  }
 }
 
 function buildStreamingEventError(event: Record<string, unknown>): Error {
@@ -508,11 +585,13 @@ function Topbar({
   canRun,
   running,
   onRun,
+  onCancel,
   onReset,
 }: {
   canRun: boolean;
   running: boolean;
   onRun: () => void;
+  onCancel: () => void;
   onReset: () => void;
 }) {
   return (
@@ -527,16 +606,28 @@ function Topbar({
         <Plus className="h-4 w-4" aria-hidden="true" />
         新建任务
       </button>
-      <button
-        type="button"
-        disabled={!canRun || running}
-        onClick={onRun}
-        className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
-        title="运行"
-      >
-        <Play className="h-4 w-4" aria-hidden="true" />
-        {running ? "运行中" : "运行"}
-      </button>
+      {running ? (
+        <button
+          type="button"
+          onClick={onCancel}
+          className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white hover:bg-rose-500"
+          title="取消运行"
+        >
+          <XCircle className="h-4 w-4" aria-hidden="true" />
+          取消
+        </button>
+      ) : (
+        <button
+          type="button"
+          disabled={!canRun}
+          onClick={onRun}
+          className="inline-flex items-center gap-2 rounded-lg bg-violet-600 px-4 py-2 text-sm font-medium text-white disabled:cursor-not-allowed disabled:bg-slate-700 disabled:text-slate-400"
+          title="运行"
+        >
+          <Play className="h-4 w-4" aria-hidden="true" />
+          运行
+        </button>
+      )}
     </header>
   );
 }
@@ -679,13 +770,7 @@ function TaskInputPanel({
             <label htmlFor="workspace-prompt" className="text-sm font-semibold text-slate-200">
               输入 / Prompt
             </label>
-            <button
-              type="button"
-              onClick={() => onPromptChange(promptExampleFor(selectedTask.id))}
-              className="rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-blue-500"
-            >
-              示例
-            </button>
+            <PromptTemplatePopover taskId={selectedTask.id} onSelect={(template) => onPromptChange(template.prompt)} />
           </div>
           <textarea
             id="workspace-prompt"
@@ -953,6 +1038,68 @@ function ParameterField({
 
 function OutputPreview({ run, error, selectedModel }: { run: RunRecord | null; error: Error | null; selectedModel?: ModelInfo }) {
   if (error) return <ErrorBanner error={error} />;
+
+  // Storage URLs from generation tasks (or any future chat adapter that
+  // surfaces media) come back as relative paths — the API serves them on the
+  // same origin, so just prefix the base URL.
+  const toAbsolute = (url: string) =>
+    url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL.replace(/\/api$/, "")}${url}`;
+
+  const videoStorageUrl = (run?.output as { videoStorageUrl?: string } | null)?.videoStorageUrl;
+  const imageStorageUrl = (run?.output as { imageStorageUrl?: string } | null)?.imageStorageUrl;
+  const videoUrl = run?.output?.videoUrl ?? (videoStorageUrl ? toAbsolute(videoStorageUrl) : undefined);
+  const imageUrl = run?.output?.imageUrl ?? (imageStorageUrl ? toAbsolute(imageStorageUrl) : undefined);
+
+  if (videoUrl) {
+    return (
+      <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-violet-300">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <Video className="h-4 w-4" aria-hidden="true" />
+            <span>{selectedModel?.displayName ?? run?.modelId} 视频输出</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.open(videoUrl, "_blank", "noopener,noreferrer")}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300"
+            title="下载视频"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            下载
+          </button>
+        </div>
+        <video controls src={videoUrl} className="max-h-96 w-full rounded-lg border border-slate-800 bg-slate-950" />
+      </div>
+    );
+  }
+
+  if (imageUrl) {
+    return (
+      <div className="space-y-3 text-sm">
+        <div className="flex flex-wrap items-center gap-2 text-violet-300">
+          <div className="flex min-w-0 flex-1 items-center gap-2">
+            <ImageIcon className="h-4 w-4" aria-hidden="true" />
+            <span>{selectedModel?.displayName ?? run?.modelId} 图片输出</span>
+          </div>
+          <button
+            type="button"
+            onClick={() => window.open(imageUrl, "_blank", "noopener,noreferrer")}
+            className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300"
+            title="下载图片"
+          >
+            <Download className="h-3.5 w-3.5" aria-hidden="true" />
+            下载
+          </button>
+        </div>
+        <img
+          src={imageUrl}
+          alt={selectedModel?.displayName ?? "image output"}
+          className="max-h-96 max-w-full rounded-lg border border-slate-800 bg-slate-950 object-contain"
+        />
+      </div>
+    );
+  }
+
   if (run?.output?.text) {
     const downloadText = () => {
       const blob = new Blob([run.output?.text ?? ""], { type: "text/plain;charset=utf-8" });
@@ -1233,14 +1380,64 @@ function capabilityLabel(capability: string) {
   return labels[capability] ?? capability;
 }
 
-function promptExampleFor(taskId: string) {
-  if (taskId === "document_analysis") {
-    return "请基于上传的需求文档，生成一份系统设计方案大纲，包括架构图（Mermaid）、核心模块说明、技术栈建议和接口定义。";
-  }
-  if (taskId === "coding") return "请用 TypeScript 实现一个带输入校验、错误处理和单元测试的 API client。";
-  if (taskId === "code_review") return "请审查这段代码的可靠性、安全性和可维护性，并给出可执行的修改建议。";
-  if (taskId === "prompt_optimize") return "请把下面的提示词优化成结构清晰、约束明确、输出格式稳定的版本。";
-  return "请用简洁准确的方式回答我的问题，并在必要时给出步骤和示例。";
+function PromptTemplatePopover({
+  taskId,
+  onSelect,
+}: {
+  taskId: string;
+  onSelect: (template: PromptTemplate) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const templates = useMemo(() => getTemplatesForTask(taskId), [taskId]);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    const handleClick = (event: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
+        setOpen(false);
+      }
+    };
+    document.addEventListener("mousedown", handleClick);
+    return () => document.removeEventListener("mousedown", handleClick);
+  }, [open]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((value) => !value)}
+        className="inline-flex items-center gap-1 rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:border-blue-500"
+        title="选择 Prompt 模板"
+      >
+        <WandSparkles className="h-3.5 w-3.5" aria-hidden="true" />
+        模板
+      </button>
+      {open ? (
+        <div className="absolute right-0 z-30 mt-1 w-72 rounded-md border border-slate-700 bg-slate-900 p-1 shadow-xl shadow-black/40">
+          {templates.length === 0 ? (
+            <div className="px-3 py-2 text-xs text-slate-500">该任务暂无模板。</div>
+          ) : (
+            templates.map((template) => (
+              <button
+                key={template.id}
+                type="button"
+                onClick={() => {
+                  onSelect(template);
+                  setOpen(false);
+                }}
+                className="w-full rounded px-3 py-2 text-left text-xs text-slate-200 hover:bg-slate-800"
+                title={template.prompt}
+              >
+                <div className="font-medium">{template.title}</div>
+                <div className="mt-0.5 line-clamp-2 text-slate-500">{template.prompt}</div>
+              </button>
+            ))
+          )}
+        </div>
+      ) : null}
+    </div>
+  );
 }
 
 const fallbackProviders: Provider[] = [

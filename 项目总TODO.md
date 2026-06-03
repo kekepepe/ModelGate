@@ -398,8 +398,8 @@
   状态：`chat`、`coding`、`code_review`、`document_analysis`、`prompt_optimize` 已分别注入身份定位、能力边界、工作方式和输出规范；文件内容仍只进入 user context 边界。
 - [X] 流式输出。
   状态：已新增 `/api/chat/runs/stream` SSE endpoint，OpenAI-compatible Adapter 支持 streaming delta，前端运行按钮会逐步更新输出。
-- [ ] Abort / cancel。  
-  状态：接口已预留；非流式同步请求运行中取消后续再做。
+- [X] Abort / cancel。  
+  状态：`ChatRuntime._inflight` 注册表 + `request_cancel` / `_deregister`；providers 监听 cancel_event 提前退出；chat_runtime 捕获 `CancelledError` 写 `RUN_CANCELLED` 状态；前端 `cancelMutation` + SSE `cancelled` 事件识别。`tests/test_chat_phase6.py` 3 个新用例 + 旧 3 个全过。
 - [X] 保存 runs。
 - [X] 保存 request_logs。
 - [X] 保存 usage_logs。
@@ -442,8 +442,8 @@
 - [X] 任务超时。
 - [X] 任务取消。
 - [X] 任务重跑。
-- [ ] 结果文件下载。  
-  状态：已保留 `generation.download_outputs` Worker 占位；真实 provider URL 下载待接入生成模型时补齐。
+- [X] 结果文件下载。  
+  状态：`/api/generation/tasks/{id}/result` 已分流：单产物 completed 任务 302 重定向到 `/api/files/_by_key/{key}`（带 `Content-Disposition`）；多产物/无产物返回 JSON descriptor；非 completed 返回 409。`tests/test_generation_phase7.py` 3 个新用例（redirect / multi / 409）全过。前端 `OutputPreview` 已支持 video / image 渲染 + 下载。
 - [ ] 输出文件持久化。  
   状态：已保留输出引用落库结构；真实二进制持久化待接入生成模型时补齐。
 
@@ -584,7 +584,14 @@
 - [ ] 多模型结果对比。
 - [ ] 批量生成。
 - [ ] 自动 fallback。
-- [ ] Prompt 模板库。
+- [X] Prompt 模板库。  
+  状态：`apps/web/src/lib/prompt-templates.ts` 提供 chat / coding / code_review / document_analysis / prompt_optimize 模板；`apps/web/src/components/workspace/workspace-shell.tsx::PromptTemplatePopover` 用 popover 替换原 `示例` 按钮，选中后填充 prompt。
+- [X] 历史记录详情 / 重跑 / 删除。  
+  状态：`apps/web/src/components/history/history-client.tsx` 升级：点击条目打开详情抽屉展示 input / params / output / error；重跑调 `POST /api/chat/runs` 并跳转 `/workspace`；删除调 `DELETE /api/history/{id}`。
+- [X] 请求日志详情 / 过滤。  
+  状态：`apps/server/app/api/logs.py::list_request_logs` 新增 `providerId` / `recordType` / `recordId` / `limit` 查询参数；前端 history-client 加 3 个 filter（queryKey 同步），条目点击复用详情抽屉展示 request / response / statusCode / latencyMs。
+- [X] 工作台草稿持久化。  
+  状态：`apps/web/src/stores/workspace-store.ts` 用 localStorage key `modelgate.workspace.draft.v1` 持久化 `selectedTaskType` / `selectedModelId` / `providerFilter` / `prompt` / `params`；setter 同步写回；`resetWorkspace` 清空。files 与 latestRun 不进草稿。
 - [ ] 成本统计面板。
 - [ ] Provider 健康检查。
 
