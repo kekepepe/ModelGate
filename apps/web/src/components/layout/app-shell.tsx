@@ -7,6 +7,7 @@ import { Sheet, SheetContent } from "@/components/ui/sheet";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { getData } from "@/lib/api";
+import { cn } from "@/lib/utils";
 import type { Provider } from "@/types/model";
 import { useQuery } from "@tanstack/react-query";
 
@@ -82,7 +83,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </div>
 
         {/* Page content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        <main className={cn("flex-1 overflow-y-auto", base !== "/workspace" && "p-6")}>{children}</main>
       </div>
     </div>
   );

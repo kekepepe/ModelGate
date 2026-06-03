@@ -634,10 +634,14 @@
 
 ### 12.2 Playground 中央工作台
 
-- [ ] 将 `/workspace` 从三栏主布局调整为中央输入工作台 + 下方结果区。
-- [ ] 中央工作台包含任务 Tabs、Prompt / 文件输入、模型选择、输出格式、Advanced、Run / Cancel。
+- [ ] 将首页优先入口调整为 Playground；Overview 后续作为左侧导航中的仪表盘页面。
+- [ ] 将 `/workspace` 从三栏主布局调整为右侧主区域居中的对话框式 Playground + 下方结果区。
+- [ ] 在对话框上方放模式 Tabs：Chat、Coding、Code Review、Document Analysis、Prompt Optimize、Generation。
+- [ ] 对话框内部包含模型选择、Prompt / instruction 输入、文件 chips、Run / Cancel。
+- [ ] 将上传文件入口改成对话框左下角 `+` 图标按钮。
+- [ ] 将参数入口改成对话框左下角小图标按钮，hover 显示 `Parameters`。
 - [ ] 保留当前任务类型、模型推荐、文件上传、流式输出、取消和结果展示逻辑。
-- [ ] 将右侧常驻参数面板改成 Advanced Params Popover / Sheet。
+- [ ] 将右侧常驻参数面板改成由对话框左下角参数按钮触发的 Advanced Params Popover / Sheet。
 - [ ] 参数仍由 `paramsSchema` 动态渲染，不能写死字段。
 
 ### 12.3 Usage 统计页

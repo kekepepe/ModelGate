@@ -99,19 +99,27 @@ Sidebar 底部保留：
 
 ### 5.2 Playground / Workspace 页面
 
-目标：把当前三栏工作台收敛成更像 API Playground 的中央工作台，同时保留 ModelGate 的任务优先逻辑。
+目标：把当前三栏工作台收敛成更像 API Playground 的对话框式工作台，同时保留 ModelGate 的任务优先逻辑。第一版首页可以直接进入 Playground，不再先展示普通 Overview；Overview 后续作为左侧导航中的仪表盘页面。
 
 布局：
 
-- 页面上方：标题 `Playground` + 简短说明 `Run tasks across configured AI model providers`。
-- 中央 Tabs：Chat、Coding、Review、Document、Prompt Optimize、Generation。
-- 中央输入工作台：
-  - Prompt / instruction 输入框。
-  - File upload 入口。
-  - Model selector。
-  - Output format selector。
-  - Advanced params 按钮。
-  - Run / Cancel 按钮。
+- 页面外壳：左侧固定 Sidebar，右侧主区域使用大留白和浅边框网格背景。
+- 右侧主区域中间放置一个对话框式 Playground，宽度建议 `760px-860px`，垂直位置略高于正中，参考 `03-playground-advanced-options.png` 的输入卡片位置。
+- 对话框上方放模式选择 Tabs：
+  - `Chat`
+  - `Coding`
+  - `Code Review`
+  - `Document Analysis`
+  - `Prompt Optimize`
+  - `Generation`
+- Tabs 下方是单个主对话框：
+  - 顶部或首行显示当前模型选择器，例如 `Model: MiMo-V2.5-Pro`。
+  - 中部是 Prompt / instruction 输入区，支持多行输入。
+  - 左下角放两个小按钮：
+    - `+`：上传文件，点击后打开文件选择；上传成功后在输入区下方显示文件 chips。
+    - 参数按钮：使用 sliders/tune 图标，点击后打开 Advanced Params 浮层。
+  - 右下角放 `Run` / `Cancel` 主操作按钮。
+  - 可选：输出格式、Provider filter 收进参数浮层或模型选择器附近，避免主对话框过载。
 - 下方结果区：
   - Output preview。
   - Status timeline。
@@ -124,15 +132,49 @@ Sidebar 底部保留：
 - 选择模型后仍由 `paramsSchema` 动态生成参数。
 - 运行后仍写入 `runs`、`request_logs`、`usage_logs`。
 
+### 5.2.1 首页 Playground 对话框细化
+
+对话框结构建议：
+
+```text
+右侧主区域
+┌──────────────────────────────────────────────────────────────┐
+│                                                              │
+│                Chat | Coding | Review | Document             │
+│                                                              │
+│          ┌────────────────────────────────────────┐          │
+│          │ Model: MiMo-V2.5-Pro        Provider   │          │
+│          │                                        │          │
+│          │  Describe what you want to run...      │          │
+│          │                                        │          │
+│          │  [+] [params]                  [Run]   │          │
+│          └────────────────────────────────────────┘          │
+│                                                              │
+│          Output / status / request summary                   │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+```
+
+交互规则：
+
+- 点击模式 Tab 时更新 `selectedTaskType`，并触发现有模型推荐逻辑。
+- `+` 按钮只负责文件上传，不在按钮旁放长文案；文件上传状态用 chips 展示在对话框内部底部区域。
+- 参数按钮用图标按钮表现，hover tooltip 显示 `Parameters`。
+- 参数按钮打开的浮层应贴近对话框左下角，而不是右侧常驻大面板。
+- Run 按钮固定在对话框右下角，运行中替换为 Cancel 或显示停止图标。
+- 对话框内部不要同时放过多解释性文案，避免变成营销页。
+
 ### 5.3 Advanced Params 参数弹窗
 
-目标：参考第三张图的“输入条下方浮层”，把参数从右侧常驻面板改为可开合的 Popover/Sheet。
+目标：参考第三张图的“输入条下方浮层”，把参数从右侧常驻面板改为由对话框左下角参数按钮触发的 Popover/Sheet。
 
 桌面端：
 
-- 点击 Advanced 按钮后，在中央输入工作台下方打开参数 Popover。
-- Popover 宽度约 `520px`，与输入条左侧对齐。
+- 点击对话框左下角参数按钮后，在对话框下方或左下侧打开参数 Popover。
+- Popover 宽度约 `480px-560px`，与对话框左边缘或参数按钮对齐。
 - 参数按 group 分区：Generation、Sampling、Limits、Output、Provider。
+- Popover 顶部标题使用 `Parameters`，右侧放关闭按钮。
+- 底部放 `Reset` 和 `Apply`；简单参数可即时生效，但视觉上保留确认操作更清晰。
 
 中小屏：
 
@@ -263,8 +305,10 @@ apps/web/src/components/providers/
 
 ### P1：重做 Playground 工作台
 
-- [ ] 将当前三栏工作台改成中央输入工作台 + 结果区结构。
-- [ ] 将右侧常驻参数面板改成 Advanced Params Popover/Sheet。
+- [ ] 将当前三栏工作台改成右侧主区域居中的对话框式 Playground + 下方结果区结构。
+- [ ] 在对话框上方放模式 Tabs：Chat、Coding、Code Review、Document Analysis、Prompt Optimize、Generation。
+- [ ] 将上传文件入口改成对话框左下角 `+` 图标按钮。
+- [ ] 将右侧常驻参数面板改成由对话框左下角参数按钮触发的 Advanced Params Popover/Sheet。
 - [ ] 保留任务选择、模型推荐、文件上传、流式运行、取消、结果展示全部现有功能。
 - [ ] 在工作台下方提供 View logs / Copy output / Download result 操作。
 
