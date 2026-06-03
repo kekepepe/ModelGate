@@ -153,6 +153,35 @@ def serialize_usage_log(
     }
 
 
+def serialize_model_usage_row(row) -> dict:
+    """Shape one (model, provider) row from `get_usage_models` aggregation.
+
+    `row` is a SQLAlchemy Row produced by the GROUP BY query in
+    `get_usage_models`; field access goes through column labels
+    (`model_id`, `provider_id`, `provider_name`, `total_requests`,
+    `sum_total`, `sum_cost`, `success_requests`, `failed_requests`,
+    `sum_latency_seconds`).
+    """
+    requests = int(row.total_requests or 0)
+    return {
+        "model": row.model_name or row.model_id,
+        "modelId": row.model_id,
+        "provider": row.provider_name or row.provider_id,
+        "providerId": row.provider_id,
+        "requests": requests,
+        "tokens": int(row.sum_total or 0),
+        "cost": float(row.sum_cost or 0),
+        "successRate": (
+            (int(row.success_requests or 0) / requests) if requests else 0.0
+        ),
+        "avgLatencyMs": (
+            int((float(row.sum_latency_seconds or 0) / requests) * 1000)
+            if requests
+            else None
+        ),
+    }
+
+
 def _serialize_run(run: Run | None, task: GenerationTask | None) -> dict:
     if run is not None:
         return {
@@ -381,6 +410,7 @@ async def get_usage_providers(
 async def get_usage_models(
     startDate: datetime | None = Query(default=None, alias="startDate"),
     endDate: datetime | None = Query(default=None, alias="endDate"),
+    limit: int = Query(default=50, ge=1, le=200),
     db: Session = Depends(get_db),
 ):
     status_col = _status_bucket(
@@ -391,13 +421,22 @@ async def get_usage_models(
     base = _parent_joins(
         select(
             UsageLog.model_id.label("model_id"),
-            func.coalesce(Model.display_name, Model.official_model_name, UsageLog.model_id).label(
-                "model_name"
-            ),
+            func.coalesce(
+                Model.display_name, Model.official_model_name, UsageLog.model_id
+            ).label("model_name"),
+            UsageLog.provider_id.label("provider_id"),
             func.coalesce(Provider.name, UsageLog.provider_id).label("provider_name"),
             func.coalesce(func.sum(UsageLog.total_tokens), 0).label("sum_total"),
             func.coalesce(func.sum(UsageLog.estimated_cost), 0).label("sum_cost"),
             func.count(UsageLog.id).label("total_requests"),
+            func.coalesce(
+                func.sum(case((status_col == "success", 1), else_=0)),
+                0,
+            ).label("success_requests"),
+            func.coalesce(
+                func.sum(case((status_col.in_(_FAILED_BUCKETS), 1), else_=0)),
+                0,
+            ).label("failed_requests"),
             func.coalesce(
                 func.sum(
                     _latency_seconds(
@@ -407,75 +446,22 @@ async def get_usage_models(
                 ),
                 0,
             ).label("sum_latency_seconds"),
-            status_col,
-        ).outerjoin(
-            Model,
-            Model.id == UsageLog.model_id,
         )
+        .outerjoin(Model, Model.id == UsageLog.model_id)
         .outerjoin(Provider, Provider.id == UsageLog.provider_id)
     )
     base = base.where(UsageLog.model_id.is_not(None))
     base = _apply_date_range(base, startDate, endDate)
     base = base.group_by(
         UsageLog.model_id,
+        UsageLog.provider_id,
         Model.display_name,
         Model.official_model_name,
         Provider.name,
-        status_col,
-    )
+    ).order_by(desc("total_requests"))
 
     rows = db.execute(base).all()
-
-    per_model: dict[str, dict[str, Any]] = {}
-    for r in rows:
-        key = r.model_id
-        if key not in per_model:
-            per_model[key] = {
-                "model": r.model_name or r.model_id,
-                "modelId": r.model_id,
-                "provider": r.provider_name or r.model_id,
-                "requests": 0,
-                "tokens": 0,
-                "cost": 0.0,
-                "failedRequests": 0,
-                "successRequests": 0,
-                "latencySumSec": 0.0,
-            }
-        bucket = per_model[key]
-        count = int(r.total_requests or 0)
-        bucket["requests"] += count
-        bucket["tokens"] += int(r.sum_total or 0)
-        bucket["cost"] += float(r.sum_cost or 0)
-        bucket["latencySumSec"] += float(r.sum_latency_seconds or 0)
-        if r.status_bucket in _FAILED_BUCKETS:
-            bucket["failedRequests"] += count
-        if r.status_bucket == "success":
-            bucket["successRequests"] += count
-
-    data = []
-    for m in per_model.values():
-        total = m["requests"] or 1
-        avg_latency_ms = (
-            int((m["latencySumSec"] / m["requests"]) * 1000)
-            if m["requests"]
-            else None
-        )
-        data.append(
-            {
-                "model": m["model"],
-                "modelId": m["modelId"],
-                "provider": m["provider"],
-                "providerId": None,
-                "requests": m["requests"],
-                "tokens": m["tokens"],
-                "cost": m["cost"],
-                "successRate": (m["successRequests"] / total) if m["requests"] else 0.0,
-                "avgLatencyMs": avg_latency_ms,
-            }
-        )
-
-    data.sort(key=lambda x: x["requests"], reverse=True)
-    return {"data": data[:50]}
+    return {"data": [serialize_model_usage_row(r) for r in rows[:limit]]}
 
 
 @router.get("/logs")

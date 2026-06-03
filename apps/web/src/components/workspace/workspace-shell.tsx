@@ -22,11 +22,11 @@ export function WorkspaceShell() {
   const q = useWorkspaceQueries();
 
   return (
-    <div className="relative min-h-full bg-background">
+    <div className="relative flex min-h-full items-center justify-center px-4 py-10">
       {/* Subtle dot grid background */}
-      <div className="pointer-events-none absolute inset-0 bg-[image:radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:24px_24px] opacity-30" />
+      <div className="pointer-events-none absolute inset-0 bg-[image:radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:24px_24px] opacity-40" />
 
-      <div className="relative mx-auto max-w-3xl px-4 pt-16 pb-8">
+      <div className="relative w-full max-w-5xl">
         {/* Mode tabs */}
         <ModeTabs
           tasks={tasks}
@@ -35,7 +35,7 @@ export function WorkspaceShell() {
         />
 
         {/* Playground dialog card */}
-        <div className="rounded-xl border bg-card shadow-lg">
+        <div className="rounded-2xl border bg-card shadow-[0_12px_36px_rgba(72,60,45,0.06)]">
           {/* Model selector row */}
           <ModelSelectorRow
             availableModels={q.availableModels}
@@ -46,7 +46,7 @@ export function WorkspaceShell() {
           />
 
           {/* Prompt input area */}
-          <div className="p-5">
+          <div className="p-6">
             <div className="mb-2 flex items-center justify-between">
               <label htmlFor="playground-prompt" className="text-sm font-medium">
                 Prompt
@@ -60,7 +60,7 @@ export function WorkspaceShell() {
               id="playground-prompt"
               value={q.prompt}
               onChange={(e) => q.setPrompt(e.target.value)}
-              className="min-h-[160px] resize-y text-sm"
+              className="min-h-[200px] resize-y text-sm leading-relaxed"
               placeholder="Describe what you want to run..."
               maxLength={4000}
             />
@@ -98,7 +98,7 @@ export function WorkspaceShell() {
           </div>
 
           {/* Bottom bar */}
-          <div className="flex items-center justify-between border-t px-5 py-3">
+          <div className="flex items-center justify-between border-t px-6 py-3.5">
             <TooltipProvider delayDuration={300}>
               <div className="flex items-center gap-1">
                 <Tooltip>
