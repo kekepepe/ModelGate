@@ -42,27 +42,6 @@
     }
   },
   {
-    "id": "minimax.m2_7_highspeed",
-    "officialModelName": "MiniMax-M2.7-highspeed",
-    "displayName": "MiniMax-M2.7-highspeed",
-    "provider": "minimax",
-    "category": "chat",
-    "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
-    "contextWindow": null,
-    "async": false,
-    "enabled": false,
-    "paramsSchema": "chat_openai_compatible_schema",
-    "adapterConfig": {
-      "protocol": "anthropic_compatible",
-      "providerModelName": "MiniMax-M2.7-highspeed",
-      "disabledReason": "Current Token Plan only supports MiniMax-M2.7."
-    }
-  },
-  {
     "id": "minimax.m2_7",
     "officialModelName": "MiniMax-M2.7",
     "displayName": "MiniMax-M2.7",
@@ -80,6 +59,26 @@
     "adapterConfig": {
       "protocol": "anthropic_compatible",
       "providerModelName": "MiniMax-M2.7"
+    }
+  },
+  {
+    "id": "minimax.m3",
+    "officialModelName": "MiniMax-M3",
+    "displayName": "MiniMax-M3",
+    "provider": "minimax",
+    "category": "chat",
+    "runtime": "chat_completion",
+    "capabilities": ["text", "code", "file_understanding"],
+    "inputTypes": ["text", "code", "file"],
+    "outputTypes": ["text"],
+    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "contextWindow": 1000000,
+    "async": false,
+    "enabled": true,
+    "paramsSchema": "chat_openai_compatible_schema",
+    "adapterConfig": {
+      "protocol": "anthropic_compatible",
+      "providerModelName": "MiniMax-M3"
     }
   },
   {
