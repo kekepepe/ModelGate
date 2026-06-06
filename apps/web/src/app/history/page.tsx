@@ -1,5 +1,5 @@
-import { HistoryClient } from "@/components/history/history-client";
+import { redirect } from "next/navigation";
 
 export default function HistoryPage() {
-  return <HistoryClient />;
+  redirect("/activity");
 }

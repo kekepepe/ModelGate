@@ -39,9 +39,12 @@ export function WorkspaceShell() {
           {/* Model selector row */}
           <ModelSelectorRow
             availableModels={q.availableModels}
+            hiddenModels={q.hiddenModels}
             selectedModelId={q.selectedModelId}
             selectedModel={q.selectedModel}
             selectedProvider={q.selectedProvider}
+            providers={q.providers}
+            taskInputTypes={q.inputTypes}
             onSelectModel={q.setSelectedModelId}
           />
 

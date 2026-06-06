@@ -18,7 +18,7 @@ import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
+import { StatusPill } from "@/components/ui/status-pill";
 import {
   Tooltip,
   TooltipContent,
@@ -31,8 +31,8 @@ const navItems = [
   { href: "/workspace?taskType=chat", label: "Playground", icon: Play },
   { href: "/models", label: "Models", icon: Boxes },
   { href: "/usage", label: "Usage", icon: BarChart3 },
-  { href: "/logs", label: "Activity Logs", icon: ScrollText },
-  { href: "/settings?tab=apikeys", label: "API Keys", icon: KeyRound },
+  { href: "/activity", label: "Activity", icon: ScrollText },
+  { href: "/api-keys", label: "API Keys", icon: KeyRound },
   { href: "/settings", label: "Settings", icon: Settings },
 ];
 
@@ -48,7 +48,8 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
   function isActive(href: string) {
     if (href === "/") return pathname === "/";
     const base = href.split("?")[0];
-    return pathname.startsWith(base);
+    // Settings should NOT match when we're on /api-keys (both start with /se... — actually /api-keys is distinct, but keep exact-prefix logic explicit)
+    return pathname === base || pathname.startsWith(base + "/");
   }
 
   return (
@@ -123,12 +124,9 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
                   <span className="truncate text-muted-foreground">
                     {p.name}
                   </span>
-                  <Badge
-                    variant={p.configured ? "success" : "outline"}
-                    className="text-[10px]"
-                  >
+                  <StatusPill tone={p.configured ? "ready" : "warn"} className="text-[10px]">
                     {p.configured ? "Ready" : "No Key"}
-                  </Badge>
+                  </StatusPill>
                 </div>
               ))}
             </div>
@@ -141,7 +139,7 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
         <div className="flex items-center justify-between px-4 py-3">
           {!collapsed && (
             <span className="text-[11px] text-muted-foreground">
-              Local Mode · v1.0
+              Local Mode · v2.0
             </span>
           )}
           <Button

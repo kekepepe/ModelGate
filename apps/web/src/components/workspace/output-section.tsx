@@ -1,13 +1,34 @@
 "use client";
 
-import { useState } from "react";
-import { Copy, Download, Image as ImageIcon, RotateCcw, Sparkles, Video } from "lucide-react";
+import { useMemo, useState } from "react";
+import {
+  AlertTriangle,
+  CheckCircle2,
+  Copy,
+  Download,
+  ExternalLink,
+  Image as ImageIcon,
+  Key,
+  Loader2,
+  RotateCcw,
+  Sparkles,
+  Video,
+} from "lucide-react";
+import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { API_BASE_URL } from "@/lib/api";
+import { API_BASE_URL, ApiError } from "@/lib/api";
 import type { ModelInfo, Provider, RunRecord } from "@/types/model";
+
+const TIMELINE_STEPS = [
+  "Queued",
+  "Validating input",
+  "Calling provider",
+  "Receiving output",
+  "Saving result",
+] as const;
 
 export function OutputSection({
   latestRun,
@@ -31,17 +52,22 @@ export function OutputSection({
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList className="bg-muted/50">
           <TabsTrigger value="output">Output</TabsTrigger>
-          <TabsTrigger value="status">Status</TabsTrigger>
+          <TabsTrigger value="timeline">Timeline</TabsTrigger>
+          <TabsTrigger value="request">Request</TabsTrigger>
           <TabsTrigger value="archive">Archive</TabsTrigger>
         </TabsList>
 
         <div className="mt-3 rounded-lg border bg-card">
           <TabsContent value="output" className="m-0 p-5">
-            <OutputPreview run={latestRun} error={runError} selectedModel={selectedModel} />
+            <OutputPreview run={latestRun} error={runError} selectedModel={selectedModel} providers={providers} />
           </TabsContent>
 
-          <TabsContent value="status" className="m-0 p-5">
-            <RuntimeStatus run={latestRun} selectedModel={selectedModel} providers={providers} />
+          <TabsContent value="timeline" className="m-0 p-5">
+            <RunTimeline run={latestRun} error={runError} />
+          </TabsContent>
+
+          <TabsContent value="request" className="m-0 p-5">
+            <RequestSummary run={latestRun} error={runError} selectedModel={selectedModel} providers={providers} />
           </TabsContent>
 
           <TabsContent value="archive" className="m-0 p-5">
@@ -53,8 +79,20 @@ export function OutputSection({
   );
 }
 
-function OutputPreview({ run, error, selectedModel }: { run: RunRecord | null; error: Error | null; selectedModel?: ModelInfo }) {
-  if (error) return <ErrorBanner error={error} />;
+/* ── Output preview (text / image / video) ───────────────── */
+
+function OutputPreview({
+  run,
+  error,
+  selectedModel,
+  providers,
+}: {
+  run: RunRecord | null;
+  error: Error | null;
+  selectedModel?: ModelInfo;
+  providers: Provider[];
+}) {
+  if (error) return <ErrorBanner error={error} run={run} providers={providers} />;
 
   const toAbsolute = (url: string) =>
     url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL.replace(/\/api$/, "")}${url}`;
@@ -138,25 +176,182 @@ function OutputPreview({ run, error, selectedModel }: { run: RunRecord | null; e
         <Sparkles className="h-4 w-4" />
         <span>Output Preview</span>
       </div>
-      <p>Run a task to see results here.</p>
+      <p>Run a task to see output.</p>
     </div>
   );
 }
 
-function RuntimeStatus({ run, selectedModel, providers }: { run: RunRecord | null; selectedModel?: ModelInfo; providers: Provider[] }) {
-  const status = run?.status ?? "idle";
-  const providerName = run?.providerId ? providers.find((p) => p.id === run.providerId)?.name ?? run.providerId : "-";
+/* ── Timeline ─────────────────────────────────────────── */
+
+function RunTimeline({ run, error }: { run: RunRecord | null; error: Error | null }) {
+  const status = error ? "failed" : (run?.status ?? "idle");
+  const currentStep = useMemo(() => computeCurrentStep(status), [status]);
+
+  if (!run && !error) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        Run a task to see the execution timeline.
+      </div>
+    );
+  }
 
   return (
-    <div className="grid gap-2 text-sm sm:grid-cols-2">
-      <SourceBox label="Status" value={status} />
-      <SourceBox label="Model" value={selectedModel?.displayName ?? run?.modelId ?? "-"} />
-      <SourceBox label="Provider" value={providerName} />
-      <SourceBox label="Record ID" value={run?.id ?? "-"} />
-      <SourceBox label="Output Type" value={run?.output?.type ?? "text"} />
+    <ol className="space-y-2">
+      {TIMELINE_STEPS.map((step, idx) => {
+        const state = stepState(idx, currentStep, status);
+        return (
+          <li key={step} className="flex items-center gap-3 text-sm">
+            <span
+              className={
+                state === "done"
+                  ? "flex h-5 w-5 items-center justify-center rounded-full bg-emerald-500 text-white"
+                  : state === "active"
+                    ? "flex h-5 w-5 items-center justify-center rounded-full bg-sky-500 text-white"
+                    : state === "failed"
+                      ? "flex h-5 w-5 items-center justify-center rounded-full bg-rose-500 text-white"
+                      : "flex h-5 w-5 items-center justify-center rounded-full border bg-muted text-muted-foreground"
+              }
+            >
+              {state === "done" ? (
+                <CheckCircle2 className="h-3 w-3" />
+              ) : state === "active" ? (
+                <Loader2 className="h-3 w-3 animate-spin" />
+              ) : state === "failed" ? (
+                <AlertTriangle className="h-3 w-3" />
+              ) : (
+                <span className="text-[10px]">{idx + 1}</span>
+              )}
+            </span>
+            <span className={state === "pending" ? "text-muted-foreground" : "text-foreground"}>
+              {idx === TIMELINE_STEPS.length - 1 && status === "completed" ? "Completed" : step}
+            </span>
+          </li>
+        );
+      })}
+    </ol>
+  );
+}
+
+function computeCurrentStep(status: string): number {
+  switch (status) {
+    case "idle":
+      return -1;
+    case "queued":
+      return 0;
+    case "running":
+      return 2; // calling/receiving
+    case "completed":
+      return TIMELINE_STEPS.length;
+    case "failed":
+    case "cancelled":
+      return 2;
+    default:
+      return 1;
+  }
+}
+
+function stepState(
+  idx: number,
+  current: number,
+  status: string,
+): "done" | "active" | "pending" | "failed" {
+  if (status === "failed" && idx === current) return "failed";
+  if (idx < current) return "done";
+  if (idx === current) return status === "completed" ? "done" : "active";
+  return "pending";
+}
+
+/* ── Request Summary ──────────────────────────────────── */
+
+function RequestSummary({
+  run,
+  error,
+  selectedModel,
+  providers,
+}: {
+  run: RunRecord | null;
+  error: Error | null;
+  selectedModel?: ModelInfo;
+  providers: Provider[];
+}) {
+  if (!run && !error) {
+    return (
+      <div className="text-sm text-muted-foreground">
+        Run a task to see provider, model, params, and request id.
+      </div>
+    );
+  }
+
+  const providerName = run?.providerId
+    ? providers.find((p) => p.id === run.providerId)?.name ?? run.providerId
+    : "—";
+  const statusTone = statusToTone(error ? "failed" : run?.status ?? "idle");
+  const statusLabel = error ? "Failed" : titleCase(run?.status ?? "idle");
+  const requestId = error instanceof ApiError ? error.requestId : undefined;
+
+  return (
+    <div className="space-y-4 text-sm">
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Status">
+          <StatusPill tone={statusTone}>{statusLabel}</StatusPill>
+        </Field>
+        <Field label="Provider" value={providerName} />
+        <Field label="Model" value={selectedModel?.displayName ?? run?.modelId ?? "—"} />
+        <Field label="Task type" value={run?.taskType ?? "—"} />
+        <Field label="Output type" value={run?.output?.type ?? "—"} />
+        <Field label="Run ID" value={run?.id ?? "—"} mono copyable />
+        {requestId ? <Field label="Request ID" value={requestId} mono copyable /> : null}
+        {error?.message ? <Field label="Error" value={error.message} /> : null}
+      </div>
+
+      {run?.params && Object.keys(run.params).length > 0 ? (
+        <div>
+          <div className="mb-1 text-xs text-muted-foreground">Params</div>
+          <pre className="max-h-40 overflow-auto rounded-md bg-muted/50 p-3 text-xs leading-relaxed">
+            {JSON.stringify(run.params, null, 2)}
+          </pre>
+        </div>
+      ) : null}
     </div>
   );
 }
+
+function Field({
+  label,
+  value,
+  children,
+  mono = false,
+  copyable = false,
+}: {
+  label: string;
+  value?: string;
+  children?: React.ReactNode;
+  mono?: boolean;
+  copyable?: boolean;
+}) {
+  return (
+    <div className="rounded-md border bg-muted/30 p-2.5">
+      <div className="flex items-center justify-between">
+        <div className="text-xs text-muted-foreground">{label}</div>
+        {copyable && value && value !== "—" ? (
+          <button
+            type="button"
+            onClick={() => navigator.clipboard.writeText(value)}
+            className="text-muted-foreground hover:text-foreground"
+            title="Copy"
+          >
+            <Copy className="h-3 w-3" />
+          </button>
+        ) : null}
+      </div>
+      <div className={mono ? "mt-0.5 truncate font-mono text-xs" : "mt-0.5 truncate text-sm font-medium"}>
+        {children ?? value ?? "—"}
+      </div>
+    </div>
+  );
+}
+
+/* ── Archive ──────────────────────────────────────────── */
 
 function ArchiveList({ history, onRerun }: { history: RunRecord[]; onRerun: (run: RunRecord) => void }) {
   if (history.length === 0) return <div className="text-sm text-muted-foreground">No archived results yet.</div>;
@@ -169,7 +364,9 @@ function ArchiveList({ history, onRerun }: { history: RunRecord[]; onRerun: (run
             <span className="text-xs text-muted-foreground">{item.taskType}</span>
           </div>
           <div className="flex items-center gap-2">
-            <StatusBadge status={item.status} />
+            <StatusPill tone={statusToTone(item.status)} className="text-[10px]">
+              {titleCase(item.status)}
+            </StatusPill>
             <button
               type="button"
               onClick={() => onRerun(item)}
@@ -185,30 +382,108 @@ function ArchiveList({ history, onRerun }: { history: RunRecord[]; onRerun: (run
   );
 }
 
-/* ── Shared primitives ──────────────────────────────────── */
+/* ── Error banner with actionable suggestions ─────────── */
 
-function SourceBox({ label, value }: { label: string; value: string }) {
+function ErrorBanner({
+  error,
+  run,
+  providers,
+}: {
+  error: Error;
+  run: RunRecord | null;
+  providers: Provider[];
+}) {
+  const apiError = error instanceof ApiError ? error : null;
+  const errorType = apiError?.type ?? "";
+  const providerId = run?.providerId ?? "";
+  const providerName = providers.find((p) => p.id === providerId)?.name ?? providerId;
+
+  const suggestion = describeError(errorType, error.message);
+
   return (
-    <div className="rounded-md border bg-muted/30 p-2.5">
-      <div className="text-xs text-muted-foreground">{label}</div>
-      <div className="mt-0.5 truncate text-sm font-medium">{value}</div>
+    <div className="space-y-3 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
+      <div className="flex items-start gap-2 text-destructive">
+        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
+        <div className="flex-1">
+          <div className="font-medium">{suggestion.title}</div>
+          <div className="mt-0.5 text-xs text-destructive/80">{error.message}</div>
+        </div>
+      </div>
+
+      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
+        {providerName ? <span>Provider: <span className="font-medium text-foreground">{providerName}</span></span> : null}
+        {run?.modelId ? <span>Model: <span className="font-medium text-foreground">{run.modelId}</span></span> : null}
+        {apiError?.requestId ? (
+          <span>
+            requestId: <span className="font-mono text-foreground">{apiError.requestId}</span>
+          </span>
+        ) : null}
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {suggestion.showApiKey ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/api-keys${providerId ? `?provider=${providerId}` : ""}`}>
+              <Key className="mr-1 h-3.5 w-3.5" /> Edit API key
+            </Link>
+          </Button>
+        ) : null}
+        {run?.id ? (
+          <Button asChild variant="outline" size="sm">
+            <Link href={`/activity?runId=${run.id}`}>
+              <ExternalLink className="mr-1 h-3.5 w-3.5" /> Open log
+            </Link>
+          </Button>
+        ) : null}
+      </div>
     </div>
   );
 }
 
-function StatusBadge({ status }: { status: string }) {
-  const variant = status === "completed" ? "success" : status === "failed" ? "destructive" : status === "cancelled" ? "warning" : "info";
-  return (
-    <Badge variant={variant as "success" | "destructive" | "warning" | "info"} className="text-[10px]">
-      {status}
-    </Badge>
-  );
+function describeError(
+  errorType: string,
+  message: string,
+): { title: string; showApiKey: boolean } {
+  const t = errorType.toLowerCase();
+  const m = message.toLowerCase();
+  if (t.includes("api_key") || t.includes("auth") || m.includes("api key") || m.includes("unauthorized")) {
+    return { title: "API key invalid or missing", showApiKey: true };
+  }
+  if (t.includes("rate") || m.includes("rate limit")) {
+    return { title: "Provider rate limited", showApiKey: false };
+  }
+  if (t.includes("quota") || m.includes("quota")) {
+    return { title: "Provider quota exhausted", showApiKey: true };
+  }
+  if (t.includes("file") || m.includes("file parsing") || m.includes("parse")) {
+    return { title: "File parsing failed", showApiKey: false };
+  }
+  if (t.includes("timeout") || m.includes("timeout")) {
+    return { title: "Request timed out", showApiKey: false };
+  }
+  return { title: "Run failed", showApiKey: false };
 }
 
-function ErrorBanner({ error }: { error: Error }) {
-  return (
-    <div className="rounded-md border border-destructive/30 bg-destructive/5 p-3 text-sm text-destructive">
-      {error.message}
-    </div>
-  );
+/* ── Helpers ──────────────────────────────────────────── */
+
+function statusToTone(status: string): StatusTone {
+  switch (status) {
+    case "completed":
+      return "ready";
+    case "failed":
+      return "failed";
+    case "running":
+      return "running";
+    case "queued":
+      return "queued";
+    case "cancelled":
+      return "warn";
+    default:
+      return "muted";
+  }
+}
+
+function titleCase(s: string): string {
+  if (!s) return "";
+  return s.charAt(0).toUpperCase() + s.slice(1);
 }

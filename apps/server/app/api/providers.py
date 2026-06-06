@@ -4,6 +4,8 @@ from sqlalchemy.orm import Session
 
 from app.core.errors import AppError
 from app.db.session import get_db
+from app.providers.base import ChatInput, ChatMessage
+from app.providers.factory import create_chat_adapter
 from app.services.model_registry import model_registry
 from app.services.provider_secrets import (
     delete_local_provider_secret,
@@ -59,3 +61,111 @@ async def clear_provider_key(provider_id: str, db: Session = Depends(get_db)):
     provider = model_registry.get_provider(provider_id)
     delete_local_provider_secret(provider_id, db)
     return {"data": serialize_provider(provider, db=db)}
+
+
+@router.post("/{provider_id}/test")
+async def test_provider_connection(provider_id: str, db: Session = Depends(get_db)):
+    """Probe provider with a minimal chat request.
+
+    Picks the first enabled chat-runtime model registered for the provider
+    and issues a 1-token completion. Categorizes the outcome into a stable
+    result vocabulary the UI renders directly.
+    """
+    provider = model_registry.get_provider(provider_id)
+
+    chat_model = _pick_probe_model(provider_id)
+    if not chat_model:
+        return {
+            "data": {
+                "providerId": provider_id,
+                "status": "no_chat_model",
+                "message": "No enabled chat model for this provider.",
+            }
+        }
+
+    try:
+        adapter = create_chat_adapter(provider=provider, model=chat_model)
+    except AppError as exc:
+        # Missing key, forbidden base URL, unsupported protocol, etc.
+        status = "missing_key" if exc.error_type == "PROVIDER_AUTH_MISSING" else "config_error"
+        return {
+            "data": {
+                "providerId": provider_id,
+                "status": status,
+                "errorType": exc.error_type,
+                "message": exc.message,
+            }
+        }
+
+    provider_model_name = (chat_model.get("adapterConfig") or {}).get("providerModelName") or chat_model.get("officialModelName")
+    chat_input = ChatInput(
+        provider_id=provider_id,
+        model_id=chat_model["id"],
+        provider_model_name=provider_model_name,
+        task_type="chat",
+        messages=[ChatMessage(role="user", content="ping")],
+        params={"max_tokens": 1},
+        adapter_config=chat_model.get("adapterConfig") or {},
+        request_id="probe",
+        timeout_seconds=15,
+    )
+
+    try:
+        await adapter.chat(chat_input)
+    except AppError as exc:
+        return {
+            "data": {
+                "providerId": provider_id,
+                "status": _classify_probe_error(exc.error_type),
+                "errorType": exc.error_type,
+                "message": exc.message,
+                "modelId": chat_model["id"],
+            }
+        }
+    except Exception as exc:  # noqa: BLE001 — defensive boundary
+        return {
+            "data": {
+                "providerId": provider_id,
+                "status": "error",
+                "errorType": type(exc).__name__,
+                "message": str(exc)[:500],
+                "modelId": chat_model["id"],
+            }
+        }
+
+    return {
+        "data": {
+            "providerId": provider_id,
+            "status": "ok",
+            "message": "Connected",
+            "modelId": chat_model["id"],
+        }
+    }
+
+
+def _pick_probe_model(provider_id: str) -> dict | None:
+    for model in model_registry.models:
+        if model.get("provider") != provider_id:
+            continue
+        if not model.get("enabled"):
+            continue
+        if model.get("runtime") not in {"chat", "chat_completion"}:
+            continue
+        return model
+    return None
+
+
+def _classify_probe_error(error_type: str) -> str:
+    mapping = {
+        "PROVIDER_AUTH_FAILED": "auth_failed",
+        "PROVIDER_AUTH_MISSING": "missing_key",
+        "PROVIDER_FORBIDDEN": "forbidden",
+        "PROVIDER_RATE_LIMITED": "rate_limited",
+        "PROVIDER_TIMEOUT": "timeout",
+        "PROVIDER_CONNECT_ERROR": "unreachable",
+        "PROVIDER_BAD_REQUEST": "bad_request",
+        "PROVIDER_SERVER_ERROR": "server_error",
+        "PROVIDER_REQUEST_ERROR": "request_error",
+    }
+    return mapping.get(error_type, "error")
+

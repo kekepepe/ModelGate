@@ -133,7 +133,7 @@ export function useWorkspaceQueries() {
   const historyQuery = useQuery({ queryKey: ["history-runs"], queryFn: () => getData<RunRecord[]>("/history/runs") });
 
   useEffect(() => {
-    if (!selectedModelId && recommendationQuery.data?.availableModels[0]) {
+    if (!selectedModelId && recommendationQuery.data?.availableModels?.[0]) {
       setSelectedModelId(recommendationQuery.data.availableModels[0].id);
     }
   }, [recommendationQuery.data, selectedModelId, setSelectedModelId]);
