@@ -43,7 +43,7 @@ export function ParamsPopover({
           side="bottom"
           align="start"
           sideOffset={8}
-          className="w-[520px] p-0"
+          className="w-[360px] p-0"
           onOpenAutoFocus={(e) => e.preventDefault()}
         >
           {/* Header */}
@@ -55,7 +55,7 @@ export function ParamsPopover({
           </div>
 
           {/* Body */}
-          <div className="max-h-[400px] overflow-y-auto p-4">
+          <div className="max-h-[280px] overflow-y-auto p-4">
             <ParamsGroup schema={schema} params={params} onChange={onChange} />
 
             {/* Schema source info */}
