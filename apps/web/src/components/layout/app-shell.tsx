@@ -11,16 +11,6 @@ import { cn } from "@/lib/utils";
 import type { Provider } from "@/types/model";
 import { useQuery } from "@tanstack/react-query";
 
-const pathTitles: Record<string, string> = {
-  "/": "Overview",
-  "/workspace": "Playground",
-  "/models": "Models",
-  "/usage": "Usage",
-  "/logs": "Activity Logs",
-  "/settings": "Settings",
-  "/history": "History",
-};
-
 export function AppShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -43,7 +33,6 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   }));
 
   const base = pathname.split("?")[0];
-  const title = pathTitles[base] ?? "ModelGate";
 
   return (
     <div className="flex h-screen overflow-hidden bg-background">
@@ -68,19 +57,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </Sheet>
 
       {/* Main area */}
-      <div className="flex flex-1 flex-col overflow-hidden">
-        {/* Topbar */}
-        <div className="flex items-center gap-2 border-b bg-background/95 px-4 backdrop-blur supports-[backdrop-filter]:bg-background/60 md:px-6">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="md:hidden h-9 w-9"
-            onClick={() => setMobileOpen(true)}
-          >
-            <Menu className="h-5 w-5" />
-          </Button>
-          <h1 className="text-sm font-semibold">{title}</h1>
-        </div>
+      <div className="relative flex flex-1 flex-col overflow-hidden">
+        {/* Mobile floating menu button */}
+        <Button
+          variant="outline"
+          size="icon"
+          className="md:hidden fixed left-3 top-3 z-50 h-9 w-9 shadow-sm bg-background/95 backdrop-blur"
+          onClick={() => setMobileOpen(true)}
+        >
+          <Menu className="h-5 w-5" />
+        </Button>
 
         {/* Page content */}
         <main className={cn("flex-1 overflow-y-auto", base !== "/workspace" && "p-6")}>{children}</main>
