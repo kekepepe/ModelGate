@@ -1,15 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Plus, WandSparkles, X, XCircle, Play, UploadCloud, AlertCircle } from "lucide-react";
+import { useState } from "react";
+import { Plus, X, XCircle, Play, AlertCircle, GitCompare } from "lucide-react";
 
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { cn } from "@/lib/utils";
-import { getTemplatesForTask, type PromptTemplate } from "@/lib/prompt-templates";
-import { API_BASE_URL, ApiError } from "@/lib/api";
+import { ApiError } from "@/lib/api";
 import type { FileRecord } from "@/types/model";
 
 import { useWorkspaceQueries, tasks } from "./use-workspace-queries";
@@ -17,9 +14,13 @@ import { ModeTabs } from "./mode-tabs";
 import { ModelSelectorRow } from "./model-selector-row";
 import { ParamsPopover } from "./params-popover";
 import { OutputSection } from "./output-section";
+import { PromptTemplatePopover } from "./prompt-template-popover";
+import { CompareDrawer } from "./compare-drawer";
 
 export function WorkspaceShell() {
   const q = useWorkspaceQueries();
+  const [pendingTemplateParams, setPendingTemplateParams] = useState<{ name: string; params: Record<string, string | number | boolean> } | null>(null);
+  const [compareOpen, setCompareOpen] = useState(false);
 
   return (
     <div className="relative flex min-h-full items-center justify-center px-4 py-10">
@@ -56,7 +57,14 @@ export function WorkspaceShell() {
               </label>
               <PromptTemplatePopover
                 taskId={q.selectedTask.id}
-                onSelect={(template) => q.setPrompt(template.prompt)}
+                currentPrompt={q.prompt}
+                currentParams={q.params}
+                onSelect={(template) => {
+                  q.setPrompt(template.prompt);
+                  if (template.recommendedParams) {
+                    setPendingTemplateParams({ name: template.title, params: template.recommendedParams });
+                  }
+                }}
               />
             </div>
             <Textarea
@@ -123,7 +131,9 @@ export function WorkspaceShell() {
                   params={q.params}
                   provider={q.selectedProvider}
                   model={q.selectedModel}
+                  taskId={q.selectedTask.id}
                   onChange={q.setParam}
+                  onApplyMany={q.setParams}
                   onReset={() => {
                     const schema = q.paramSchema;
                     if (!schema) return;
@@ -144,6 +154,16 @@ export function WorkspaceShell() {
               >
                 <Plus className="mr-1 h-3.5 w-3.5" />
                 New Task
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                disabled={!q.selectedModelId || q.availableModels.length < 2 || q.prompt.trim().length === 0}
+                onClick={() => setCompareOpen(true)}
+                title="Compare with other models"
+              >
+                <GitCompare className="mr-1 h-3.5 w-3.5" />
+                Compare
               </Button>
               {q.runMutation.isPending ? (
                 <Button
@@ -178,6 +198,29 @@ export function WorkspaceShell() {
           </div>
         ) : null}
 
+        {pendingTemplateParams ? (
+          <div className="mt-4 flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+            <div>
+              Template <span className="font-medium">{pendingTemplateParams.name}</span> recommends specific params.
+              Apply them?
+            </div>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="sm" onClick={() => setPendingTemplateParams(null)}>Dismiss</Button>
+              <Button
+                size="sm"
+                onClick={() => {
+                  for (const [k, v] of Object.entries(pendingTemplateParams.params)) {
+                    q.setParam(k, v);
+                  }
+                  setPendingTemplateParams(null);
+                }}
+              >
+                Apply params
+              </Button>
+            </div>
+          </div>
+        ) : null}
+
         {/* Output section */}
         <OutputSection
           latestRun={q.latestRun}
@@ -209,73 +252,31 @@ export function WorkspaceShell() {
             e.currentTarget.value = "";
           }}
         />
+
+        <CompareDrawer
+          open={compareOpen}
+          onClose={() => setCompareOpen(false)}
+          taskType={q.selectedTaskType}
+          prompt={q.prompt}
+          fileIds={q.files.map((f) => f.id)}
+          params={q.params}
+          availableModels={q.availableModels}
+          providers={q.providers}
+          initialModelIds={
+            q.selectedModelId
+              ? [
+                  q.selectedModelId,
+                  ...q.availableModels.filter((m) => m.id !== q.selectedModelId).slice(0, 1).map((m) => m.id),
+                ]
+              : q.availableModels.slice(0, 2).map((m) => m.id)
+          }
+        />
       </div>
     </div>
   );
 }
 
 /* ── Inline helpers ────────────────────────────────────── */
-
-function PromptTemplatePopover({
-  taskId,
-  onSelect,
-}: {
-  taskId: string;
-  onSelect: (template: PromptTemplate) => void;
-}) {
-  const [open, setOpen] = useState(false);
-  const templates = useMemo(() => getTemplatesForTask(taskId), [taskId]);
-  const containerRef = useRef<HTMLDivElement>(null);
-
-  useEffect(() => {
-    if (!open) return;
-    const handleClick = (event: MouseEvent) => {
-      if (containerRef.current && !containerRef.current.contains(event.target as Node)) {
-        setOpen(false);
-      }
-    };
-    document.addEventListener("mousedown", handleClick);
-    return () => document.removeEventListener("mousedown", handleClick);
-  }, [open]);
-
-  return (
-    <div ref={containerRef} className="relative">
-      <Button
-        variant="outline"
-        size="sm"
-        className="h-7 text-xs"
-        onClick={() => setOpen((value) => !value)}
-        title="Select prompt template"
-      >
-        <WandSparkles className="mr-1 h-3.5 w-3.5" />
-        Template
-      </Button>
-      {open ? (
-        <div className="absolute right-0 z-30 mt-1 w-72 rounded-md border bg-popover p-1 shadow-lg">
-          {templates.length === 0 ? (
-            <div className="px-3 py-2 text-xs text-muted-foreground">No templates for this task.</div>
-          ) : (
-            templates.map((template) => (
-              <button
-                key={template.id}
-                type="button"
-                onClick={() => {
-                  onSelect(template);
-                  setOpen(false);
-                }}
-                className="w-full rounded px-3 py-2 text-left text-xs hover:bg-accent"
-                title={template.prompt}
-              >
-                <div className="font-medium">{template.title}</div>
-                <div className="mt-0.5 line-clamp-2 text-muted-foreground">{template.prompt}</div>
-              </button>
-            ))
-          )}
-        </div>
-      ) : null}
-    </div>
-  );
-}
 
 function FileIcon({ file }: { file: FileRecord }) {
   const type = file.detectedType;
