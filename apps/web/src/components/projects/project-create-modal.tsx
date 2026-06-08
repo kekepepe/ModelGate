@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -16,12 +17,15 @@ import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
+  SelectGroup,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
+import { getData } from "@/lib/api";
 import type { CreateProjectRunBody } from "@/lib/api";
+import type { ModelInfo, Provider } from "@/types/model";
 
 interface Props {
   open: boolean;
@@ -41,10 +45,53 @@ export function ProjectCreateModal({
   const [goal, setGoal] = useState("");
   const [title, setTitle] = useState("");
   const [mode, setMode] = useState("advisory");
-  const [plannerModelId, setPlannerModelId] = useState("gpt-4o");
+  const [plannerModelId, setPlannerModelId] = useState<string>("");
   const [maxAgents, setMaxAgents] = useState(6);
   const [maxTokens, setMaxTokens] = useState(200_000);
   const [maxRuntimeSeconds, setMaxRuntimeSeconds] = useState(600);
+
+  const providersQuery = useQuery({
+    queryKey: ["providers"],
+    queryFn: () => getData<Provider[]>("/providers"),
+    enabled: open,
+  });
+
+  const modelsQuery = useQuery({
+    queryKey: ["models"],
+    queryFn: () => getData<ModelInfo[]>("/models"),
+    enabled: open,
+  });
+
+  const providers = providersQuery.data ?? [];
+  const models = modelsQuery.data ?? [];
+
+  const availableModels = useMemo(() => {
+    return models.filter((m) => {
+      const provider = providers.find((p) => p.id === m.provider);
+      return provider && provider.configured !== false && provider.enabled !== false;
+    });
+  }, [models, providers]);
+
+  const modelsByProvider = useMemo(() => {
+    const groups = new Map<string, { provider: Provider | undefined; models: ModelInfo[] }>();
+    for (const m of availableModels) {
+      const key = m.provider;
+      if (!groups.has(key)) {
+        groups.set(key, { provider: providers.find((p) => p.id === key), models: [] });
+      }
+      groups.get(key)!.models.push(m);
+    }
+    return Array.from(groups.entries()).sort((a, b) =>
+      (a[1].provider?.name ?? a[0]).localeCompare(b[1].provider?.name ?? b[0]),
+    );
+  }, [availableModels, providers]);
+
+  // Set default model once data loads
+  useMemo(() => {
+    if (!plannerModelId && availableModels.length > 0) {
+      setPlannerModelId(availableModels[0].id);
+    }
+  }, [availableModels, plannerModelId]);
 
   const modeDescriptions: Record<string, string> = {
     advisory: "Workers propose changes without generating code",
@@ -58,7 +105,7 @@ export function ProjectCreateModal({
       goal: goal.trim(),
       title: title.trim() || undefined,
       mode,
-      plannerModelId: plannerModelId.trim() || undefined,
+      plannerModelId: plannerModelId || undefined,
       budget: { maxAgents, maxTokens, maxRuntimeSeconds },
     });
   }
@@ -113,12 +160,37 @@ export function ProjectCreateModal({
           </div>
           <div className="space-y-2">
             <Label htmlFor="plannerModel">Planner model</Label>
-            <Input
-              id="plannerModel"
+            <Select
               value={plannerModelId}
-              onChange={(e) => setPlannerModelId(e.target.value)}
-              placeholder="gpt-4o"
-            />
+              onValueChange={setPlannerModelId}
+              disabled={modelsQuery.isLoading || availableModels.length === 0}
+            >
+              <SelectTrigger id="plannerModel" data-testid="planner-model-select">
+                <SelectValue
+                  placeholder={
+                    modelsQuery.isLoading
+                      ? "Loading models…"
+                      : availableModels.length === 0
+                        ? "No models available"
+                        : "Select a model"
+                  }
+                />
+              </SelectTrigger>
+              <SelectContent className="max-h-[300px]">
+                {modelsByProvider.map(([providerId, { provider, models: pModels }]) => (
+                  <SelectGroup key={providerId}>
+                    <div className="px-2 py-1 text-[10px] font-medium uppercase tracking-wider text-muted-foreground">
+                      {provider?.name ?? providerId}
+                    </div>
+                    {pModels.map((m) => (
+                      <SelectItem key={m.id} value={m.id}>
+                        {m.displayName || m.officialModelName}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
           <div className="grid grid-cols-3 gap-3">
             <div className="space-y-2">
@@ -162,7 +234,7 @@ export function ProjectCreateModal({
           </Button>
           <Button
             onClick={handleSubmit}
-            disabled={isSubmitting || !goal.trim()}
+            disabled={isSubmitting || !goal.trim() || !plannerModelId}
             data-testid="create-submit"
           >
             {isSubmitting ? "Creating…" : "Create"}

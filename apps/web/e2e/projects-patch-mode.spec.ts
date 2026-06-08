@@ -184,13 +184,28 @@ const HIGH_RISK_COMPLETED = {
   },
 };
 
+const MOCK_PROVIDERS = [
+  { id: "openai", name: "OpenAI", authType: "api_key", enabled: true, adapter: "openai", configured: true, keySource: "local" },
+];
+
+const MOCK_MODELS = [
+  { id: "gpt-4o", officialModelName: "gpt-4o", displayName: "GPT-4o", provider: "openai", category: "chat", runtime: "chat", capabilities: [], inputTypes: ["text"], outputTypes: ["text"], taskTypes: ["chat"], contextWindow: 128000, async: false, paramsSchema: "openai-chat", enabled: true },
+];
+
 test.describe("V2.6 Patch Mode", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/providers", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
-        body: JSON.stringify({ data: [] }),
+        body: JSON.stringify({ data: MOCK_PROVIDERS }),
+      });
+    });
+    await page.route("**/api/models", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: MOCK_MODELS }),
       });
     });
   });

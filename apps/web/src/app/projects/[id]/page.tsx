@@ -91,11 +91,16 @@ export default function ProjectDetailPage({ params }: PageProps) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
   });
 
+  const [deleteError, setDeleteError] = useState<string | null>(null);
   const deleteMut = useMutation({
     mutationFn: () => projectApi.delete(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
+      setDeleteOpen(false);
       router.push("/projects");
+    },
+    onError: (err: Error) => {
+      setDeleteError(err.message || "Delete failed");
     },
   });
 
@@ -224,7 +229,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
         onOpenChange={(open) => !open && setSelectedAgent(null)}
       />
 
-      <Dialog open={deleteOpen} onOpenChange={setDeleteOpen}>
+      <Dialog open={deleteOpen} onOpenChange={(o) => { setDeleteOpen(o); if (!o) setDeleteError(null); }}>
         <DialogContent data-testid="delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete this project run?</DialogTitle>
@@ -233,6 +238,9 @@ export default function ProjectDetailPage({ params }: PageProps) {
               This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
+          {deleteError && (
+            <p className="text-sm text-destructive">{deleteError}</p>
+          )}
           <DialogFooter>
             <Button
               variant="outline"
