@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { RefreshCw, SlidersHorizontal, X, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -12,7 +12,12 @@ import {
   BUILTIN_PRESETS,
   applyPreset,
   isPresetApplicable,
+  loadCustomPresets,
+  saveCustomPreset,
+  deleteCustomPreset,
+  applyCustomPreset,
   type PresetId,
+  type CustomPreset,
 } from "@/lib/param-presets";
 
 export function ParamsPopover({
@@ -36,12 +41,20 @@ export function ParamsPopover({
 }) {
   const [open, setOpen] = useState(false);
   const [presetMessage, setPresetMessage] = useState<string | null>(null);
-  const [activePreset, setActivePreset] = useState<PresetId>("default");
+  const [activePreset, setActivePreset] = useState<PresetId | string>("default");
   const [presetMenuOpen, setPresetMenuOpen] = useState(false);
   const [modifiedFields, setModifiedFields] = useState<Set<string>>(new Set());
   const [userModifiedAfterPreset, setUserModifiedAfterPreset] = useState(false);
+  const [customPresets, setCustomPresets] = useState<CustomPreset[]>([]);
+  const [saveMode, setSaveMode] = useState(false);
+  const [saveName, setSaveName] = useState("");
 
   const applicablePresets = BUILTIN_PRESETS.filter((p) => isPresetApplicable(p, taskId));
+
+  // Load custom presets on mount
+  useEffect(() => {
+    setCustomPresets(loadCustomPresets());
+  }, []);
 
   // Track user manual changes for "Custom · modified from X" label
   const handleFieldChange = (key: string, value: string | number | boolean) => {
@@ -56,7 +69,7 @@ export function ParamsPopover({
     }
   };
 
-  const handlePreset = (id: PresetId) => {
+  const handlePreset = (id: PresetId | string) => {
     setPresetMenuOpen(false);
     if (id === "default") {
       onReset();
@@ -67,11 +80,32 @@ export function ParamsPopover({
       return;
     }
     if (!schema) return;
+
+    // Check if it's a custom preset
+    const customPreset = customPresets.find((p) => p.id === id);
+    if (customPreset) {
+      const confirmed = window.confirm(
+        `Discard current params and apply "${customPreset.name}" preset?`,
+      );
+      if (!confirmed) return;
+      const outcome = applyCustomPreset(customPreset, schema, params);
+      onApplyMany(outcome.applied);
+      setActivePreset(id);
+      setModifiedFields(new Set(outcome.setFields));
+      setUserModifiedAfterPreset(false);
+      const skipped = outcome.skippedFields.length;
+      setPresetMessage(
+        `Applied "${customPreset.name}" preset · ${outcome.setFields.length} fields set` +
+          (skipped > 0 ? `, ${skipped} skipped` : ""),
+      );
+      return;
+    }
+
     const confirmed = window.confirm(
       `Discard current params and apply "${BUILTIN_PRESETS.find((p) => p.id === id)?.label}" preset?`,
     );
     if (!confirmed) return;
-    const outcome = applyPreset(id, schema, params);
+    const outcome = applyPreset(id as PresetId, schema, params);
     onApplyMany(outcome.applied);
     setActivePreset(id);
     setModifiedFields(new Set(outcome.setFields));
@@ -83,12 +117,41 @@ export function ParamsPopover({
     );
   };
 
-  const presetLabel =
-    activePreset === "default"
-      ? "Default"
-      : userModifiedAfterPreset
-        ? `Custom · modified from ${BUILTIN_PRESETS.find((p) => p.id === activePreset)?.label ?? "Default"}`
-        : BUILTIN_PRESETS.find((p) => p.id === activePreset)?.label ?? "Default";
+  const handleSaveCustom = () => {
+    const name = saveName.trim();
+    if (!name) return;
+    const created = saveCustomPreset(name, params);
+    setCustomPresets((prev) => [...prev, created]);
+    setActivePreset(created.id);
+    setModifiedFields(new Set());
+    setUserModifiedAfterPreset(false);
+    setSaveMode(false);
+    setSaveName("");
+    setPresetMessage(`Saved "${name}" as custom preset.`);
+  };
+
+  const handleDeleteCustom = (id: string) => {
+    deleteCustomPreset(id);
+    setCustomPresets((prev) => prev.filter((p) => p.id !== id));
+    if (activePreset === id) {
+      setActivePreset("default");
+      setModifiedFields(new Set());
+      setUserModifiedAfterPreset(false);
+    }
+  };
+
+  const activePresetLabel = (() => {
+    if (activePreset === "default") return "Default";
+    const builtin = BUILTIN_PRESETS.find((p) => p.id === activePreset);
+    if (builtin) return builtin.label;
+    const custom = customPresets.find((p) => p.id === activePreset);
+    if (custom) return custom.name;
+    return "Default";
+  })();
+
+  const presetLabel = userModifiedAfterPreset
+    ? `Custom · modified from ${activePresetLabel}`
+    : activePresetLabel;
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -154,15 +217,63 @@ export function ParamsPopover({
                         <div className="text-[10px] text-muted-foreground">{p.description}</div>
                       </button>
                     ))}
+                    {customPresets.length > 0 ? (
+                      <>
+                        <div className="my-1 border-t" />
+                        {customPresets.map((cp) => (
+                          <div key={cp.id} className="group flex items-center rounded px-2 py-1.5 text-left text-xs hover:bg-accent">
+                            <button
+                              type="button"
+                              className="min-w-0 flex-1"
+                              onClick={() => handlePreset(cp.id)}
+                            >
+                              <div className="font-medium truncate">{cp.name}</div>
+                              <div className="text-[10px] text-muted-foreground">
+                                {Object.keys(cp.params).length} fields
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              className="ml-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive"
+                              onClick={(e) => { e.stopPropagation(); handleDeleteCustom(cp.id); }}
+                              aria-label={`Delete ${cp.name} preset`}
+                            >
+                              <X className="h-3 w-3" />
+                            </button>
+                          </div>
+                        ))}
+                      </>
+                    ) : null}
                     <div className="my-1 border-t" />
-                    <button
-                      type="button"
-                      disabled
-                      title="Coming in a later version"
-                      className="block w-full rounded px-2 py-1.5 text-left text-xs text-muted-foreground"
-                    >
-                      + Save current as preset
-                    </button>
+                    {saveMode ? (
+                      <div className="flex items-center gap-1 px-2 py-1.5">
+                        <input
+                          type="text"
+                          value={saveName}
+                          onChange={(e) => setSaveName(e.target.value)}
+                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveCustom(); if (e.key === "Escape") { setSaveMode(false); setSaveName(""); } }}
+                          placeholder="Preset name"
+                          className="h-6 flex-1 rounded border bg-background px-1.5 text-xs"
+                          autoFocus
+                        />
+                        <button
+                          type="button"
+                          className="text-xs text-primary hover:underline"
+                          onClick={handleSaveCustom}
+                          disabled={!saveName.trim()}
+                        >
+                          Save
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        type="button"
+                        className="block w-full rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                        onClick={() => setSaveMode(true)}
+                      >
+                        + Save current as preset
+                      </button>
+                    )}
                   </div>
                 ) : null}
               </div>

@@ -336,6 +336,15 @@ export function UsagePage() {
         </div>
       </div>
 
+      <div className="rounded-lg border bg-card">
+        <div className="border-b px-4 py-3">
+          <h2 className="text-sm font-semibold">Provider × Model Usage</h2>
+        </div>
+        <div className="p-4">
+          <UsageHeatmap data={models} isLoading={modelsQuery.isLoading} />
+        </div>
+      </div>
+
       <div className="grid gap-4 lg:grid-cols-2">
         <div className="rounded-lg border bg-card">
           <div className="border-b px-4 py-3">
@@ -714,6 +723,94 @@ function ProviderDistribution({
             <span className="flex-1 truncate">{entry.provider}</span>
             <span className="text-muted-foreground">{formatNumber(entry.requests)}</span>
             <span className="w-12 text-right font-medium">{entry.percentage.toFixed(1)}%</span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+// --- Provider × Model heatmap ------------------------------------------------
+
+function UsageHeatmap({ data, isLoading }: { data: ModelUsage[]; isLoading: boolean }) {
+  if (isLoading) {
+    return <div className="h-32 animate-pulse rounded bg-muted/30" />;
+  }
+  if (data.length === 0) {
+    return <div className="py-6 text-center text-xs text-muted-foreground">No usage data for this period.</div>;
+  }
+
+  // Build provider → models map
+  const providerMap = new Map<string, Map<string, number>>();
+  for (const entry of data) {
+    const providerKey = entry.provider || entry.providerId || "Unknown";
+    if (!providerMap.has(providerKey)) providerMap.set(providerKey, new Map());
+    providerMap.get(providerKey)!.set(entry.model || entry.modelId, entry.requests);
+  }
+
+  const providerNames = Array.from(providerMap.keys());
+  const modelSet = new Set<string>();
+  for (const models of providerMap.values()) {
+    for (const model of models.keys()) modelSet.add(model);
+  }
+  const modelNames = Array.from(modelSet);
+
+  // Find max for color scaling
+  let maxRequests = 0;
+  for (const models of providerMap.values()) {
+    for (const count of models.values()) {
+      if (count > maxRequests) maxRequests = count;
+    }
+  }
+
+  const getIntensity = (count: number) => {
+    if (maxRequests === 0 || count === 0) return 0;
+    return Math.max(0.1, Math.min(1, count / maxRequests));
+  };
+
+  return (
+    <div className="overflow-x-auto">
+      <div
+        className="grid text-xs"
+        style={{
+          gridTemplateColumns: `minmax(100px, auto) repeat(${modelNames.length}, minmax(48px, 1fr))`,
+        }}
+      >
+        {/* Header row */}
+        <div className="px-2 py-1.5 text-muted-foreground" />
+        {modelNames.map((model) => (
+          <div
+            key={model}
+            className="truncate px-1 py-1.5 text-center font-mono text-[10px] text-muted-foreground"
+            title={model}
+          >
+            {model.length > 12 ? `${model.slice(0, 12)}…` : model}
+          </div>
+        ))}
+
+        {/* Data rows */}
+        {providerNames.map((provider) => (
+          <div key={provider} className="contents">
+            <div className="truncate px-2 py-1.5 font-medium text-foreground" title={provider}>
+              {provider}
+            </div>
+            {modelNames.map((model) => {
+              const count = providerMap.get(provider)?.get(model) ?? 0;
+              const intensity = getIntensity(count);
+              return (
+                <div
+                  key={model}
+                  className="flex items-center justify-center rounded-sm px-1 py-1.5 text-[10px] font-medium"
+                  style={{
+                    backgroundColor: `hsl(var(--primary) / ${intensity * 0.6})`,
+                    color: intensity > 0.4 ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))",
+                  }}
+                  title={`${provider} × ${model}: ${count} requests`}
+                >
+                  {count > 0 ? count : ""}
+                </div>
+              );
+            })}
           </div>
         ))}
       </div>

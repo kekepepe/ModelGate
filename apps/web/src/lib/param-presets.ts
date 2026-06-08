@@ -151,3 +151,96 @@ export function fieldsModifiedFromPreset(
   }
   return modified;
 }
+
+/* ── Custom presets (localStorage) ────────────────────────── */
+
+export type CustomPreset = {
+  id: string;
+  name: string;
+  params: Record<string, string | number | boolean>;
+  createdAt: number;
+};
+
+const CUSTOM_STORAGE_KEY = "modelgate:custom-presets";
+const CUSTOM_SCHEMA_VERSION = 1;
+
+type CustomPresetsStore = {
+  version: number;
+  presets: CustomPreset[];
+};
+
+export function loadCustomPresets(): CustomPreset[] {
+  if (typeof window === "undefined") return [];
+  try {
+    const raw = window.localStorage.getItem(CUSTOM_STORAGE_KEY);
+    if (!raw) return [];
+    const store = JSON.parse(raw) as CustomPresetsStore;
+    if (store.version !== CUSTOM_SCHEMA_VERSION) return [];
+    return store.presets;
+  } catch {
+    return [];
+  }
+}
+
+function saveCustomPresetsStore(presets: CustomPreset[]) {
+  if (typeof window === "undefined") return;
+  try {
+    const store: CustomPresetsStore = { version: CUSTOM_SCHEMA_VERSION, presets };
+    window.localStorage.setItem(CUSTOM_STORAGE_KEY, JSON.stringify(store));
+  } catch {
+    // ignore quota errors
+  }
+}
+
+export function saveCustomPreset(
+  name: string,
+  params: Record<string, string | number | boolean>,
+): CustomPreset {
+  const preset: CustomPreset = {
+    id: crypto.randomUUID(),
+    name,
+    params: { ...params },
+    createdAt: Date.now(),
+  };
+  const existing = loadCustomPresets();
+  saveCustomPresetsStore([...existing, preset]);
+  return preset;
+}
+
+export function deleteCustomPreset(id: string): void {
+  const existing = loadCustomPresets();
+  saveCustomPresetsStore(existing.filter((p) => p.id !== id));
+}
+
+export function applyCustomPreset(
+  preset: CustomPreset,
+  schema: ParamSchema | undefined,
+  currentParams: Record<string, string | number | boolean>,
+): ApplyOutcome {
+  const result: ApplyOutcome = {
+    applied: { ...currentParams },
+    setFields: [],
+    skippedFields: [],
+  };
+  if (!schema) return result;
+  const fieldsByKey = new Map(schema.fields.map((f) => [f.key, f]));
+  for (const [key, value] of Object.entries(preset.params)) {
+    const field = fieldsByKey.get(key);
+    if (!field) {
+      result.skippedFields.push({ key, reason: "not_supported_by_model" });
+      continue;
+    }
+    if (field.type !== "number" && typeof value === "number") {
+      result.skippedFields.push({ key, reason: "non_numeric_field" });
+      continue;
+    }
+    let clamped = value;
+    if (field.type === "number" && typeof value === "number") {
+      if (field.min !== undefined) clamped = Math.max(field.min, clamped as number);
+      if (field.max !== undefined) clamped = Math.min(field.max, clamped as number);
+    }
+    result.applied[key] = clamped;
+    result.setFields.push(key);
+  }
+  return result;
+}

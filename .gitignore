@@ -43,7 +43,7 @@ storage/previews/*
 .vscode/
 
 # Third-party / internal-sensitive content (kept on disk, not on GitHub)
+newidea/
 **/前端设计参考图/
 **/tokenplan_api文档/
 *-修改建议.md
-

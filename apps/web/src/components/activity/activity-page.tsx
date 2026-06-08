@@ -1,7 +1,7 @@
 "use client";
 
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter, usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
 import { Copy, ExternalLink, GitCompare, RotateCcw, Trash2, X } from "lucide-react";
 
@@ -24,12 +24,14 @@ type ActivityEntry = {
   status: string;
   latencyMs: number | null;
   requestId: string;
+  compareGroupId?: string;
   raw: RunRecord | RequestLog;
 };
 
 export function ActivityPage() {
   const queryClient = useQueryClient();
   const router = useRouter();
+  const pathname = usePathname();
   const searchParams = useSearchParams();
 
   const [selected, setSelected] = useState<ActivityEntry | null>(null);
@@ -37,6 +39,8 @@ export function ActivityPage() {
   const [providerFilter, setProviderFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
   const [typeFilter, setTypeFilter] = useState("");
+
+  const compareGroupId = searchParams.get("compareGroupId");
 
   // Open detail when ?runId=... is in URL (deep-link from Output ErrorBanner)
   useEffect(() => {
@@ -84,6 +88,7 @@ export function ActivityPage() {
       status: run.status,
       latencyMs: null,
       requestId: "",
+      compareGroupId: typeof run.metadata?.compare_group_id === "string" ? run.metadata.compare_group_id : undefined,
       raw: run,
     }));
     const logEntries: ActivityEntry[] = logs.map((log) => ({
@@ -128,8 +133,9 @@ export function ActivityPage() {
     if (statusFilter) r = r.filter((e) => e.status === statusFilter);
     if (typeFilter) r = r.filter((e) => e.type === typeFilter);
     if (providerFilter) r = r.filter((e) => e.providerId === providerFilter);
+    if (compareGroupId) r = r.filter((e) => e.compareGroupId === compareGroupId);
     return r;
-  }, [entries, search, statusFilter, typeFilter, providerFilter]);
+  }, [entries, search, statusFilter, typeFilter, providerFilter, compareGroupId]);
 
   const rerunMutation = useMutation({
     mutationFn: (run: RunRecord) =>
@@ -205,6 +211,23 @@ export function ActivityPage() {
           <option value="failed">Failed</option>
           <option value="cancelled">Cancelled</option>
         </select>
+        {compareGroupId ? (
+          <span className="inline-flex items-center gap-1 rounded-md border border-primary/40 bg-primary/5 px-2 py-1 text-xs">
+            Group: {compareGroupId.slice(0, 8)}…
+            <button
+              type="button"
+              className="ml-0.5 text-muted-foreground hover:text-foreground"
+              onClick={() => {
+                const nextParams = new URLSearchParams(searchParams.toString());
+                nextParams.delete("compareGroupId");
+                router.replace(`${pathname}${nextParams.toString() ? `?${nextParams}` : ""}`, { scroll: false });
+              }}
+              aria-label="Clear compare group filter"
+            >
+              <X className="h-3 w-3" />
+            </button>
+          </span>
+        ) : null}
         {(search || typeFilter || providerFilter || statusFilter) ? (
           <Button
             variant="ghost"

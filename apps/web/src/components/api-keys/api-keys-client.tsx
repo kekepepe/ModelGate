@@ -183,7 +183,7 @@ export function ApiKeysClient() {
                 className={
                   "grid gap-3 rounded-lg border p-3 text-sm lg:grid-cols-[minmax(0,1fr)_minmax(240px,340px)_auto] " +
                   (isHighlighted
-                    ? "border-primary/60 bg-primary/5"
+                    ? "border-primary/60 bg-primary/5 [animation:pulse-highlight_2s_ease-out_forwards]"
                     : "border-border bg-muted/20")
                 }
                 onSubmit={(event) => {

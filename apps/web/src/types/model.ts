@@ -99,6 +99,7 @@ export type RunRecord = {
   status: string;
   errorType?: string | null;
   errorMessage?: string | null;
+  metadata?: Record<string, unknown> | null;
   createdAt?: string | null;
 };
 
