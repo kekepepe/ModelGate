@@ -126,3 +126,126 @@ async function buildApiError(response: Response): Promise<Error> {
   }
   return new ApiError(`API request failed: ${response.status}`, response.status);
 }
+
+// ── Project Mode V2.5 ───────────────────────────────────────────────────────
+
+export type ProjectRunStatus =
+  | "pending"
+  | "running"
+  | "awaiting_approval"
+  | "completed"
+  | "failed"
+  | "budget_exceeded"
+  | "cancelled";
+
+export type AgentRunStatus = "running" | "completed" | "failed";
+
+export interface ProjectTaskView {
+  id: string;
+  projectRunId: string;
+  parentTaskId: string | null;
+  title: string;
+  description: string;
+  role: string;
+  status: string;
+  priority: number | null;
+  dependsOn: string[];
+  allowedFiles: string[];
+  acceptanceCriteria: string[];
+  assignedModelId: string | null;
+  assignedProviderId: string | null;
+  metadata: unknown;
+}
+
+export interface AgentRunView {
+  id: string;
+  projectRunId: string;
+  taskId: string | null;
+  runId: string | null;
+  role: string;
+  status: AgentRunStatus | string;
+  modelId: string | null;
+  providerId: string | null;
+  prompt: string | null;
+  output: unknown;
+  inputTokens: number | null;
+  outputTokens: number | null;
+  totalTokens: number | null;
+  latencyMs: number | null;
+  errorType: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+}
+
+export interface ArtifactView {
+  id: string;
+  projectRunId: string;
+  taskId: string | null;
+  agentRunId: string | null;
+  type: string;
+  name: string;
+  content: unknown;
+  contentKind: "json" | "text";
+  sizeBytes: number;
+  truncated: boolean;
+  metadata: unknown;
+  createdAt: string | null;
+}
+
+export interface ProjectRunView {
+  id: string;
+  title: string;
+  goal: string;
+  status: ProjectRunStatus;
+  mode: string | null;
+  plannerModelId: string | null;
+  supervisorModelId: string | null;
+  integratorModelId: string | null;
+  workerModelId: string | null;
+  intake: unknown;
+  budget: unknown;
+  usage: { agentsUsed?: number; tokensUsed?: number; runtimeSeconds?: number; contextFilesUsed?: number } | null;
+  errorType: string | null;
+  errorMessage: string | null;
+  startedAt: string | null;
+  completedAt: string | null;
+  createdAt: string | null;
+}
+
+export interface ProjectRunDetails {
+  projectRun: ProjectRunView;
+  tasks: ProjectTaskView[];
+  agentRuns: AgentRunView[];
+  artifacts: ArtifactView[];
+}
+
+export interface CreateProjectRunBody {
+  goal: string;
+  title?: string;
+  mode?: string;
+  plannerModelId?: string;
+  supervisorModelId?: string;
+  integratorModelId?: string;
+  workerModelId?: string;
+  budget?: {
+    maxAgents?: number;
+    maxRounds?: number;
+    maxTokens?: number;
+    maxRuntimeSeconds?: number;
+    maxContextFiles?: number;
+  };
+}
+
+export const projectApi = {
+  list: () => getData<ProjectRunView[]>("/projects"),
+  get: (id: string) => getData<ProjectRunDetails>(`/projects/${id}`),
+  create: (body: CreateProjectRunBody) => postData<ProjectRunView>("/projects", body),
+  approve: (id: string, body: { taskIds?: string[]; budget?: CreateProjectRunBody["budget"] } = {}) =>
+    postData<{ projectRunId: string; status: string }>(`/projects/${id}/approve`, body),
+  cancel: (id: string) => postData<ProjectRunView>(`/projects/${id}/cancel`, {}),
+  delete: (id: string) => deleteData<{ deleted: boolean; id: string }>(`/projects/${id}`),
+  artifact: (id: string, artifactId: string) =>
+    getData<ArtifactView>(`/projects/${id}/artifacts/${artifactId}`),
+};
+

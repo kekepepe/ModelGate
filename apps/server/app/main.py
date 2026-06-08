@@ -10,6 +10,7 @@ from app.api import (
     logs,
     models,
     param_schemas,
+    projects,
     providers,
     usage,
 )
@@ -46,3 +47,4 @@ app.include_router(generation.router, prefix="/api/generation", tags=["generatio
 app.include_router(history.router, prefix="/api/history", tags=["history"])
 app.include_router(logs.router, prefix="/api/logs", tags=["logs"])
 app.include_router(usage.router, prefix="/api/usage", tags=["usage"])
+app.include_router(projects.router, prefix="/api/projects", tags=["projects"])

@@ -277,3 +277,137 @@ class WorkflowRun(Base):
         Index("idx_workflow_runs_status", "status"),
         Index("idx_workflow_runs_created_at", "created_at"),
     )
+
+
+class ProjectRun(Base):
+    __tablename__ = "project_runs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    goal: Mapped[str] = mapped_column(Text, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False)
+    mode: Mapped[str] = mapped_column(String, nullable=False, default="plan_only")
+    planner_model_id: Mapped[str | None] = mapped_column(String)
+    supervisor_model_id: Mapped[str | None] = mapped_column(String)
+    integrator_model_id: Mapped[str | None] = mapped_column(String)
+    worker_model_id: Mapped[str | None] = mapped_column(String)
+    intake_json: Mapped[dict | None] = mapped_column(JSON)
+    budget_json: Mapped[dict | None] = mapped_column(JSON)
+    usage_json: Mapped[dict | None] = mapped_column(JSON)
+    error_type: Mapped[str | None] = mapped_column(String)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_project_runs_status", "status"),
+        Index("idx_project_runs_created_at", "created_at"),
+    )
+
+
+class ProjectTask(Base):
+    __tablename__ = "project_tasks"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    project_run_id: Mapped[str] = mapped_column(ForeignKey("project_runs.id"), nullable=False)
+    parent_task_id: Mapped[str | None] = mapped_column(ForeignKey("project_tasks.id"))
+    title: Mapped[str] = mapped_column(String, nullable=False)
+    description: Mapped[str | None] = mapped_column(Text)
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    priority: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    depends_on: Mapped[list | None] = mapped_column(JSON)
+    allowed_files: Mapped[list | None] = mapped_column(JSON)
+    acceptance_criteria: Mapped[list | None] = mapped_column(JSON)
+    assigned_model_id: Mapped[str | None] = mapped_column(String)
+    assigned_provider_id: Mapped[str | None] = mapped_column(String)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_project_tasks_project_run_id", "project_run_id"),
+        Index("idx_project_tasks_status", "status"),
+        Index("idx_project_tasks_role", "role"),
+    )
+
+
+class AgentRun(Base):
+    __tablename__ = "agent_runs"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    project_run_id: Mapped[str] = mapped_column(ForeignKey("project_runs.id"), nullable=False)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("project_tasks.id"))
+    run_id: Mapped[str | None] = mapped_column(ForeignKey("runs.id"))
+    role: Mapped[str] = mapped_column(String, nullable=False)
+    status: Mapped[str] = mapped_column(String, nullable=False, default="pending")
+    model_id: Mapped[str | None] = mapped_column(String)
+    provider_id: Mapped[str | None] = mapped_column(String)
+    prompt: Mapped[str | None] = mapped_column(Text)
+    output_json: Mapped[dict | None] = mapped_column(JSON)
+    input_tokens: Mapped[int | None] = mapped_column(Integer)
+    output_tokens: Mapped[int | None] = mapped_column(Integer)
+    total_tokens: Mapped[int | None] = mapped_column(Integer)
+    latency_ms: Mapped[int | None] = mapped_column(Integer)
+    error_type: Mapped[str | None] = mapped_column(String)
+    error_message: Mapped[str | None] = mapped_column(Text)
+    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_agent_runs_project_run_id", "project_run_id"),
+        Index("idx_agent_runs_task_id", "task_id"),
+        Index("idx_agent_runs_role", "role"),
+        Index("idx_agent_runs_status", "status"),
+        Index("idx_agent_runs_created_at", "created_at"),
+    )
+
+
+class Artifact(Base):
+    __tablename__ = "artifacts"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    project_run_id: Mapped[str] = mapped_column(ForeignKey("project_runs.id"), nullable=False)
+    task_id: Mapped[str | None] = mapped_column(ForeignKey("project_tasks.id"))
+    agent_run_id: Mapped[str | None] = mapped_column(ForeignKey("agent_runs.id"))
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    content_json: Mapped[dict | None] = mapped_column(JSON)
+    content_text: Mapped[str | None] = mapped_column(Text)
+    size_bytes: Mapped[int] = mapped_column(Integer, default=0, nullable=False)
+    truncated: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+
+    __table_args__ = (
+        Index("idx_artifacts_project_run_id", "project_run_id"),
+        Index("idx_artifacts_type", "type"),
+        Index("idx_artifacts_created_at", "created_at"),
+    )
+
+
+class ProjectMemory(Base):
+    __tablename__ = "project_memory"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    project_run_id: Mapped[str] = mapped_column(ForeignKey("project_runs.id"), nullable=False)
+    type: Mapped[str] = mapped_column(String, nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    source: Mapped[str | None] = mapped_column(String)
+    metadata_json: Mapped[dict | None] = mapped_column(JSON)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        Index("idx_project_memory_project_run_id", "project_run_id"),
+        Index("idx_project_memory_type", "type"),
+    )

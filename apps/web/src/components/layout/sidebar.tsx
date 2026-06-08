@@ -32,6 +32,7 @@ const navItems = [
   { href: "/models", label: "Models", icon: Boxes },
   { href: "/usage", label: "Usage", icon: BarChart3 },
   { href: "/activity", label: "Activity", icon: ScrollText },
+  { href: "/projects", label: "Projects", icon: Bot },
   { href: "/api-keys", label: "API Keys", icon: KeyRound },
   { href: "/settings", label: "Settings", icon: Settings },
 ];

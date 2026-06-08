@@ -372,7 +372,9 @@ Memory type：
 
 ## 7. 版本路线
 
-### V2.2：Project Mode MVP
+### V2.5：Project Mode MVP（原文档 V2.2，2026-06-08 重命名）
+
+> **注：** 因前端 V2 优化方案已使用 V2.1-V2.4，Project Mode 系列重新编号为 V2.5/V2.6/V2.7，避免冲突。
 
 目标：先做可控的“多 Agent 协同计划系统”，不直接改代码。
 
@@ -398,7 +400,7 @@ Memory type：
 - Integrator 能汇总最终执行计划。
 - 全流程不会写入业务代码。
 
-### V2.3：Patch Mode
+### V2.6：Patch Mode（原文档 V2.3）
 
 目标：允许 Worker 生成 unified diff，但必须由用户确认后才能应用。
 
@@ -419,7 +421,7 @@ Memory type：
 - CI 配置
 - 删除文件操作
 
-### V2.4：Controlled Auto Mode
+### V2.7：Controlled Auto Mode（原文档 V2.4）
 
 目标：半自动执行 patch 和测试，但每轮受预算和停止条件控制。
 
@@ -486,8 +488,8 @@ Memory type：
 
 下一版路线建议：
 
-1. 先完成 V2.1 Provider Control Center 相关基础能力。
-2. 再进入 V2.2 Project Mode MVP。
-3. V2.2 完成后，再评估是否进入 V2.3 Patch Mode。
+1. 前端 V2.1-V2.4 已完成（见 `docs/05-前端设计/前端V2界面与功能优化方案.md`）。
+2. 进入 V2.5 Project Mode MVP（2026-06-08 启动，本文档定义）。
+3. V2.5 完成后，再评估是否进入 V2.6 Patch Mode。
 
 Project Mode 不应替代现有 Playground / Compare，而应作为更高层的大项目控制台，复用现有 Provider、Model Registry、Capability Router、Usage、Activity 和日志能力。
