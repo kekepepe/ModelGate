@@ -13,6 +13,13 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import type { CreateProjectRunBody } from "@/lib/api";
 
@@ -33,16 +40,24 @@ export function ProjectCreateModal({
 }: Props) {
   const [goal, setGoal] = useState("");
   const [title, setTitle] = useState("");
+  const [mode, setMode] = useState("advisory");
   const [plannerModelId, setPlannerModelId] = useState("gpt-4o");
   const [maxAgents, setMaxAgents] = useState(6);
   const [maxTokens, setMaxTokens] = useState(200_000);
   const [maxRuntimeSeconds, setMaxRuntimeSeconds] = useState(600);
+
+  const modeDescriptions: Record<string, string> = {
+    advisory: "Workers propose changes without generating code",
+    patch: "Workers generate unified diffs for review and application",
+    apply_with_approval: "Workers generate patches; you choose what to apply to source",
+  };
 
   function handleSubmit() {
     if (!goal.trim()) return;
     onSubmit({
       goal: goal.trim(),
       title: title.trim() || undefined,
+      mode,
       plannerModelId: plannerModelId.trim() || undefined,
       budget: { maxAgents, maxTokens, maxRuntimeSeconds },
     });
@@ -79,6 +94,22 @@ export function ProjectCreateModal({
               onChange={(e) => setTitle(e.target.value)}
               placeholder="API Health Check"
             />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="mode">Mode</Label>
+            <Select value={mode} onValueChange={setMode}>
+              <SelectTrigger id="mode" data-testid="mode-select">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="advisory">Advisory</SelectItem>
+                <SelectItem value="patch">Patch</SelectItem>
+                <SelectItem value="apply_with_approval">Apply with approval</SelectItem>
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-muted-foreground">
+              {modeDescriptions[mode]}
+            </p>
           </div>
           <div className="space-y-2">
             <Label htmlFor="plannerModel">Planner model</Label>

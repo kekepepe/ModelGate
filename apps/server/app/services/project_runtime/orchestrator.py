@@ -9,14 +9,18 @@ for status updates.
 from __future__ import annotations
 
 import asyncio
+import fnmatch
 import json
+import os
+import re
 from datetime import datetime
+from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.db.session import SessionLocal
 from app.db.models import AgentRun, ProjectRun, ProjectTask
+from app.db.session import SessionLocal
 from app.services.project_runtime.agents import (
     run_integrator,
     run_intake,
@@ -27,10 +31,102 @@ from app.services.project_runtime.agents import (
 )
 from app.services.project_runtime.artifacts import serialize_artifact, write_artifact
 from app.services.project_runtime.budget import Budget, BudgetExceeded, BudgetTracker
+from app.services.project_runtime.schemas import PatchValidationResult
 
 _events: dict[str, list[dict]] = {}
 
 WORKER_CONCURRENCY = 4
+
+PROJECT_ROOT = Path(os.environ.get("PROJECT_ROOT", "."))
+
+PATCH_MODES = {"patch", "apply_with_approval"}
+
+HIGH_RISK_PATTERNS: list[tuple[str, str]] = [
+    ("**/migrations/**", "migration"),
+    ("**/alembic/versions/**", "migration"),
+    ("**/*lock*", "lockfile"),
+    ("**/package-lock.json", "lockfile"),
+    ("**/yarn.lock", "lockfile"),
+    ("**/poetry.lock", "lockfile"),
+    ("**/.env*", "env"),
+    ("**/.env", "env"),
+    ("**/Dockerfile*", "docker"),
+    ("**/docker-compose*", "docker"),
+    ("**/.github/**", "ci"),
+    ("**/.gitlab-ci*", "ci"),
+    ("**/Jenkinsfile", "ci"),
+]
+
+HIGH_RISK_REASONS: dict[str, str] = {
+    "migration": "Database migration — may cause data loss",
+    "lockfile": "Dependency lockfile — affects reproducibility",
+    "env": "Environment configuration — may contain secrets",
+    "docker": "Docker configuration — affects deployment",
+    "ci": "CI/CD configuration — affects build pipeline",
+}
+
+# Unified diff header: --- a/path or --- /dev/null
+_DIFF_HEADER_RE = re.compile(r"^--- [ab]/(.+)$", re.MULTILINE)
+_DIFF_HEADER_NEW_RE = re.compile(r"^\+\+\+ [ab]/(.+)$", re.MULTILINE)
+
+
+def _check_high_risk(filepath: str) -> str | None:
+    """Return risk reason if filepath matches a high-risk pattern, else None."""
+    for pattern, reason_key in HIGH_RISK_PATTERNS:
+        # fnmatch doesn't support ** (recursive glob), so also match the
+        # path without **/ prefix and the basename.
+        last_segment = pattern.rsplit("/", maxsplit=1)[-1]
+        basename = filepath.rsplit("/", maxsplit=1)[-1]
+        if (
+            fnmatch.fnmatch(filepath, pattern)
+            or fnmatch.fnmatch(filepath, pattern.replace("**/", ""))
+            # Only match basename when the last segment is a concrete name, not ** or *
+            or (last_segment not in ("**", "*") and fnmatch.fnmatch(basename, last_segment))
+        ):
+            return HIGH_RISK_REASONS.get(reason_key, reason_key)
+    return None
+
+
+def validate_patch(diff_text: str, allowed_files: list[str]) -> PatchValidationResult:
+    """Validate a unified diff against allowed_files constraints.
+
+    Returns PatchValidationResult with violations and high-risk flags.
+    """
+    if not diff_text.strip():
+        return PatchValidationResult(valid=True)
+
+    # Extract all file paths from +++ b/ headers (the "new" side)
+    new_paths = _DIFF_HEADER_NEW_RE.findall(diff_text)
+    # Also check --- a/ headers for deleted files
+    old_paths = _DIFF_HEADER_RE.findall(diff_text)
+    all_paths = set(new_paths + old_paths)
+
+    # /dev/null is not a real path
+    all_paths.discard("/dev/null")
+    all_paths.discard("dev/null")
+
+    violations: list[str] = []
+    high_risk: list[dict[str, str]] = []
+
+    for filepath in all_paths:
+        # Check allowed_files
+        if allowed_files:
+            matched = any(
+                fnmatch.fnmatch(filepath, pattern) for pattern in allowed_files
+            )
+            if not matched:
+                violations.append(f"File '{filepath}' is not in allowed_files")
+
+        # Check high-risk
+        risk_reason = _check_high_risk(filepath)
+        if risk_reason:
+            high_risk.append({"file": filepath, "reason": risk_reason})
+
+    return PatchValidationResult(
+        valid=len(violations) == 0,
+        violations=violations,
+        high_risk_files=high_risk,
+    )
 
 
 def _push_event(project_run_id: str, event: dict) -> None:
@@ -303,6 +399,8 @@ class ProjectOrchestrator:
         semaphore = asyncio.Semaphore(max_parallel)
         project_run_id = project_run.id
         task_snapshots = [(t.id, t.title, t.role) for t in tasks]
+        is_patch_mode = (project_run.mode or "") in PATCH_MODES
+        project_root = PROJECT_ROOT if is_patch_mode else None
 
         async def _one(task_id: str, title: str, role: str) -> tuple[str, dict]:
             async with semaphore:
@@ -325,10 +423,33 @@ class ProjectOrchestrator:
                         planner_output=planner_output,
                         budget=tracker,
                         model_id=model_id,
+                        project_root=project_root,
                     )
                     local_task.status = (
                         "completed" if agent.status == "completed" else "failed"
                     )
+
+                    # V2.6 Patch Mode: extract and validate patch
+                    patch_combined = output.pop("patch_combined", "")
+                    if patch_combined and is_patch_mode:
+                        validation = validate_patch(
+                            patch_combined, local_task.allowed_files or []
+                        )
+                        write_artifact(
+                            db=local_db, project_run_id=project_run_id,
+                            artifact_type="patch",
+                            name=f"patch-{role}-{task_id}.diff",
+                            content=patch_combined,
+                            task_id=task_id, agent_run_id=agent.id,
+                            metadata=validation.model_dump(),
+                        )
+                        if not validation.valid:
+                            local_task.status = "validation_failed"
+                            local_task.metadata_json = {
+                                **(local_task.metadata_json or {}),
+                                "patch_violations": validation.violations,
+                            }
+
                     local_db.commit()
                     write_artifact(
                         db=local_db, project_run_id=project_run_id,

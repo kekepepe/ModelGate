@@ -49,6 +49,7 @@ class WorkerProposedChange(BaseModel):
     file: str
     change_kind: Literal["create", "modify", "delete", "review"] = "modify"
     description: str = ""
+    patch: str = ""  # unified diff for this file (V2.6 Patch Mode)
 
 
 class WorkerOutput(AgentOutput):
@@ -57,6 +58,15 @@ class WorkerOutput(AgentOutput):
     tests: list[str] = Field(default_factory=list)
     risks: list[str] = Field(default_factory=list)
     questions: list[str] = Field(default_factory=list)
+    patch_combined: str = ""  # all unified diffs merged (V2.6 Patch Mode)
+
+
+class PatchValidationResult(BaseModel):
+    """Result of validating a unified diff against allowed_files."""
+
+    valid: bool = True
+    violations: list[str] = Field(default_factory=list)
+    high_risk_files: list[dict[str, str]] = Field(default_factory=list)
 
 
 class SupervisorOutput(AgentOutput):

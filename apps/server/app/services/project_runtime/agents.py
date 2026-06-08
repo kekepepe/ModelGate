@@ -8,18 +8,67 @@ via the ``Run`` UsageLog records.
 from __future__ import annotations
 
 from datetime import UTC, datetime
+from pathlib import Path
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentRun, ProjectMemory, ProjectTask
 from app.services.chat_runtime import chat_runtime
-from app.services.project_runtime.artifacts import write_artifact
 from app.services.project_runtime.budget import BudgetExceeded, BudgetTracker
 from app.services.project_runtime.prompts import PROMPT_BY_ROLE, worker_prompt
 from app.services.project_runtime.schemas import validate_agent_output
 
 _ALLOWED_WORKER_ROLES = {"backend", "frontend", "database", "test", "docs", "refactor", "security"}
+
+_MAX_FILE_BYTES = 50 * 1024  # 50 KB per file
+_MAX_TOTAL_BYTES = 200 * 1024  # 200 KB total context
+_MAX_GLOB_RESULTS = 50
+
+
+def _read_task_file_contents(task: ProjectTask, project_root: Path) -> dict[str, str]:
+    """Read file contents for task.allowed_files from disk.
+
+    Returns {relative_path: contents}.  Files that don't exist are marked
+    as ``(new file)``.  Binary files are skipped.
+    """
+    allowed = task.allowed_files or []
+    result: dict[str, str] = {}
+    total = 0
+
+    for pattern in allowed:
+        matches = list(project_root.glob(pattern))
+        if not matches:
+            # Pattern matches nothing — might be a new file the worker will create
+            result[pattern] = "(new file)"
+            continue
+
+        for path in matches[:_MAX_GLOB_RESULTS]:
+            if not path.is_file():
+                continue
+            try:
+                rel = str(path.relative_to(project_root))
+            except ValueError:
+                rel = str(path)
+
+            size = path.stat().st_size
+            if size > _MAX_FILE_BYTES:
+                continue
+
+            if total + size > _MAX_TOTAL_BYTES:
+                result[rel] = "(skipped — total context limit reached)"
+                continue
+
+            try:
+                content = path.read_text(encoding="utf-8", errors="strict")
+            except (UnicodeDecodeError, OSError):
+                # Binary file or read error — skip
+                continue
+
+            result[rel] = content
+            total += size
+
+    return result
 
 
 def _now_iso() -> datetime:
@@ -204,9 +253,13 @@ async def run_worker(
     planner_output: dict,
     budget: BudgetTracker,
     model_id: str,
+    project_root: Path | None = None,
 ) -> tuple[AgentRun, dict]:
     role = task.role if task.role in _ALLOWED_WORKER_ROLES else "backend"
-    prompt = _worker_user_prompt(task, planner_output)
+    file_contents = None
+    if project_root is not None:
+        file_contents = _read_task_file_contents(task, project_root)
+    prompt = _worker_user_prompt(task, planner_output, file_contents=file_contents)
     return await _run_agent(
         db=db,
         project_run_id=project_run_id,
@@ -220,18 +273,29 @@ async def run_worker(
     )
 
 
-def _worker_user_prompt(task: ProjectTask, planner_output: dict) -> str:
+def _worker_user_prompt(
+    task: ProjectTask,
+    planner_output: dict,
+    file_contents: dict[str, str] | None = None,
+) -> str:
     allowed = ", ".join(task.allowed_files or [])
     deps = ", ".join(task.depends_on or [])
     criteria = "\n".join(f"  - {c}" for c in task.acceptance_criteria or [])
-    return (
-        f"Task: {task.title}\n"
-        f"Description: {task.description or ''}\n"
-        f"Allowed files: {allowed or '(none specified)'}\n"
-        f"Depends on: {deps or '(none)'}\n"
-        f"Acceptance criteria:\n{criteria or '  (none specified)'}\n"
-        f"Project title: {planner_output.get('project_title', '')}\n"
-    )
+    parts = [
+        f"Task: {task.title}\n",
+        f"Description: {task.description or ''}\n",
+        f"Allowed files: {allowed or '(none specified)'}\n",
+        f"Depends on: {deps or '(none)'}\n",
+        f"Acceptance criteria:\n{criteria or '  (none specified)'}\n",
+        f"Project title: {planner_output.get('project_title', '')}\n",
+    ]
+
+    if file_contents:
+        parts.append("\n=== Current file contents ===\n")
+        for path, content in file_contents.items():
+            parts.append(f"--- File: {path} ---\n{content}\n")
+
+    return "".join(parts)
 
 
 async def run_supervisor(

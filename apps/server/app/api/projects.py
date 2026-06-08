@@ -236,6 +236,21 @@ async def approve_project_run(
     if not task_ids:
         raise HTTPException(status_code=422, detail="No tasks to execute")
 
+    # V2.6: store per-file approvals in task metadata
+    file_approvals = body.get("fileApprovals")
+    if file_approvals:
+        for task_id, approvals in file_approvals.items():
+            task = db.query(ProjectTask).filter(
+                ProjectTask.id == task_id,
+                ProjectTask.project_run_id == project_run_id,
+            ).first()
+            if task:
+                task.metadata_json = {
+                    **(task.metadata_json or {}),
+                    "file_approvals": approvals,
+                }
+        db.commit()
+
     budget = Budget.from_dict(body.get("budget") or pr.budget_json)
     asyncio.create_task(
         project_orchestrator.run_approved(
@@ -301,3 +316,198 @@ def delete_project_run(
     db.delete(pr)
     db.commit()
     return {"data": {"deleted": True, "id": project_run_id}}
+
+
+# ---------------------------------------------------------------------------
+# V2.6 Patch Mode endpoints
+# ---------------------------------------------------------------------------
+
+
+@router.post("/{project_run_id}/patches/{artifact_id}/apply")
+def apply_patch(
+    project_run_id: str,
+    artifact_id: str,
+    body: dict[str, Any] = Body(default_factory=dict),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Apply a unified diff patch to the project source tree."""
+    pr = db.query(ProjectRun).filter(ProjectRun.id == project_run_id).first()
+    if not pr:
+        raise HTTPException(status_code=404, detail="ProjectRun not found")
+    if pr.status != "completed":
+        raise HTTPException(
+            status_code=409,
+            detail=f"ProjectRun is in status '{pr.status}', not completed",
+        )
+
+    art = (
+        db.query(Artifact)
+        .filter(Artifact.id == artifact_id, Artifact.project_run_id == project_run_id)
+        .first()
+    )
+    if not art:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    if art.type != "patch":
+        raise HTTPException(status_code=422, detail="Artifact is not a patch")
+
+    # Check high-risk files
+    validation = (art.metadata_json or {}).get("validation", {})
+    high_risk = validation.get("high_risk_files", [])
+    if high_risk and not body.get("confirmHighRisk"):
+        raise HTTPException(
+            status_code=409,
+            detail={
+                "message": "Patch contains high-risk files. Set confirmHighRisk=true to proceed.",
+                "highRiskFiles": high_risk,
+            },
+        )
+
+    diff_text = art.content_text or ""
+    if not diff_text.strip():
+        raise HTTPException(status_code=422, detail="Patch content is empty")
+
+    # Apply the patch using git apply --check first, then git apply
+    import subprocess
+    import tempfile
+
+    from app.services.project_runtime.orchestrator import PROJECT_ROOT
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".diff", delete=False) as f:
+        f.write(diff_text)
+        tmp_path = f.name
+
+    try:
+        # Dry-run check
+        check_result = subprocess.run(
+            ["git", "apply", "--check", tmp_path],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if check_result.returncode != 0:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Patch dry-run failed: {check_result.stderr.strip()}",
+            )
+
+        # Apply
+        apply_result = subprocess.run(
+            ["git", "apply", tmp_path],
+            cwd=str(PROJECT_ROOT),
+            capture_output=True,
+            text=True,
+            timeout=30,
+            check=False,
+        )
+        if apply_result.returncode != 0:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Patch apply failed: {apply_result.stderr.strip()}",
+            )
+
+        # Stage modified files
+        from app.services.project_runtime.orchestrator import _DIFF_HEADER_NEW_RE, _DIFF_HEADER_RE
+
+        paths = set(_DIFF_HEADER_RE.findall(diff_text) + _DIFF_HEADER_NEW_RE.findall(diff_text))
+        paths.discard("/dev/null")
+        paths.discard("dev/null")
+        for p in paths:
+            subprocess.run(
+                ["git", "add", p],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                timeout=10,
+                check=False,
+            )
+
+        # Mark artifact as applied
+        art.metadata_json = {
+            **(art.metadata_json or {}),
+            "applied": True,
+            "appliedAt": datetime.now(UTC).isoformat(),
+        }
+        db.commit()
+
+        return {"data": {"applied": True, "files": sorted(paths)}}
+    finally:
+        import os
+
+        os.unlink(tmp_path)
+
+
+@router.post("/{project_run_id}/patches/{artifact_id}/reject")
+def reject_patch(
+    project_run_id: str,
+    artifact_id: str,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Mark a patch artifact as rejected."""
+    art = (
+        db.query(Artifact)
+        .filter(Artifact.id == artifact_id, Artifact.project_run_id == project_run_id)
+        .first()
+    )
+    if not art:
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    if art.type != "patch":
+        raise HTTPException(status_code=422, detail="Artifact is not a patch")
+
+    art.metadata_json = {
+        **(art.metadata_json or {}),
+        "rejected": True,
+        "rejectedAt": datetime.now(UTC).isoformat(),
+    }
+    db.commit()
+    return {"data": {"rejected": True, "artifactId": artifact_id}}
+
+
+@router.post("/{project_run_id}/patches/regenerate")
+async def regenerate_patches(
+    project_run_id: str,
+    body: dict[str, Any] = Body(...),
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Re-run workers for specific tasks to regenerate patches."""
+    pr = db.query(ProjectRun).filter(ProjectRun.id == project_run_id).first()
+    if not pr:
+        raise HTTPException(status_code=404, detail="ProjectRun not found")
+    if pr.status not in ("completed", "failed", "validation_failed"):
+        raise HTTPException(
+            status_code=409,
+            detail=f"ProjectRun is in status '{pr.status}', cannot regenerate",
+        )
+
+    task_ids = body.get("taskIds")
+    if not task_ids:
+        raise HTTPException(status_code=422, detail="taskIds is required")
+
+    # Verify tasks exist
+    tasks = (
+        db.query(ProjectTask)
+        .filter(
+            ProjectTask.project_run_id == project_run_id,
+            ProjectTask.id.in_(task_ids),
+        )
+        .all()
+    )
+    if not tasks:
+        raise HTTPException(status_code=404, detail="No matching tasks found")
+
+    budget = Budget.from_dict(body.get("budget") or pr.budget_json)
+
+    # Reset run status to running
+    pr.status = "running"
+    pr.error_type = None
+    pr.error_message = None
+    db.commit()
+
+    asyncio.create_task(
+        project_orchestrator.run_approved(
+            project_run_id=project_run_id,
+            task_ids=list(task_ids),
+            budget=budget,
+        )
+    )
+    return {"data": {"projectRunId": project_run_id, "status": "running", "regenerating": task_ids}}

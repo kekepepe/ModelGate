@@ -21,7 +21,7 @@ import { AgentRunDrawer } from "@/components/projects/agent-run-drawer";
 import { TaskTreeApproval } from "@/components/projects/task-tree-approval";
 import { BudgetMeter } from "@/components/projects/budget-meter";
 import { ArtifactDrawer } from "@/components/projects/artifact-drawer";
-import { projectApi, type ProjectRunStatus, type ProjectRunDetails, type ArtifactView, type AgentRunView, type ProjectTaskView } from "@/lib/api";
+import { projectApi, type ProjectRunStatus, type ProjectRunDetails, type ArtifactView, type AgentRunView, type ProjectTaskView, type PatchApplyResponse } from "@/lib/api";
 
 interface Budget {
   maxAgents?: number;
@@ -36,6 +36,8 @@ function statusToTone(status: ProjectRunStatus): StatusTone {
     case "pending":
       return "running";
     case "awaiting_approval":
+      return "warn";
+    case "validation_failed":
       return "warn";
     case "completed":
       return "ready";
@@ -70,14 +72,17 @@ export default function ProjectDetailPage({ params }: PageProps) {
       const d = q.state.data as ProjectRunDetails | undefined;
       const status = d?.projectRun.status;
       if (!status) return 2000;
-      return status === "completed" || status === "failed" || status === "cancelled" || status === "budget_exceeded"
+      return status === "completed" || status === "failed" || status === "cancelled" || status === "budget_exceeded" || status === "validation_failed"
         ? false
         : 2000;
     },
   });
 
   const approveMut = useMutation({
-    mutationFn: (body: { taskIds?: string[] }) => projectApi.approve(id, body),
+    mutationFn: (body: {
+      taskIds?: string[];
+      fileApprovals?: Record<string, Record<string, "accept" | "reject">>;
+    }) => projectApi.approve(id, body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
   });
 
@@ -92,6 +97,23 @@ export default function ProjectDetailPage({ params }: PageProps) {
       qc.invalidateQueries({ queryKey: ["projects"] });
       router.push("/projects");
     },
+  });
+
+  const applyPatchMut = useMutation({
+    mutationFn: (body: { artifactId: string; confirmHighRisk: boolean }) =>
+      projectApi.applyPatch(id, body.artifactId, { confirmHighRisk: body.confirmHighRisk }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
+  });
+
+  const rejectPatchMut = useMutation({
+    mutationFn: (artifactId: string) => projectApi.rejectPatch(id, artifactId),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
+  });
+
+  const regenerateMut = useMutation({
+    mutationFn: (taskIds: string[]) =>
+      projectApi.regeneratePatches(id, { taskIds }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
   });
 
   if (isLoading) {
@@ -161,7 +183,11 @@ export default function ProjectDetailPage({ params }: PageProps) {
       {pr.status === "awaiting_approval" && tasks.length > 0 && (
         <TaskTreeApproval
           tasks={tasks}
-          onApprove={(selectedIds) => approveMut.mutate({ taskIds: selectedIds })}
+          artifacts={artifacts}
+          isPatchMode={(pr.mode || "") === "patch" || pr.mode === "apply_with_approval"}
+          onApprove={(selectedIds, fileApprovals) =>
+            approveMut.mutate({ taskIds: selectedIds, fileApprovals })
+          }
           isSubmitting={approveMut.isPending}
         />
       )}
@@ -177,6 +203,14 @@ export default function ProjectDetailPage({ params }: PageProps) {
       <ArtifactDrawer
         artifact={selectedArtifact}
         onOpenChange={(open) => !open && setSelectedArtifact(null)}
+        onApplyPatch={(artifactId, confirmHighRisk) =>
+          applyPatchMut.mutate({ artifactId, confirmHighRisk })
+        }
+        onRejectPatch={(artifactId) => rejectPatchMut.mutate(artifactId)}
+        onRegeneratePatch={() => {
+          const taskId = selectedArtifact?.taskId;
+          if (taskId) regenerateMut.mutate([taskId]);
+        }}
       />
 
       <AgentRunDrawer

@@ -9,17 +9,23 @@ import {
 } from "@/components/ui/sheet";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { UnifiedDiffView } from "./unified-diff-view";
+import { PatchActions } from "./patch-actions";
 import type { ArtifactView } from "@/lib/api";
 
 interface Props {
   artifact: ArtifactView | null;
   onOpenChange: (open: boolean) => void;
+  onApplyPatch?: (artifactId: string, confirmHighRisk: boolean) => void;
+  onRejectPatch?: (artifactId: string) => void;
+  onRegeneratePatch?: (artifactId: string) => void;
 }
 
 function toneFor(type: string): StatusTone {
   if (type === "final_plan") return "ready";
   if (type === "review") return "warn";
   if (type === "worker") return "running";
+  if (type === "patch") return "running";
   return "muted";
 }
 
@@ -29,8 +35,20 @@ function formatBytes(bytes: number): string {
   return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }
 
-export function ArtifactDrawer({ artifact, onOpenChange }: Props) {
+export function ArtifactDrawer({
+  artifact,
+  onOpenChange,
+  onApplyPatch,
+  onRejectPatch,
+  onRegeneratePatch,
+}: Props) {
   const open = artifact !== null;
+  const isPatch = artifact?.type === "patch";
+
+  const metadata = artifact?.metadata as Record<string, unknown> | null | undefined;
+  const validation = metadata?.validation as Record<string, unknown> | undefined;
+  const highRiskFiles = (validation?.highRiskFiles as Array<{ file: string; reason: string }>) || [];
+
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent
@@ -50,16 +68,40 @@ export function ArtifactDrawer({ artifact, onOpenChange }: Props) {
                 {artifact.truncated ? " · truncated" : ""}
               </SheetDescription>
             </SheetHeader>
-            <ScrollArea className="flex-1 rounded-md border bg-muted/30 p-3">
-              <pre
-                className="whitespace-pre-wrap break-words text-xs leading-relaxed"
-                data-testid="artifact-content"
-              >
-                {artifact.contentKind === "json"
-                  ? JSON.stringify(artifact.content, null, 2)
-                  : String(artifact.content ?? "")}
-              </pre>
-            </ScrollArea>
+
+            {isPatch ? (
+              <div className="flex-1 flex flex-col gap-3 overflow-hidden">
+                <ScrollArea className="flex-1 rounded-md border">
+                  <div className="p-3" data-testid="artifact-content">
+                    <UnifiedDiffView
+                      diff={String(artifact.content ?? "")}
+                      highRiskFiles={highRiskFiles}
+                    />
+                  </div>
+                </ScrollArea>
+                {onApplyPatch && onRejectPatch && onRegeneratePatch && (
+                  <div className="shrink-0">
+                    <PatchActions
+                      artifact={artifact}
+                      onApply={(confirmHighRisk) => onApplyPatch(artifact.id, confirmHighRisk)}
+                      onReject={() => onRejectPatch(artifact.id)}
+                      onRegenerate={() => onRegeneratePatch(artifact.id)}
+                    />
+                  </div>
+                )}
+              </div>
+            ) : (
+              <ScrollArea className="flex-1 rounded-md border bg-muted/30 p-3">
+                <pre
+                  className="whitespace-pre-wrap break-words text-xs leading-relaxed"
+                  data-testid="artifact-content"
+                >
+                  {artifact.contentKind === "json"
+                    ? JSON.stringify(artifact.content, null, 2)
+                    : String(artifact.content ?? "")}
+                </pre>
+              </ScrollArea>
+            )}
           </>
         )}
       </SheetContent>

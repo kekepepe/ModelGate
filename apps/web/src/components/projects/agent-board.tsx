@@ -202,7 +202,10 @@ export function AgentBoard({
           title={`Worker · ${task.role}`}
           subtitle={task.title}
           status={workerRun?.status ?? "queued"}
-          artifacts={artifactsByType["worker"]?.filter((a) => a.taskId === task.id) ?? []}
+          artifacts={[
+            ...(artifactsByType["worker"]?.filter((a) => a.taskId === task.id) ?? []),
+            ...(artifactsByType["patch"]?.filter((a) => a.taskId === task.id) ?? []),
+          ]}
           onArtifactClick={onArtifactClick}
           onCardClick={
             workerRun && onAgentClick

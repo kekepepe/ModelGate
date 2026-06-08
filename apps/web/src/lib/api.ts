@@ -136,7 +136,8 @@ export type ProjectRunStatus =
   | "completed"
   | "failed"
   | "budget_exceeded"
-  | "cancelled";
+  | "cancelled"
+  | "validation_failed";
 
 export type AgentRunStatus = "running" | "completed" | "failed";
 
@@ -237,15 +238,41 @@ export interface CreateProjectRunBody {
   };
 }
 
+export interface PatchApplyResponse {
+  applied: boolean;
+  files: string[];
+}
+
+export interface PatchRejectResponse {
+  rejected: boolean;
+  artifactId: string;
+}
+
 export const projectApi = {
   list: () => getData<ProjectRunView[]>("/projects"),
   get: (id: string) => getData<ProjectRunDetails>(`/projects/${id}`),
   create: (body: CreateProjectRunBody) => postData<ProjectRunView>("/projects", body),
-  approve: (id: string, body: { taskIds?: string[]; budget?: CreateProjectRunBody["budget"] } = {}) =>
-    postData<{ projectRunId: string; status: string }>(`/projects/${id}/approve`, body),
+  approve: (
+    id: string,
+    body: {
+      taskIds?: string[];
+      budget?: CreateProjectRunBody["budget"];
+      fileApprovals?: Record<string, Record<string, "accept" | "reject">>;
+    } = {},
+  ) => postData<{ projectRunId: string; status: string }>(`/projects/${id}/approve`, body),
   cancel: (id: string) => postData<ProjectRunView>(`/projects/${id}/cancel`, {}),
   delete: (id: string) => deleteData<{ deleted: boolean; id: string }>(`/projects/${id}`),
   artifact: (id: string, artifactId: string) =>
     getData<ArtifactView>(`/projects/${id}/artifacts/${artifactId}`),
+  // V2.6 Patch Mode
+  applyPatch: (id: string, artifactId: string, body: { confirmHighRisk?: boolean } = {}) =>
+    postData<PatchApplyResponse>(`/projects/${id}/patches/${artifactId}/apply`, body),
+  rejectPatch: (id: string, artifactId: string) =>
+    postData<PatchRejectResponse>(`/projects/${id}/patches/${artifactId}/reject`, {}),
+  regeneratePatches: (id: string, body: { taskIds: string[]; budget?: CreateProjectRunBody["budget"] }) =>
+    postData<{ projectRunId: string; status: string; regenerating: string[] }>(
+      `/projects/${id}/patches/regenerate`,
+      body,
+    ),
 };
 

@@ -58,30 +58,48 @@ Required JSON output (no other text, no markdown fences):
 WORKER_PROMPT = """
 You are ModelGate Project Mode Worker Agent ({role}).
 
-Your job: design the change for ONE task. You do NOT write actual code,
-NOT generate diffs. You output a structured proposal the user can review.
+Your job: implement the change for ONE task. When the user prompt
+contains current file contents, you MUST generate unified diffs
+(patch) against those contents. When no file contents are provided,
+output a structured proposal only.
 
 Strict rules:
 - Stay within the allowed_files passed to you. Listing files outside it
   is a hard error.
 - Be specific. "Update the API" is not acceptable; name the function,
   the file, and what changes.
+- Generate standard unified diff format:
+  --- a/path/to/file
+  +++ b/path/to/file
+  @@ -old_start,old_count +new_start,new_count @@
+  context line
+  -removed line
+  +added line
 
 Required JSON output (no other text, no markdown fences):
 {
-  "summary": "one-sentence proposal summary",
+  "summary": "one-sentence implementation summary",
   "files_to_change": ["apps/server/app/api/foo.py"],
   "proposed_changes": [
     {
       "file": "apps/server/app/api/foo.py",
       "change_kind": "modify",
-      "description": "add new endpoint POST /foo/bar that ..."
+      "description": "add new endpoint POST /foo/bar that ...",
+      "patch": "--- a/apps/server/app/api/foo.py\\n+++ b/apps/server/app/api/foo.py\\n@@ -10,3 +10,7 @@\\n existing line\\n+new endpoint code"
     }
   ],
+  "patch_combined": "--- a/apps/server/app/api/foo.py\\n+++ b/apps/server/app/api/foo.py\\n@@ ...",
   "tests": ["tests/test_foo.py::test_bar"],
   "risks": ["may break existing GET /foo if path conflicts"],
   "questions": ["should /foo/bar accept multipart?"]
 }
+
+Notes:
+- "patch" in each proposed_change is the unified diff for that single file.
+- "patch_combined" is ALL diffs merged into one string.
+- If no file contents are provided (new file creation), set "patch" to
+  the full new file content prefixed with --- /dev/null.
+- Escape newlines as \\n in the JSON string values.
 """.strip()
 
 SUPERVISOR_PROMPT = """
