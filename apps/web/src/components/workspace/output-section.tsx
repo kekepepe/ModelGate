@@ -6,21 +6,19 @@ import {
   CheckCircle2,
   Copy,
   Download,
-  ExternalLink,
   Image as ImageIcon,
-  Key,
   Loader2,
   RotateCcw,
   Sparkles,
   Video,
 } from "lucide-react";
-import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { API_BASE_URL, ApiError } from "@/lib/api";
 import type { ModelInfo, Provider, RunRecord } from "@/types/model";
+import { ErrorBanner } from "@/components/workspace/error-banner";
 
 const TIMELINE_STEPS = [
   "Queued",
@@ -59,7 +57,7 @@ export function OutputSection({
 
         <div className="mt-3 rounded-lg border bg-card">
           <TabsContent value="output" className="m-0 p-5">
-            <OutputPreview run={latestRun} error={runError} selectedModel={selectedModel} providers={providers} />
+            <OutputPreview run={latestRun} error={runError} selectedModel={selectedModel} />
           </TabsContent>
 
           <TabsContent value="timeline" className="m-0 p-5">
@@ -85,14 +83,23 @@ function OutputPreview({
   run,
   error,
   selectedModel,
-  providers,
 }: {
   run: RunRecord | null;
   error: Error | null;
   selectedModel?: ModelInfo;
-  providers: Provider[];
 }) {
-  if (error) return <ErrorBanner error={error} run={run} providers={providers} />;
+  if (error) {
+    const apiErr = error instanceof ApiError ? error : undefined;
+    return (
+      <ErrorBanner
+        errorType={apiErr?.type ?? "INTERNAL_ERROR"}
+        providerId={run?.providerId}
+        runId={run?.id}
+        requestId={apiErr?.requestId}
+        rawMessage={error.message}
+      />
+    );
+  }
 
   const toAbsolute = (url: string) =>
     url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL.replace(/\/api$/, "")}${url}`;
@@ -380,88 +387,6 @@ function ArchiveList({ history, onRerun }: { history: RunRecord[]; onRerun: (run
       ))}
     </div>
   );
-}
-
-/* ── Error banner with actionable suggestions ─────────── */
-
-function ErrorBanner({
-  error,
-  run,
-  providers,
-}: {
-  error: Error;
-  run: RunRecord | null;
-  providers: Provider[];
-}) {
-  const apiError = error instanceof ApiError ? error : null;
-  const errorType = apiError?.type ?? "";
-  const providerId = run?.providerId ?? "";
-  const providerName = providers.find((p) => p.id === providerId)?.name ?? providerId;
-
-  const suggestion = describeError(errorType, error.message);
-
-  return (
-    <div className="space-y-3 rounded-md border border-destructive/30 bg-destructive/5 p-4 text-sm">
-      <div className="flex items-start gap-2 text-destructive">
-        <AlertTriangle className="mt-0.5 h-4 w-4 flex-shrink-0" />
-        <div className="flex-1">
-          <div className="font-medium">{suggestion.title}</div>
-          <div className="mt-0.5 text-xs text-destructive/80">{error.message}</div>
-        </div>
-      </div>
-
-      <div className="flex flex-wrap gap-3 text-xs text-muted-foreground">
-        {providerName ? <span>Provider: <span className="font-medium text-foreground">{providerName}</span></span> : null}
-        {run?.modelId ? <span>Model: <span className="font-medium text-foreground">{run.modelId}</span></span> : null}
-        {apiError?.requestId ? (
-          <span>
-            requestId: <span className="font-mono text-foreground">{apiError.requestId}</span>
-          </span>
-        ) : null}
-      </div>
-
-      <div className="flex flex-wrap gap-2">
-        {suggestion.showApiKey ? (
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/api-keys${providerId ? `?provider=${providerId}` : ""}`}>
-              <Key className="mr-1 h-3.5 w-3.5" /> Edit API key
-            </Link>
-          </Button>
-        ) : null}
-        {run?.id ? (
-          <Button asChild variant="outline" size="sm">
-            <Link href={`/activity?runId=${run.id}`}>
-              <ExternalLink className="mr-1 h-3.5 w-3.5" /> Open log
-            </Link>
-          </Button>
-        ) : null}
-      </div>
-    </div>
-  );
-}
-
-function describeError(
-  errorType: string,
-  message: string,
-): { title: string; showApiKey: boolean } {
-  const t = errorType.toLowerCase();
-  const m = message.toLowerCase();
-  if (t.includes("api_key") || t.includes("auth") || m.includes("api key") || m.includes("unauthorized")) {
-    return { title: "API key invalid or missing", showApiKey: true };
-  }
-  if (t.includes("rate") || m.includes("rate limit")) {
-    return { title: "Provider rate limited", showApiKey: false };
-  }
-  if (t.includes("quota") || m.includes("quota")) {
-    return { title: "Provider quota exhausted", showApiKey: true };
-  }
-  if (t.includes("file") || m.includes("file parsing") || m.includes("parse")) {
-    return { title: "File parsing failed", showApiKey: false };
-  }
-  if (t.includes("timeout") || m.includes("timeout")) {
-    return { title: "Request timed out", showApiKey: false };
-  }
-  return { title: "Run failed", showApiKey: false };
 }
 
 /* ── Helpers ──────────────────────────────────────────── */

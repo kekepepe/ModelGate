@@ -83,6 +83,57 @@ export function useWorkspaceQueries() {
   const setLatestRun = useWorkspaceStore((state) => state.setLatestRun);
   const resetWorkspace = useWorkspaceStore((state) => state.resetWorkspace);
 
+  // Read ?fromRun= for "Rerun with another model" deep-link from Activity page
+  const fromRunId = searchParams.get("fromRun");
+
+  const fromRunQuery = useQuery({
+    queryKey: ["from-run", fromRunId],
+    queryFn: () => getData<RunRecord>(`/history/${fromRunId}`),
+    enabled: Boolean(fromRunId),
+    staleTime: 0,
+  });
+
+  // Track the original model from the run (persists even if user changes selection)
+  const [fromRunModelId, setFromRunModelId] = useState<string | null>(null);
+
+  // Pre-fill workspace when fromRun data arrives
+  useEffect(() => {
+    const run = fromRunQuery.data;
+    if (!run || !fromRunId) return;
+
+    // Pre-fill task type, prompt, params, model
+    if (run.taskType && tasks.some((t) => t.id === run.taskType && !t.disabled)) {
+      setSelectedTaskType(run.taskType);
+    }
+    const runPrompt = typeof run.input?.prompt === "string" ? run.input.prompt : "";
+    if (runPrompt) setPrompt(runPrompt);
+    if (run.params && typeof run.params === "object") {
+      setParams(run.params as Record<string, string | number | boolean>);
+    }
+    if (run.modelId) {
+      setSelectedModelId(run.modelId);
+      setFromRunModelId(run.modelId);
+    }
+
+    // Show toast about files
+    const hadFiles = Array.isArray(run.input?.fileIds) && run.input.fileIds.length > 0;
+    if (hadFiles) {
+      // Brief notification — use a simple DOM toast since we don't have a toast library
+      const toast = document.createElement("div");
+      toast.textContent = "Original files not re-attached. Upload again if needed.";
+      toast.className = "fixed bottom-4 right-4 z-50 rounded-md border bg-card px-4 py-2 text-sm shadow-lg";
+      document.body.appendChild(toast);
+      setTimeout(() => toast.remove(), 5000);
+    }
+
+    // Clean up URL param to prevent re-fetch on refresh
+    const nextParams = new URLSearchParams(searchParams.toString());
+    nextParams.delete("fromRun");
+    const qs = nextParams.toString();
+    router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [fromRunQuery.data, fromRunId]);
+
   useEffect(() => {
     const taskType = searchParams.get("taskType");
     if (taskType && tasks.some((task) => task.id === taskType && !task.disabled)) {
@@ -235,6 +286,8 @@ export function useWorkspaceQueries() {
     params,
     files,
     latestRun,
+    fromRunId,
+    fromRunModelId,
     // Setters
     setSelectedTaskType,
     setSelectedModelId,
@@ -285,6 +338,7 @@ export async function streamChatRun(
     prompt: string;
     fileIds: string[];
     params: Record<string, string | number | boolean>;
+    compareGroupId?: string;
   },
   onPartialRun: (run: RunRecord) => void,
 ): Promise<RunRecord> {

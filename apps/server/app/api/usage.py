@@ -1,10 +1,14 @@
 from __future__ import annotations
 
+import io
+import json
+import zipfile
 from datetime import datetime
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import and_, case, desc, func, select
+from fastapi.responses import StreamingResponse
+from sqlalchemy import and_, case, delete, desc, func, select
 from sqlalchemy.orm import Session
 
 from app.core.logging import redact
@@ -468,6 +472,7 @@ async def get_usage_models(
 async def list_usage_logs(
     startDate: datetime | None = Query(default=None, alias="startDate"),
     endDate: datetime | None = Query(default=None, alias="endDate"),
+    compareGroupId: str | None = Query(default=None, alias="compareGroupId"),
     limit: int = Query(default=50, ge=1, le=200),
     offset: int = Query(default=0, ge=0),
     db: Session = Depends(get_db),
@@ -486,6 +491,11 @@ async def list_usage_logs(
         select(UsageLog, *_parent_columns(), status_col, latency_col)
     )
     base = _apply_date_range(base, startDate, endDate)
+    if compareGroupId:
+        base = base.where(
+            UsageLog.record_type == "run",
+            Run.metadata_json["compare_group_id"].as_string() == compareGroupId,
+        )
     base = base.order_by(desc(UsageLog.created_at)).limit(limit).offset(offset)
 
     rows = db.execute(base).all()
@@ -565,4 +575,217 @@ async def get_usage_log_detail(
             "parent": _serialize_run(run, task),
             "requestLogs": [_serialize_request_log(rl) for rl in request_logs],
         }
+    }
+
+
+@router.delete("/logs/{log_id}")
+async def delete_usage_log(log_id: str, db: Session = Depends(get_db)):
+    record = db.get(UsageLog, log_id)
+    if record is None:
+        raise HTTPException(status_code=404, detail="Usage log not found")
+
+    deleted = _delete_records_for(db, record.record_type, record.record_id)
+    db.delete(record)
+    db.commit()
+
+    return {
+        "data": {
+            "deleted": {
+                "usageLogs": 1,
+                **deleted,
+            }
+        }
+    }
+
+
+@router.delete("/logs")
+async def delete_usage_logs_batch(
+    olderThan: datetime = Query(alias="olderThan"),
+    db: Session = Depends(get_db),
+):
+    stmt = select(UsageLog).where(UsageLog.created_at < olderThan)
+    records = db.scalars(stmt).all()
+
+    runs_deleted = 0
+    gens_deleted = 0
+    req_deleted = 0
+
+    for record in records:
+        counts = _delete_records_for(db, record.record_type, record.record_id)
+        runs_deleted += counts.get("runs", 0)
+        gens_deleted += counts.get("generationTasks", 0)
+        req_deleted += counts.get("requestLogs", 0)
+        db.delete(record)
+
+    usage_count = len(records)
+    db.commit()
+
+    return {
+        "data": {
+            "deleted": {
+                "usageLogs": usage_count,
+                "runs": runs_deleted,
+                "generationTasks": gens_deleted,
+                "requestLogs": req_deleted,
+            }
+        }
+    }
+
+
+def _delete_records_for(
+    db: Session, record_type: str, record_id: str
+) -> dict[str, int]:
+    """Delete the parent record (Run or GenerationTask) and associated RequestLogs.
+
+    Returns a dict with counts of deleted sub-records.
+    """
+    runs = 0
+    gens = 0
+
+    if record_type == "run":
+        parent = db.get(Run, record_id)
+        if parent:
+            db.delete(parent)
+            runs = 1
+    elif record_type == "generation_task":
+        parent = db.get(GenerationTask, record_id)
+        if parent:
+            db.delete(parent)
+            gens = 1
+
+    req_stmt = delete(RequestLog).where(
+        RequestLog.record_type == record_type,
+        RequestLog.record_id == record_id,
+    )
+    result = db.execute(req_stmt)
+    req_count = result.rowcount
+
+    return {"runs": runs, "generationTasks": gens, "requestLogs": req_count}
+
+
+@router.get("/export")
+async def export_usage_data(
+    scope: str = Query(default="usageLogs"),
+    format: str = Query(default="json"),
+    olderThan: datetime | None = Query(default=None, alias="olderThan"),
+    mask: bool = Query(default=False),
+    db: Session = Depends(get_db),
+):
+    if scope not in ("runs", "requestLogs", "usageLogs"):
+        raise HTTPException(status_code=400, detail=f"Invalid scope: {scope}")
+    if format not in ("json", "zip"):
+        raise HTTPException(status_code=400, detail=f"Invalid format: {format}")
+
+    if scope == "usageLogs":
+        rows = _collect_usage_logs(db, olderThan)
+        data = [_export_usage_log_row(r, mask=mask) for r in rows]
+    elif scope == "runs":
+        rows = _collect_runs(db, olderThan)
+        data = [_export_run(r, mask=mask) for r in rows]
+    else:
+        rows = _collect_request_logs(db, olderThan)
+        data = [_export_request_log(r, mask=mask) for r in rows]
+
+    if format == "json":
+        return {"data": data}
+
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(f"{scope}.json", json.dumps(data, default=str, ensure_ascii=False))
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/zip",
+        headers={"Content-Disposition": f"attachment; filename={scope}.zip"},
+    )
+
+
+def _mask_text(text: str | None) -> str:
+    if not text:
+        return ""
+    return f"[masked: {len(text)} chars]"
+
+
+def _mask_dict(d: dict | None) -> dict | None:
+    if d is None:
+        return None
+    masked = {}
+    for k, v in d.items():
+        if isinstance(v, str) and len(v) > 80:
+            masked[k] = _mask_text(v)
+        else:
+            masked[k] = v
+    return masked
+
+
+def _collect_usage_logs(db: Session, older_than: datetime | None):
+    stmt = select(UsageLog).order_by(UsageLog.created_at)
+    if older_than:
+        stmt = stmt.where(UsageLog.created_at < older_than)
+    return db.scalars(stmt).all()
+
+
+def _collect_runs(db: Session, older_than: datetime | None):
+    stmt = select(Run).order_by(Run.created_at)
+    if older_than:
+        stmt = stmt.where(Run.created_at < older_than)
+    return db.scalars(stmt).all()
+
+
+def _collect_request_logs(db: Session, older_than: datetime | None):
+    stmt = select(RequestLog).order_by(RequestLog.created_at)
+    if older_than:
+        stmt = stmt.where(RequestLog.created_at < older_than)
+    return db.scalars(stmt).all()
+
+
+def _export_usage_log_row(row: UsageLog, *, mask: bool) -> dict:
+    return {
+        "id": row.id,
+        "recordType": row.record_type,
+        "recordId": row.record_id,
+        "providerId": row.provider_id,
+        "modelId": row.model_id,
+        "inputTokens": row.input_tokens,
+        "outputTokens": row.output_tokens,
+        "totalTokens": row.total_tokens,
+        "estimatedCost": float(row.estimated_cost) if row.estimated_cost is not None else None,
+        "currency": row.currency,
+        "metadata": _mask_dict(row.metadata_json) if mask else row.metadata_json,
+        "createdAt": _safe_iso(row.created_at),
+    }
+
+
+def _export_run(run: Run, *, mask: bool) -> dict:
+    return {
+        "id": run.id,
+        "taskType": run.task_type,
+        "providerId": run.provider_id,
+        "modelId": run.model_id,
+        "status": run.status,
+        "errorType": run.error_type,
+        "errorMessage": run.error_message,
+        "input": _mask_dict(run.input_json) if mask else run.input_json,
+        "params": _mask_dict(run.params_json) if mask else run.params_json,
+        "output": _mask_dict(run.output_json) if mask else run.output_json,
+        "startedAt": _safe_iso(run.started_at),
+        "completedAt": _safe_iso(run.completed_at),
+        "createdAt": _safe_iso(run.created_at),
+    }
+
+
+def _export_request_log(log: RequestLog, *, mask: bool) -> dict:
+    return {
+        "id": log.id,
+        "recordType": log.record_type,
+        "recordId": log.record_id,
+        "providerId": log.provider_id,
+        "modelId": log.model_id,
+        "statusCode": log.status_code,
+        "latencyMs": log.latency_ms,
+        "errorType": log.error_type,
+        "errorMessage": log.error_message,
+        "request": _mask_dict(log.request_json) if mask else log.request_json,
+        "response": _mask_dict(log.response_json) if mask else log.response_json,
+        "createdAt": _safe_iso(log.created_at),
     }

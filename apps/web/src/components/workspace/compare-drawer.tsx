@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import type { ModelInfo, Provider, RunRecord } from "@/types/model";
 import { streamChatRun } from "@/components/workspace/use-workspace-queries";
+import { ErrorBanner } from "@/components/workspace/error-banner";
 
 const MAX_SLOTS = 3;
 const MIN_RUN_SLOTS = 2;
@@ -20,7 +21,12 @@ export type CompareSlot = {
   errorMessage: string | null;
   startedAt: number | null;
   finishedAt: number | null;
+  /** Per-model params override. When empty, uses shared params. */
+  paramsOverride: Record<string, string | number | boolean> | null;
 };
+
+type SortKey = "latency" | "tokens" | null;
+type SortDir = "asc" | "desc";
 
 type Props = {
   open: boolean;
@@ -43,6 +49,7 @@ function makeSlot(modelId: string): CompareSlot {
     errorMessage: null,
     startedAt: null,
     finishedAt: null,
+    paramsOverride: null,
   };
 }
 
@@ -59,6 +66,8 @@ export function CompareDrawer({
 }: Props) {
   const [slots, setSlots] = useState<CompareSlot[]>(() => initialModelIds.slice(0, MAX_SLOTS).map(makeSlot));
   const [running, setRunning] = useState(false);
+  const [sortKey, setSortKey] = useState<SortKey>(null);
+  const [sortDir, setSortDir] = useState<SortDir>("asc");
   const compareGroupId = useMemo(
     () =>
       typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `cg-${Date.now()}`,
@@ -75,6 +84,26 @@ export function CompareDrawer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open]);
 
+  /** Sort slots by the chosen metric. Slots without results sink to the end. */
+  const sortedSlots = useMemo(() => {
+    if (!sortKey) return slots;
+    const getVal = (s: CompareSlot): number | null => {
+      if (sortKey === "latency" && s.startedAt && s.finishedAt) return s.finishedAt - s.startedAt;
+      if (sortKey === "tokens" && s.run?.output && typeof s.run.output === "object") {
+        return 0;
+      }
+      return null;
+    };
+    return [...slots].sort((a, b) => {
+      const va = getVal(a);
+      const vb = getVal(b);
+      if (va === null && vb === null) return 0;
+      if (va === null) return 1;
+      if (vb === null) return -1;
+      return sortDir === "asc" ? va - vb : vb - va;
+    });
+  }, [slots, sortKey, sortDir]);
+
   if (!open) return null;
 
   const updateSlot = (slotId: string, patch: Partial<CompareSlot>) => {
@@ -82,7 +111,20 @@ export function CompareDrawer({
   };
 
   const setSlotModel = (slotId: string, modelId: string) => {
-    setSlots((prev) => prev.map((s) => (s.slotId === slotId ? { ...s, modelId, run: null, status: "idle", errorMessage: null } : s)));
+    setSlots((prev) => prev.map((s) => (s.slotId === slotId ? { ...s, modelId, run: null, status: "idle", errorMessage: null, paramsOverride: null } : s)));
+  };
+
+  const setSlotParams = (slotId: string, overrides: Record<string, string | number | boolean> | null) => {
+    setSlots((prev) => prev.map((s) => (s.slotId === slotId ? { ...s, paramsOverride: overrides } : s)));
+  };
+
+  const toggleSort = (key: SortKey) => {
+    if (sortKey === key) {
+      setSortDir((d) => (d === "asc" ? "desc" : "asc"));
+    } else {
+      setSortKey(key);
+      setSortDir("asc");
+    }
   };
 
   const removeSlot = (slotId: string) => {
@@ -110,6 +152,7 @@ export function CompareDrawer({
 
     await Promise.all(
       valid.map(async (slot) => {
+        const slotParams = slot.paramsOverride ? { ...params, ...slot.paramsOverride } : params;
         try {
           const run = await streamChatRun(
             {
@@ -117,7 +160,8 @@ export function CompareDrawer({
               modelId: slot.modelId,
               prompt,
               fileIds,
-              params: { ...params, _compare_group_id: compareGroupId },
+              params: slotParams,
+              compareGroupId,
             },
             (partial) => updateSlot(slot.slotId, { run: partial, status: "running" }),
           );
@@ -194,6 +238,7 @@ export function CompareDrawer({
                   providers={providers}
                   onModelChange={(id) => setSlotModel(slot.slotId, id)}
                   onRemove={() => removeSlot(slot.slotId)}
+                  onParamsToggle={() => setSlotParams(slot.slotId, slot.paramsOverride ? null : { ...params })}
                   disableEdit={running}
                 />
               ))}
@@ -206,11 +251,29 @@ export function CompareDrawer({
           {/* Metrics + Results */}
           {slots.some((s) => s.run || s.status === "failed") ? (
             <div className="mt-6">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
-                Results
+              <div className="mb-2 flex items-center justify-between">
+                <div className="text-[10px] font-semibold uppercase tracking-wider text-muted-foreground">
+                  Results
+                </div>
+                <div className="flex items-center gap-1">
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("latency")}
+                    className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${sortKey === "latency" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    Latency {sortKey === "latency" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => toggleSort("tokens")}
+                    className={`rounded px-1.5 py-0.5 text-[10px] transition-colors ${sortKey === "tokens" ? "bg-primary/10 text-primary" : "text-muted-foreground hover:bg-muted"}`}
+                  >
+                    Tokens {sortKey === "tokens" ? (sortDir === "asc" ? "↑" : "↓") : ""}
+                  </button>
+                </div>
               </div>
               <div className="grid grid-cols-3 gap-3">
-                {slots.map((slot) => (
+                {sortedSlots.map((slot) => (
                   <ResultCard
                     key={`result-${slot.slotId}`}
                     slot={slot}
@@ -256,6 +319,7 @@ function SlotCard({
   providers,
   onModelChange,
   onRemove,
+  onParamsToggle,
   disableEdit,
 }: {
   slot: CompareSlot;
@@ -263,10 +327,12 @@ function SlotCard({
   providers: Provider[];
   onModelChange: (id: string) => void;
   onRemove: () => void;
+  onParamsToggle: () => void;
   disableEdit: boolean;
 }) {
   const model = availableModels.find((m) => m.id === slot.modelId);
   const provider = providers.find((p) => p.id === model?.provider);
+  const hasOverride = slot.paramsOverride !== null;
   return (
     <div className="rounded-lg border bg-background p-3">
       <div className="flex items-start justify-between gap-2">
@@ -297,6 +363,18 @@ function SlotCard({
         <span className="text-muted-foreground">{provider?.name ?? "—"}</span>
         <SlotStatusPill status={slot.status} />
       </div>
+      <button
+        type="button"
+        onClick={onParamsToggle}
+        disabled={disableEdit}
+        className={`mt-1.5 w-full rounded border px-2 py-1 text-[10px] transition-colors ${
+          hasOverride
+            ? "border-primary/30 bg-primary/5 text-primary"
+            : "border-transparent text-muted-foreground hover:bg-muted"
+        }`}
+      >
+        {hasOverride ? "Custom params · click to reset" : "Use per-model params"}
+      </button>
     </div>
   );
 }
@@ -351,7 +429,17 @@ function ResultCard({
       </div>
       <div className="mt-2 max-h-48 overflow-y-auto rounded border bg-muted/30 px-2 py-1.5 text-[11px] leading-relaxed whitespace-pre-wrap">
         {slot.status === "failed" ? (
-          <span className="text-destructive">{slot.errorMessage ?? "Run failed."}</span>
+          slot.run?.errorType ? (
+            <ErrorBanner
+              errorType={slot.run.errorType}
+              providerId={provider?.id}
+              runId={slot.run?.id}
+              rawMessage={slot.errorMessage ?? undefined}
+              className="border-0 bg-transparent p-0 text-[11px]"
+            />
+          ) : (
+            <span className="text-destructive">{slot.errorMessage ?? "Run failed."}</span>
+          )
         ) : text.length > 0 ? (
           text
         ) : slot.status === "running" ? (

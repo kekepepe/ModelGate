@@ -32,6 +32,7 @@ export function ModelSelectorRow({
   providers,
   taskInputTypes,
   onSelectModel,
+  originalModelId,
 }: {
   availableModels: ModelInfo[];
   hiddenModels: RecommendResult["hiddenModels"];
@@ -41,6 +42,8 @@ export function ModelSelectorRow({
   providers: Provider[];
   taskInputTypes: string[];
   onSelectModel: (modelId: string) => void;
+  /** When set (via ?fromRun= deep-link), marks this model as the "Original" from a prior run. */
+  originalModelId?: string;
 }) {
   const [detailsOpen, setDetailsOpen] = useState(false);
 
@@ -115,6 +118,12 @@ export function ModelSelectorRow({
       {selectedProvider ? (
         <Badge variant="secondary" className="text-[11px]">
           {selectedProvider.name}
+        </Badge>
+      ) : null}
+
+      {originalModelId && selectedModelId === originalModelId ? (
+        <Badge variant="outline" className="text-[11px] text-muted-foreground">
+          Original
         </Badge>
       ) : null}
 

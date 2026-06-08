@@ -3,9 +3,10 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
-import { Copy, ExternalLink, RotateCcw, Trash2, X } from "lucide-react";
+import { Copy, ExternalLink, GitCompare, RotateCcw, Trash2, X } from "lucide-react";
 
 import { ApiError, deleteData, getData, postData } from "@/lib/api";
+import { lookupError } from "@/lib/errors/dictionary";
 import type { Provider, RequestLog, RunRecord } from "@/types/model";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -368,6 +369,13 @@ function DetailDrawer({
                   {rerunPending ? "Submitting..." : "Rerun"}
                 </Button>
               ) : null}
+              {run ? (
+                <Button asChild variant="outline" size="sm">
+                  <a href={`/workspace?fromRun=${run.id}`}>
+                    <GitCompare className="mr-1 h-3.5 w-3.5" /> Rerun with another model
+                  </a>
+                </Button>
+              ) : null}
               {run?.providerId ? (
                 <Button asChild variant="outline" size="sm">
                   <a href={`/api-keys?provider=${run.providerId}`}>
@@ -407,7 +415,10 @@ function RunDetail({ run }: { run: RunRecord }) {
         <DetailRow label="Model" value={run.modelId} />
         {run.createdAt ? <DetailRow label="Created" value={run.createdAt} /> : null}
         {run.errorType ? <DetailRow label="Error type" value={run.errorType} /> : null}
-        {run.errorMessage ? <DetailRow label="Error" value={run.errorMessage} /> : null}
+        {run.errorType ? <DetailRow label="Error" value={lookupError(run.errorType).message} /> : null}
+        {run.errorMessage && run.errorMessage !== lookupError(run.errorType).message ? (
+          <DetailRow label="Details" value={run.errorMessage} />
+        ) : null}
       </Section>
       <Block label="Input" value={run.input} />
       <Block label="Params" value={run.params} />
@@ -428,7 +439,10 @@ function LogDetail({ log }: { log: RequestLog }) {
         <DetailRow label="Status code" value={log.statusCode != null ? String(log.statusCode) : "—"} />
         <DetailRow label="Latency" value={log.latencyMs != null ? `${log.latencyMs}ms` : "—"} />
         {log.errorType ? <DetailRow label="Error type" value={log.errorType} /> : null}
-        {log.errorMessage ? <DetailRow label="Error" value={log.errorMessage} /> : null}
+        {log.errorType ? <DetailRow label="Error" value={lookupError(log.errorType).message} /> : null}
+        {log.errorMessage && log.errorMessage !== lookupError(log.errorType).message ? (
+          <DetailRow label="Details" value={log.errorMessage} />
+        ) : null}
         {log.createdAt ? <DetailRow label="Time" value={log.createdAt} /> : null}
       </Section>
       <Block label="Request" value={log.request} />

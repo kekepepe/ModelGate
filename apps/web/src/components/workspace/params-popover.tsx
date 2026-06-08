@@ -38,8 +38,23 @@ export function ParamsPopover({
   const [presetMessage, setPresetMessage] = useState<string | null>(null);
   const [activePreset, setActivePreset] = useState<PresetId>("default");
   const [presetMenuOpen, setPresetMenuOpen] = useState(false);
+  const [modifiedFields, setModifiedFields] = useState<Set<string>>(new Set());
+  const [userModifiedAfterPreset, setUserModifiedAfterPreset] = useState(false);
 
   const applicablePresets = BUILTIN_PRESETS.filter((p) => isPresetApplicable(p, taskId));
+
+  // Track user manual changes for "Custom · modified from X" label
+  const handleFieldChange = (key: string, value: string | number | boolean) => {
+    onChange(key, value);
+    if (activePreset !== "default") {
+      setUserModifiedAfterPreset(true);
+      setModifiedFields((prev) => {
+        const next = new Set(prev);
+        next.delete(key);
+        return next;
+      });
+    }
+  };
 
   const handlePreset = (id: PresetId) => {
     setPresetMenuOpen(false);
@@ -47,6 +62,8 @@ export function ParamsPopover({
       onReset();
       setActivePreset("default");
       setPresetMessage("Reset to model defaults.");
+      setModifiedFields(new Set());
+      setUserModifiedAfterPreset(false);
       return;
     }
     if (!schema) return;
@@ -57,6 +74,8 @@ export function ParamsPopover({
     const outcome = applyPreset(id, schema, params);
     onApplyMany(outcome.applied);
     setActivePreset(id);
+    setModifiedFields(new Set(outcome.setFields));
+    setUserModifiedAfterPreset(false);
     const skipped = outcome.skippedFields.length;
     setPresetMessage(
       `Applied "${BUILTIN_PRESETS.find((p) => p.id === id)?.label}" preset · ${outcome.setFields.length} fields set` +
@@ -65,7 +84,11 @@ export function ParamsPopover({
   };
 
   const presetLabel =
-    activePreset === "default" ? "Default" : BUILTIN_PRESETS.find((p) => p.id === activePreset)?.label ?? "Default";
+    activePreset === "default"
+      ? "Default"
+      : userModifiedAfterPreset
+        ? `Custom · modified from ${BUILTIN_PRESETS.find((p) => p.id === activePreset)?.label ?? "Default"}`
+        : BUILTIN_PRESETS.find((p) => p.id === activePreset)?.label ?? "Default";
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -153,7 +176,7 @@ export function ParamsPopover({
 
           {/* Body */}
           <div className="max-h-[280px] overflow-y-auto p-4">
-            <ParamsGroup schema={schema} params={params} onChange={onChange} />
+            <ParamsGroup schema={schema} params={params} onChange={handleFieldChange} modifiedFields={modifiedFields} />
 
             {/* Schema source info */}
             {schema ? (
@@ -179,7 +202,7 @@ export function ParamsPopover({
 
           {/* Footer */}
           <div className="flex items-center justify-between border-t px-4 py-3">
-            <Button variant="ghost" size="sm" onClick={onReset} disabled={!schema}>
+            <Button variant="ghost" size="sm" onClick={() => { onReset(); setActivePreset("default"); setModifiedFields(new Set()); setUserModifiedAfterPreset(false); }} disabled={!schema}>
               <RefreshCw className="mr-1 h-3 w-3" />
               Reset to Defaults
             </Button>

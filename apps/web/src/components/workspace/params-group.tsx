@@ -38,10 +38,13 @@ export function ParamsGroup({
   schema,
   params,
   onChange,
+  modifiedFields,
 }: {
   schema?: ParamSchema;
   params: Record<string, string | number | boolean>;
   onChange: (key: string, value: string | number | boolean) => void;
+  /** Fields that were changed by a preset — shown with a blue dot. */
+  modifiedFields?: Set<string>;
 }) {
   if (!schema || schema.fields.length === 0) {
     return (
@@ -68,6 +71,7 @@ export function ParamsGroup({
                   field={field}
                   value={params[field.key] ?? field.default ?? ""}
                   onChange={onChange}
+                  modified={modifiedFields?.has(field.key) ?? false}
                 />
               ))}
             </div>
@@ -82,15 +86,20 @@ function ParamFieldRow({
   field,
   value,
   onChange,
+  modified,
 }: {
   field: ParamField;
   value: string | number | boolean;
   onChange: (key: string, value: string | number | boolean) => void;
+  modified: boolean;
 }) {
   if (field.type === "boolean") {
     return (
       <div className="flex items-center justify-between gap-3">
-        <Label className="text-sm text-foreground">{field.label}</Label>
+        <Label className="text-sm text-foreground">
+          {field.label}
+          {modified ? <span className="ml-1 text-blue-500">●</span> : null}
+        </Label>
         <Switch
           checked={Boolean(value)}
           onCheckedChange={(checked) => onChange(field.key, checked)}
@@ -102,7 +111,10 @@ function ParamFieldRow({
   if (field.type === "select") {
     return (
       <div className="grid gap-1.5">
-        <Label className="text-sm text-foreground">{field.label}</Label>
+        <Label className="text-sm text-foreground">
+          {field.label}
+          {modified ? <span className="ml-1 text-blue-500">●</span> : null}
+        </Label>
         <Select value={String(value)} onValueChange={(v) => onChange(field.key, v)}>
           <SelectTrigger className="h-8">
             <SelectValue />
@@ -130,7 +142,10 @@ function ParamFieldRow({
   return (
     <div className="grid gap-1.5">
       <div className="flex items-center justify-between gap-3">
-        <Label className="text-sm text-foreground">{field.label}</Label>
+        <Label className="text-sm text-foreground">
+          {field.label}
+          {modified ? <span className="ml-1 text-blue-500">●</span> : null}
+        </Label>
         <Input
           type={isNumber ? "number" : "text"}
           value={String(value)}

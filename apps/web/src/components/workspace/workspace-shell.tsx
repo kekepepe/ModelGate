@@ -47,6 +47,7 @@ export function WorkspaceShell() {
             providers={q.providers}
             taskInputTypes={q.inputTypes}
             onSelectModel={q.setSelectedModelId}
+            originalModelId={q.fromRunModelId ?? undefined}
           />
 
           {/* Prompt input area */}

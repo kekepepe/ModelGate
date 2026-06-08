@@ -20,6 +20,7 @@ class CreateRunInput(BaseModel):
     fileIds: list[str] = Field(default_factory=list)
     params: dict = Field(default_factory=dict)
     idempotencyKey: str | None = None
+    compareGroupId: str | None = None
 
 
 def serialize_run(record: Run) -> dict:
@@ -34,6 +35,7 @@ def serialize_run(record: Run) -> dict:
         "status": record.status,
         "errorType": record.error_type,
         "errorMessage": record.error_message,
+        "metadata": record.metadata_json,
         "createdAt": record.created_at.isoformat() if record.created_at else None,
         "startedAt": record.started_at.isoformat() if record.started_at else None,
         "completedAt": record.completed_at.isoformat() if record.completed_at else None,
@@ -50,6 +52,7 @@ async def create_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
         file_ids=input_data.fileIds,
         params=input_data.params,
         idempotency_key=input_data.idempotencyKey,
+        compare_group_id=input_data.compareGroupId,
     )
     return {"data": serialize_run(record)}
 
@@ -65,6 +68,7 @@ async def stream_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
             file_ids=input_data.fileIds,
             params=input_data.params,
             idempotency_key=input_data.idempotencyKey,
+            compare_group_id=input_data.compareGroupId,
         ):
             yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 

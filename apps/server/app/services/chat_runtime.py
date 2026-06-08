@@ -54,6 +54,7 @@ class ChatRuntime:
         file_ids: list[str],
         params: dict,
         idempotency_key: str | None = None,
+        compare_group_id: str | None = None,
     ) -> Run:
         if idempotency_key:
             existing = db.query(Run).filter(Run.idempotency_key == idempotency_key).one_or_none()
@@ -74,6 +75,7 @@ class ChatRuntime:
             output_json=None,
             status="running",
             idempotency_key=idempotency_key,
+            metadata_json={"compare_group_id": compare_group_id} if compare_group_id else None,
             started_at=_now(),
         )
         db.add(run)
@@ -192,6 +194,7 @@ class ChatRuntime:
         file_ids: list[str],
         params: dict,
         idempotency_key: str | None = None,
+        compare_group_id: str | None = None,
     ) -> AsyncIterator[dict]:
         if idempotency_key:
             existing = db.query(Run).filter(Run.idempotency_key == idempotency_key).one_or_none()
@@ -215,6 +218,7 @@ class ChatRuntime:
             output_json=None,
             status="running",
             idempotency_key=idempotency_key,
+            metadata_json={"compare_group_id": compare_group_id} if compare_group_id else None,
             started_at=_now(),
         )
         db.add(run)
