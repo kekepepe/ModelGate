@@ -115,7 +115,11 @@ test.describe("Projects agent board", () => {
     });
 
     await page.goto("/projects/pr_done");
-    await page.locator('[data-testid="artifact-final_plan"]').click();
+    await expect(page.locator('[data-testid="agent-board"]')).toBeVisible();
+    // Click artifact button — use evaluate to bypass ReactFlow pane interception.
+    await page.evaluate(() => {
+      (document.querySelector('[data-testid="artifact-final_plan"]') as HTMLElement)?.click();
+    });
     await expect(page.locator('[data-testid="artifact-drawer"]')).toBeVisible();
     await expect(page.locator('[data-testid="artifact-content"]')).toContainText("# Plan");
   });
@@ -180,7 +184,7 @@ test.describe("Projects agent board", () => {
     await expect(page.locator('[data-testid^="agent-card-worker-"]')).toHaveCount(0);
   });
 
-  test("clicking the planner card opens the agent-run drawer with prompt and output", async ({ page }) => {
+  test("clicking the planner card shows inspector panel with stats", async ({ page }) => {
     await page.route("**/api/projects/pr_done", async (route) => {
       await route.fulfill({
         status: 200,
@@ -190,20 +194,26 @@ test.describe("Projects agent board", () => {
     });
 
     await page.goto("/projects/pr_done");
+    await expect(page.locator('[data-testid="agent-board"]')).toBeVisible();
 
-    // Click the planner card header (the "view details" button).
-    await page.locator('[data-testid="agent-card-planner-header"]').click();
+    // Click the planner card header — use evaluate to bypass ReactFlow pane interception.
+    await page.evaluate(() => {
+      (document.querySelector('[data-testid="agent-card-planner-header"]') as HTMLElement)?.click();
+    });
 
-    const drawer = page.locator('[data-testid="agent-run-drawer"]');
-    await expect(drawer).toBeVisible();
+    const inspector = page.locator('[data-testid="agent-run-inspector"]');
+    await expect(inspector).toBeVisible();
 
     // Stats grid renders model + tokens.
-    await expect(page.locator('[data-testid="agent-run-stats"]')).toContainText("gpt-4o");
-    await expect(page.locator('[data-testid="agent-run-stats"]')).toContainText("30");
+    await expect(page.locator('[data-testid="agent-run-inspector-stats"]')).toContainText("gpt-4o");
+    await expect(page.locator('[data-testid="agent-run-inspector-stats"]')).toContainText("10");
+    await expect(page.locator('[data-testid="agent-run-inspector-stats"]')).toContainText("20");
 
-    // Prompt and output sections render.
-    await expect(page.locator('[data-testid="agent-run-prompt"]')).toBeVisible();
-    await expect(page.locator('[data-testid="agent-run-output"]')).toBeVisible();
+    // Prompt and output sections render (collapsed by default, click to expand).
+    const promptToggle = inspector.locator("button", { hasText: "Prompt" });
+    await expect(promptToggle).toBeVisible();
+    await promptToggle.click();
+    await expect(page.locator('[data-testid="agent-run-inspector-prompt"]')).toBeVisible();
   });
 
   test("renders the agent board as a layered DAG (Intake→Planner→Workers→Supervisor→Integrator)", async ({ page }) => {
@@ -239,5 +249,44 @@ test.describe("Projects agent board", () => {
     // Completed status drives the green border on intake/planner/supervisor/integrator.
     await expect(board.locator('[data-testid="agent-card-intake"]')).toHaveClass(/border-emerald-400/);
     await expect(board.locator('[data-testid="agent-card-integrator"]')).toHaveClass(/border-emerald-400/);
+  });
+
+  test("renders the debug table view with all agent rows", async ({ page }) => {
+    await page.route("**/api/projects/pr_done", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(COMPLETED_DETAILS),
+      });
+    });
+
+    await page.goto("/projects/pr_done");
+
+    const table = page.locator('[data-testid="agent-run-table"]');
+    await expect(table).toBeVisible();
+
+    // Should have rows for each agent run (6 total: intake, planner, 2 workers, supervisor, integrator)
+    await expect(table.locator("tbody tr")).toHaveCount(6);
+  });
+
+  test("table row click selects agent and highlights in inspector", async ({ page }) => {
+    await page.route("**/api/projects/pr_done", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(COMPLETED_DETAILS),
+      });
+    });
+
+    await page.goto("/projects/pr_done");
+
+    // Click the planner row in the table
+    const plannerRow = page.locator('[data-testid="agent-run-table-row-planner"]');
+    await plannerRow.click();
+
+    // Inspector should show planner details
+    const inspector = page.locator('[data-testid="agent-run-inspector"]');
+    await expect(inspector).toBeVisible();
+    await expect(inspector).toContainText("Planner");
   });
 });

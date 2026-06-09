@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo } from "react";
-import { FileText, Loader2, Eye } from "lucide-react";
+import { FileText, Loader2 } from "lucide-react";
 import {
   ReactFlow,
   Background,
@@ -26,6 +26,8 @@ interface Props {
   artifacts: ArtifactView[];
   onArtifactClick: (artifact: ArtifactView) => void;
   onAgentClick?: (agentRun: AgentRunView, task: ProjectTaskView | null) => void;
+  onNodeSelect?: (agentRun: AgentRunView, task: ProjectTaskView | null) => void;
+  selectedAgentId?: string | null;
   mode?: string | null;
   round?: number | null;
   stopReason?: string | null;
@@ -35,6 +37,7 @@ interface Props {
 
 type AgentNodeData = {
   testId: string;
+  agentRunId?: string;
   title: string;
   subtitle?: string;
   status: string | undefined;
@@ -44,6 +47,7 @@ type AgentNodeData = {
   emptyHint?: string;
   showSourceHandle: boolean;
   showTargetHandle: boolean;
+  isSelected?: boolean;
 };
 
 function statusTone(status: string | undefined): StatusTone {
@@ -85,8 +89,9 @@ function AgentNode({ data }: NodeProps<Node<AgentNodeData>>) {
   return (
     <div
       className={cn(
-        "flex w-[240px] flex-col gap-2 rounded-lg border-2 bg-card p-3 shadow-sm",
+        "flex w-[200px] flex-col gap-1.5 rounded-lg border-2 bg-card p-2 shadow-sm",
         statusBorderClass(data.status),
+        data.isSelected && "ring-2 ring-primary",
       )}
       data-testid={data.testId}
     >
@@ -99,22 +104,22 @@ function AgentNode({ data }: NodeProps<Node<AgentNodeData>>) {
         onClick={data.onCardClick}
         disabled={!clickable}
         className={cn(
-          "flex items-center justify-between gap-2 rounded text-left",
+          "flex items-center justify-between gap-1.5 rounded text-left",
           clickable && "cursor-pointer hover:bg-muted/20 -mx-1 px-1 py-0.5",
         )}
         data-testid={`${data.testId}-header`}
         aria-label={clickable ? `View ${data.title} details` : data.title}
       >
         <div className="min-w-0">
-          <p className="truncate text-sm font-semibold">{data.title}</p>
+          <p className="truncate text-xs font-semibold">{data.title}</p>
           {data.subtitle ? (
-            <p className="truncate text-xs text-muted-foreground">{data.subtitle}</p>
+            <p className="truncate text-[10px] text-muted-foreground">{data.subtitle}</p>
           ) : null}
         </div>
-        <StatusPill tone={statusTone(data.status)}>
+        <StatusPill tone={statusTone(data.status)} className="text-[10px]">
           {data.status === "running" ? (
             <span className="flex items-center gap-1">
-              <Loader2 className="h-3 w-3 animate-spin" /> running
+              <Loader2 className="h-2.5 w-2.5 animate-spin" /> run
             </span>
           ) : (
             data.status ?? "queued"
@@ -122,28 +127,24 @@ function AgentNode({ data }: NodeProps<Node<AgentNodeData>>) {
         </StatusPill>
       </button>
 
-      {clickable ? (
-        <div className="flex items-center gap-1 text-[10px] uppercase tracking-wider text-muted-foreground">
-          <Eye className="h-3 w-3" /> click for prompt / output
-        </div>
-      ) : null}
-
       {data.artifacts.length === 0 ? (
-        <div className="flex flex-1 items-center justify-center text-center text-xs text-muted-foreground">
+        <div className="flex flex-1 items-center justify-center py-1 text-center text-[10px] text-muted-foreground">
           {data.emptyHint ?? "No artifact yet"}
         </div>
       ) : (
-        <ul className="space-y-1.5">
+        <ul className="space-y-1">
           {data.artifacts.map((a) => (
             <li key={a.id}>
               <button
                 onClick={() => data.onArtifactClick(a)}
-                className="flex w-full items-center gap-2 rounded-md border bg-background p-2 text-left text-xs hover:bg-muted/30"
+                className="flex w-full items-center gap-1.5 rounded-md border bg-background p-1.5 text-left text-[10px] hover:bg-muted/30"
                 data-testid={`artifact-${a.type}`}
               >
-                <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                <FileText className="h-3 w-3 shrink-0 text-muted-foreground" />
                 <span className="flex-1 truncate">{a.name}</span>
-                <StatusPill tone={artifactTone(a.type)}>{a.type}</StatusPill>
+                <StatusPill tone={artifactTone(a.type)} withDot={false} className="text-[9px]">
+                  {a.type}
+                </StatusPill>
               </button>
             </li>
           ))}
@@ -159,9 +160,9 @@ function AgentNode({ data }: NodeProps<Node<AgentNodeData>>) {
 
 const nodeTypes = { agent: AgentNode };
 
-const ROW_HEIGHT = 240;
-const NODE_WIDTH = 240;
-const NODE_GAP = 40;
+const ROW_HEIGHT = 200;
+const NODE_WIDTH = 200;
+const NODE_GAP = 32;
 
 export function AgentBoard({
   agentRuns,
@@ -169,6 +170,8 @@ export function AgentBoard({
   artifacts,
   onArtifactClick,
   onAgentClick,
+  onNodeSelect,
+  selectedAgentId,
   mode,
   round,
   stopReason,
@@ -190,6 +193,8 @@ export function AgentBoard({
     return by;
   }, [artifacts]);
 
+  const handleNodeClick = onNodeSelect ?? onAgentClick;
+
   const { nodes, edges } = useMemo(() => {
     const ns: Node<AgentNodeData>[] = [];
     const es: Edge[] = [];
@@ -207,15 +212,17 @@ export function AgentBoard({
       position: { x: centerX, y: 0 },
       data: {
         testId: "agent-card-intake",
+        agentRunId: intakeRun?.id,
         title: "Intake",
         subtitle: intakeRun?.modelId ?? "—",
         status: intakeRun?.status,
         artifacts: artifactsByType["intake"] ?? [],
         onArtifactClick,
-        onCardClick: intakeRun && onAgentClick ? () => onAgentClick(intakeRun, null) : undefined,
+        onCardClick: intakeRun && handleNodeClick ? () => handleNodeClick(intakeRun, null) : undefined,
         emptyHint: "Awaiting intake",
         showSourceHandle: true,
         showTargetHandle: false,
+        isSelected: intakeRun?.id === selectedAgentId,
       },
       draggable: false,
       selectable: false,
@@ -229,15 +236,17 @@ export function AgentBoard({
       position: { x: centerX, y: ROW_HEIGHT },
       data: {
         testId: "agent-card-planner",
+        agentRunId: plannerRun?.id,
         title: "Planner",
         subtitle: plannerRun?.modelId ?? "—",
         status: plannerRun?.status,
         artifacts: artifactsByType["plan"] ?? [],
         onArtifactClick,
-        onCardClick: plannerRun && onAgentClick ? () => onAgentClick(plannerRun, null) : undefined,
+        onCardClick: plannerRun && handleNodeClick ? () => handleNodeClick(plannerRun, null) : undefined,
         emptyHint: "Awaiting planner",
         showSourceHandle: true,
         showTargetHandle: true,
+        isSelected: plannerRun?.id === selectedAgentId,
       },
       draggable: false,
       selectable: false,
@@ -278,6 +287,7 @@ export function AgentBoard({
           position: { x, y: ROW_HEIGHT * 2 },
           data: {
             testId: `agent-card-worker-${task.id}`,
+            agentRunId: workerRun?.id,
             title: `Worker · ${task.role}`,
             subtitle: task.title,
             status: workerRun?.status ?? "queued",
@@ -287,10 +297,11 @@ export function AgentBoard({
             ],
             onArtifactClick,
             onCardClick:
-              workerRun && onAgentClick ? () => onAgentClick(workerRun, task) : undefined,
+              workerRun && handleNodeClick ? () => handleNodeClick(workerRun, task) : undefined,
             emptyHint: "Pending",
             showSourceHandle: true,
             showTargetHandle: true,
+            isSelected: workerRun?.id === selectedAgentId,
           },
           draggable: false,
           selectable: false,
@@ -308,16 +319,18 @@ export function AgentBoard({
       position: { x: centerX, y: ROW_HEIGHT * 3 },
       data: {
         testId: "agent-card-supervisor",
+        agentRunId: supervisorRun?.id,
         title: "Supervisor",
         subtitle: supervisorRun?.modelId ?? "—",
         status: supervisorRun?.status,
         artifacts: artifactsByType["review"] ?? [],
         onArtifactClick,
         onCardClick:
-          supervisorRun && onAgentClick ? () => onAgentClick(supervisorRun, null) : undefined,
+          supervisorRun && handleNodeClick ? () => handleNodeClick(supervisorRun, null) : undefined,
         emptyHint: "Awaiting workers",
         showSourceHandle: true,
         showTargetHandle: true,
+        isSelected: supervisorRun?.id === selectedAgentId,
       },
       draggable: false,
       selectable: false,
@@ -331,16 +344,18 @@ export function AgentBoard({
       position: { x: centerX, y: ROW_HEIGHT * 4 },
       data: {
         testId: "agent-card-integrator",
+        agentRunId: integratorRun?.id,
         title: "Integrator",
         subtitle: integratorRun?.modelId ?? "—",
         status: integratorRun?.status,
         artifacts: artifactsByType["final_plan"] ?? [],
         onArtifactClick,
         onCardClick:
-          integratorRun && onAgentClick ? () => onAgentClick(integratorRun, null) : undefined,
+          integratorRun && handleNodeClick ? () => handleNodeClick(integratorRun, null) : undefined,
         emptyHint: "Awaiting supervisor",
         showSourceHandle: false,
         showTargetHandle: true,
+        isSelected: integratorRun?.id === selectedAgentId,
       },
       draggable: false,
       selectable: false,
@@ -357,16 +372,18 @@ export function AgentBoard({
         position: { x: centerX, y: ROW_HEIGHT * 5 },
         data: {
           testId: "agent-card-verifier",
+          agentRunId: verifierRun?.id,
           title: "Verifier",
           subtitle: verifierRun?.modelId ?? "—",
           status: verifierRun?.status,
           artifacts: artifactsByType["verifier_report"] ?? [],
           onArtifactClick,
           onCardClick:
-            verifierRun && onAgentClick ? () => onAgentClick(verifierRun, null) : undefined,
+            verifierRun && handleNodeClick ? () => handleNodeClick(verifierRun, null) : undefined,
           emptyHint: "Awaiting verifier",
           showSourceHandle: false,
           showTargetHandle: true,
+          isSelected: verifierRun?.id === selectedAgentId,
         },
         draggable: false,
         selectable: false,
@@ -375,7 +392,7 @@ export function AgentBoard({
     }
 
     return { nodes: ns, edges: es };
-  }, [agentRuns, tasks, artifactsByType, grouped, onAgentClick, onArtifactClick, isControlledAuto]);
+  }, [agentRuns, tasks, artifactsByType, grouped, handleNodeClick, onArtifactClick, isControlledAuto, selectedAgentId]);
 
   // Side artifacts (progress / decisions) — rendered below the flow as a flat list
   const sideArtifacts = [
@@ -384,12 +401,12 @@ export function AgentBoard({
   ];
 
   const verifierRow = isControlledAuto || grouped["verifier"]?.[0];
-  const flowHeight = verifierRow ? 1440 : 1200;
+  const flowHeight = verifierRow ? 1200 : 1000;
 
   return (
-    <div className="space-y-3">
-      <div className="flex items-center gap-3">
-        <h2 className="text-base font-semibold">Agent Board</h2>
+    <div className="flex h-full flex-col space-y-2">
+      <div className="flex items-center gap-2">
+        <h2 className="text-sm font-semibold">Agent Board</h2>
         {isControlledAuto && round != null ? (
           <RoundCounter round={round} maxRounds={maxRounds} />
         ) : null}
@@ -400,7 +417,7 @@ export function AgentBoard({
       ) : null}
 
       <div
-        className="w-full rounded-lg border bg-muted/10"
+        className="min-h-0 flex-1 rounded-lg border bg-muted/10"
         style={{ height: flowHeight }}
         data-testid="agent-board"
       >
@@ -426,21 +443,23 @@ export function AgentBoard({
 
       {sideArtifacts.length > 0 ? (
         <div
-          className="rounded-lg border bg-card p-3"
+          className="rounded-lg border bg-card p-2"
           data-testid="agent-board-side-artifacts"
         >
-          <p className="mb-2 text-sm font-semibold">Side artifacts</p>
-          <ul className="grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          <p className="mb-1 text-xs font-semibold">Side artifacts</p>
+          <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3">
             {sideArtifacts.map((a) => (
               <li key={a.id}>
                 <button
                   onClick={() => onArtifactClick(a)}
-                  className="flex w-full items-center gap-2 rounded-md border bg-background p-2 text-left text-xs hover:bg-muted/30"
+                  className="flex w-full items-center gap-1.5 rounded-md border bg-background p-1.5 text-left text-[10px] hover:bg-muted/30"
                   data-testid={`artifact-${a.type}`}
                 >
-                  <FileText className="h-3.5 w-3.5 text-muted-foreground" />
+                  <FileText className="h-3 w-3 text-muted-foreground" />
                   <span className="flex-1 truncate">{a.name}</span>
-                  <StatusPill tone={artifactTone(a.type)}>{a.type}</StatusPill>
+                  <StatusPill tone={artifactTone(a.type)} withDot={false} className="text-[9px]">
+                    {a.type}
+                  </StatusPill>
                 </button>
               </li>
             ))}

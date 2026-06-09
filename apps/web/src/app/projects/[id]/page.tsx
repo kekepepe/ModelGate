@@ -17,7 +17,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { AgentBoard } from "@/components/projects/agent-board";
-import { AgentRunDrawer } from "@/components/projects/agent-run-drawer";
+import { AgentRunInspector } from "@/components/projects/agent-run-inspector";
+import { AgentRunTable } from "@/components/projects/agent-run-table";
 import { TaskTreeApproval } from "@/components/projects/task-tree-approval";
 import { BudgetMeter } from "@/components/projects/budget-meter";
 import { ArtifactDrawer } from "@/components/projects/artifact-drawer";
@@ -59,11 +60,9 @@ export default function ProjectDetailPage({ params }: PageProps) {
   const router = useRouter();
   const qc = useQueryClient();
   const [selectedArtifact, setSelectedArtifact] = useState<ArtifactView | null>(null);
-  const [selectedAgent, setSelectedAgent] = useState<{
-    run: AgentRunView;
-    task: ProjectTaskView | null;
-  } | null>(null);
+  const [selectedAgentId, setSelectedAgentId] = useState<string | null>(null);
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [tableExpanded, setTableExpanded] = useState(true);
 
   const { data, isLoading } = useQuery({
     queryKey: ["project", id],
@@ -118,6 +117,12 @@ export default function ProjectDetailPage({ params }: PageProps) {
   const regenerateMut = useMutation({
     mutationFn: (taskIds: string[]) =>
       projectApi.regeneratePatches(id, { taskIds }),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
+  });
+
+  const retryWorkerMut = useMutation({
+    mutationFn: (taskId: string) =>
+      projectApi.regeneratePatches(id, { taskIds: [taskId] }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
   });
 
@@ -197,18 +202,71 @@ export default function ProjectDetailPage({ params }: PageProps) {
         />
       )}
 
-      <AgentBoard
-        agentRuns={agentRuns}
-        tasks={tasks}
-        artifacts={artifacts}
-        onArtifactClick={setSelectedArtifact}
-        onAgentClick={(run, task) => setSelectedAgent({ run, task })}
-        mode={pr.mode}
-        round={pr.round}
-        stopReason={pr.stopReason}
-        stopRound={pr.stopRound}
-        maxRounds={(pr.budget as Record<string, unknown> | null)?.maxRounds as number | undefined}
-      />
+      {/* 70/30 layout: Flow Graph + Inspector */}
+      {(() => {
+        const selectedAgentRun = agentRuns.find((a) => a.id === selectedAgentId) ?? null;
+        const selectedTask = selectedAgentRun?.taskId
+          ? (tasks.find((t) => t.id === selectedAgentRun.taskId) ?? null)
+          : null;
+        const selectedArtifacts = selectedAgentRun
+          ? artifacts.filter((a) => a.agentRunId === selectedAgentRun.id)
+          : [];
+
+        return (
+          <div className="flex gap-3" style={{ height: "70vh" }}>
+            <div className="w-[70%] min-w-0">
+              <AgentBoard
+                agentRuns={agentRuns}
+                tasks={tasks}
+                artifacts={artifacts}
+                onArtifactClick={setSelectedArtifact}
+                onAgentClick={(run) => setSelectedAgentId(run.id)}
+                onNodeSelect={(run) => setSelectedAgentId(run.id)}
+                selectedAgentId={selectedAgentId}
+                mode={pr.mode}
+                round={pr.round}
+                stopReason={pr.stopReason}
+                stopRound={pr.stopRound}
+                maxRounds={(pr.budget as Record<string, unknown> | null)?.maxRounds as number | undefined}
+              />
+            </div>
+            <div className="w-[30%] min-w-0">
+              <AgentRunInspector
+                agentRun={selectedAgentRun}
+                task={selectedTask}
+                artifacts={selectedArtifacts}
+                projectStatus={pr.status}
+                mode={pr.mode ?? undefined}
+                isRetrying={retryWorkerMut.isPending}
+                onRetry={() => {
+                  if (selectedAgentRun?.taskId) {
+                    retryWorkerMut.mutate(selectedAgentRun.taskId);
+                  }
+                }}
+              />
+            </div>
+          </div>
+        );
+      })()}
+
+      {/* Table View: Debug & Cost Analysis */}
+      <div className="space-y-2">
+        <button
+          type="button"
+          className="flex items-center gap-1 text-sm font-semibold text-muted-foreground hover:text-foreground"
+          onClick={() => setTableExpanded(!tableExpanded)}
+        >
+          {tableExpanded ? "▾" : "▸"} Debug & Cost Analysis
+        </button>
+        {tableExpanded ? (
+          <AgentRunTable
+            agentRuns={agentRuns}
+            tasks={tasks}
+            selectedAgentId={selectedAgentId}
+            onRowClick={(ar) => setSelectedAgentId(ar.id)}
+          />
+        ) : null}
+      </div>
 
       <ArtifactDrawer
         artifact={selectedArtifact}
@@ -221,17 +279,6 @@ export default function ProjectDetailPage({ params }: PageProps) {
           const taskId = selectedArtifact?.taskId;
           if (taskId) regenerateMut.mutate([taskId]);
         }}
-      />
-
-      <AgentRunDrawer
-        agentRun={selectedAgent?.run ?? null}
-        task={selectedAgent?.task ?? null}
-        artifacts={
-          selectedAgent
-            ? artifacts.filter((a) => a.agentRunId === selectedAgent.run.id)
-            : []
-        }
-        onOpenChange={(open) => !open && setSelectedAgent(null)}
       />
 
       <Dialog open={deleteOpen} onOpenChange={(o) => { if (!deleteMut.isPending) { setDeleteOpen(o); if (!o) setDeleteError(null); } }}>
