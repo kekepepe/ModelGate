@@ -4,6 +4,22 @@ import type { FileRecord, RunRecord } from "@/types/model";
 
 const DRAFT_STORAGE_KEY = "modelgate.workspace.draft.v1";
 
+export type ChatMessageStatus = "pending" | "streaming" | "completed" | "failed" | "cancelled";
+
+export type ChatMessage = {
+  id: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  status: ChatMessageStatus;
+  modelId?: string;
+  providerId?: string;
+  runId?: string;
+  errorType?: string;
+  errorMessage?: string;
+  createdAt: string;
+  attachments?: { fileId: string; name: string }[];
+};
+
 type PersistedDraft = {
   selectedTaskType: string;
   selectedModelId: string | null;
@@ -20,6 +36,7 @@ type WorkspaceState = {
   params: Record<string, string | number | boolean>;
   files: FileRecord[];
   latestRun: RunRecord | null;
+  messages: ChatMessage[];
   setSelectedTaskType: (taskType: string) => void;
   setSelectedModelId: (modelId: string | null) => void;
   setProviderFilter: (providerId: string | null) => void;
@@ -29,6 +46,9 @@ type WorkspaceState = {
   addFile: (file: FileRecord) => void;
   removeFile: (fileId: string) => void;
   setLatestRun: (run: RunRecord | null) => void;
+  appendMessage: (message: ChatMessage) => void;
+  updateMessage: (id: string, patch: Partial<ChatMessage>) => void;
+  clearMessages: () => void;
   resetWorkspace: () => void;
 };
 
@@ -77,7 +97,7 @@ function clearDraftFromStorage() {
   }
 }
 
-function initialState(): Pick<WorkspaceState, "selectedTaskType" | "selectedModelId" | "providerFilter" | "prompt" | "params" | "files" | "latestRun"> {
+function initialState(): Pick<WorkspaceState, "selectedTaskType" | "selectedModelId" | "providerFilter" | "prompt" | "params" | "files" | "latestRun" | "messages"> {
   const draft = loadDraftFromStorage();
   return {
     selectedTaskType: draft?.selectedTaskType ?? "chat",
@@ -87,6 +107,7 @@ function initialState(): Pick<WorkspaceState, "selectedTaskType" | "selectedMode
     params: draft?.params ?? {},
     files: [],
     latestRun: null,
+    messages: [],
   };
 }
 
@@ -143,6 +164,12 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => {
         files: state.files.filter((file) => file.id !== fileId),
       })),
     setLatestRun: (run) => set({ latestRun: run }),
+    appendMessage: (message) => set((state) => ({ messages: [...state.messages, message] })),
+    updateMessage: (id, patch) =>
+      set((state) => ({
+        messages: state.messages.map((m) => (m.id === id ? { ...m, ...patch } : m)),
+      })),
+    clearMessages: () => set({ messages: [] }),
     resetWorkspace: () => {
       clearDraftFromStorage();
       set({
@@ -153,6 +180,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => {
         params: {},
         files: [],
         latestRun: null,
+        messages: [],
       });
     },
   };

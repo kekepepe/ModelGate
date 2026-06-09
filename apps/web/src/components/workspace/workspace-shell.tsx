@@ -1,19 +1,16 @@
 "use client";
 
 import { useState } from "react";
-import { Plus, X, XCircle, Play, AlertCircle, GitCompare } from "lucide-react";
+import { Plus, GitCompare } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
-import { Textarea } from "@/components/ui/textarea";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { ApiError } from "@/lib/api";
-import type { FileRecord } from "@/types/model";
 
 import { useWorkspaceQueries, tasks } from "./use-workspace-queries";
 import { ModeTabs } from "./mode-tabs";
 import { ModelSelectorRow } from "./model-selector-row";
 import { ParamsPopover } from "./params-popover";
-import { OutputSection } from "./output-section";
+import { ChatWorkspace } from "./chat-workspace";
 import { PromptTemplatePopover } from "./prompt-template-popover";
 import { CompareDrawer } from "./compare-drawer";
 
@@ -22,176 +19,97 @@ export function WorkspaceShell() {
   const [pendingTemplateParams, setPendingTemplateParams] = useState<{ name: string; params: Record<string, string | number | boolean> } | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
 
+  const modelSlot = (
+    <ModelSelectorRow
+      availableModels={q.availableModels}
+      hiddenModels={q.hiddenModels}
+      selectedModelId={q.selectedModelId}
+      selectedModel={q.selectedModel}
+      selectedProvider={q.selectedProvider}
+      providers={q.providers}
+      taskInputTypes={q.inputTypes}
+      onSelectModel={q.setSelectedModelId}
+      originalModelId={q.fromRunModelId ?? undefined}
+    />
+  );
+
+  const paramsSlot = (
+    <ParamsPopover
+      schema={q.paramSchema}
+      params={q.params}
+      provider={q.selectedProvider}
+      model={q.selectedModel}
+      taskId={q.selectedTask.id}
+      onChange={q.setParam}
+      onApplyMany={q.setParams}
+      onReset={() => {
+        const schema = q.paramSchema;
+        if (!schema) return;
+        const defaults = Object.fromEntries(
+          schema.fields.map((f) => [f.key, f.default ?? (f.type === "boolean" ? false : "")]),
+        );
+        q.setParams(defaults);
+      }}
+    />
+  );
+
+  const extraActionsSlot = (
+    <>
+      <PromptTemplatePopover
+        taskId={q.selectedTask.id}
+        currentPrompt={q.prompt}
+        currentParams={q.params}
+        onSelect={(template) => {
+          q.setPrompt(template.prompt);
+          if (template.recommendedParams) {
+            setPendingTemplateParams({ name: template.title, params: template.recommendedParams });
+          }
+        }}
+      />
+      <Button
+        variant="ghost"
+        size="sm"
+        className="h-8 gap-1"
+        disabled={!q.selectedModelId || q.availableModels.length < 2 || q.prompt.trim().length === 0}
+        onClick={() => setCompareOpen(true)}
+        title="Compare with other models"
+      >
+        <GitCompare className="h-3.5 w-3.5" />
+        Compare
+      </Button>
+    </>
+  );
+
   return (
-    <div className="relative flex min-h-full items-center justify-center px-4 py-10">
-      {/* Subtle dot grid background */}
+    <div className="relative flex min-h-full justify-center px-4 py-6">
       <div className="pointer-events-none absolute inset-0 bg-[image:radial-gradient(circle,hsl(var(--border))_1px,transparent_1px)] bg-[size:24px_24px] opacity-40" />
 
-      <div className="relative w-full max-w-5xl">
-        {/* Mode tabs */}
-        <ModeTabs
-          tasks={tasks}
-          selectedTaskType={q.selectedTaskType}
-          onSelect={q.handleSelectTask}
-        />
-
-        {/* Playground dialog card */}
-        <div className="rounded-2xl border bg-card shadow-[0_12px_36px_rgba(72,60,45,0.06)]">
-          {/* Model selector row */}
-          <ModelSelectorRow
-            availableModels={q.availableModels}
-            hiddenModels={q.hiddenModels}
-            selectedModelId={q.selectedModelId}
-            selectedModel={q.selectedModel}
-            selectedProvider={q.selectedProvider}
-            providers={q.providers}
-            taskInputTypes={q.inputTypes}
-            onSelectModel={q.setSelectedModelId}
-            originalModelId={q.fromRunModelId ?? undefined}
+      <div className="relative w-full max-w-5xl space-y-4">
+        <div className="flex items-center justify-between">
+          <ModeTabs
+            tasks={tasks}
+            selectedTaskType={q.selectedTaskType}
+            onSelect={q.handleSelectTask}
           />
-
-          {/* Prompt input area */}
-          <div className="p-6">
-            <div className="mb-2 flex items-center justify-between">
-              <label htmlFor="playground-prompt" className="text-sm font-medium">
-                Prompt
-              </label>
-              <PromptTemplatePopover
-                taskId={q.selectedTask.id}
-                currentPrompt={q.prompt}
-                currentParams={q.params}
-                onSelect={(template) => {
-                  q.setPrompt(template.prompt);
-                  if (template.recommendedParams) {
-                    setPendingTemplateParams({ name: template.title, params: template.recommendedParams });
-                  }
-                }}
-              />
-            </div>
-            <Textarea
-              id="playground-prompt"
-              value={q.prompt}
-              onChange={(e) => q.setPrompt(e.target.value)}
-              className="min-h-[200px] resize-y text-sm leading-relaxed"
-              placeholder="Describe what you want to run..."
-              maxLength={4000}
-            />
-            <div className="mt-1 text-right text-xs text-muted-foreground">
-              {q.prompt.length} / 4000
-            </div>
-
-            {/* File chips */}
-            {q.files.length > 0 ? (
-              <div className="mt-3 flex flex-wrap gap-2">
-                {q.files.map((file) => (
-                  <div key={file.id} className="flex items-center gap-1.5 rounded-md border bg-muted/50 py-1 pl-2 pr-1 text-xs">
-                    <FileIcon file={file} />
-                    <span className="max-w-[180px] truncate">{file.originalName}</span>
-                    <span className="text-muted-foreground">{formatBytes(file.sizeBytes)}</span>
-                    <button
-                      type="button"
-                      onClick={() => q.deleteFileMutation.mutate(file.id)}
-                      className="ml-0.5 rounded p-0.5 text-muted-foreground hover:text-destructive"
-                    >
-                      <X className="h-3 w-3" />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            ) : null}
-
-            {/* Upload error */}
-            {q.uploadMutation.error ? (
-              <div className="mt-2 flex items-center gap-1.5 text-xs text-destructive">
-                <AlertCircle className="h-3.5 w-3.5" />
-                {q.uploadMutation.error.message}
-              </div>
-            ) : null}
-          </div>
-
-          {/* Bottom bar */}
-          <div className="flex items-center justify-between border-t px-6 py-3.5">
-            <TooltipProvider delayDuration={300}>
-              <div className="flex items-center gap-1">
-                <Tooltip>
-                  <TooltipTrigger asChild>
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-8 w-8"
-                      onClick={() => q.fileInputRef.current?.click()}
-                    >
-                      <Plus className="h-4 w-4" />
-                    </Button>
-                  </TooltipTrigger>
-                  <TooltipContent side="top">Upload file</TooltipContent>
-                </Tooltip>
-
-                <ParamsPopover
-                  schema={q.paramSchema}
-                  params={q.params}
-                  provider={q.selectedProvider}
-                  model={q.selectedModel}
-                  taskId={q.selectedTask.id}
-                  onChange={q.setParam}
-                  onApplyMany={q.setParams}
-                  onReset={() => {
-                    const schema = q.paramSchema;
-                    if (!schema) return;
-                    const defaults = Object.fromEntries(
-                      schema.fields.map((f) => [f.key, f.default ?? (f.type === "boolean" ? false : "")]),
-                    );
-                    q.setParams(defaults);
-                  }}
-                />
-              </div>
-            </TooltipProvider>
-
-            <div className="flex items-center gap-2">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => q.resetWorkspace()}
-              >
-                <Plus className="mr-1 h-3.5 w-3.5" />
-                New Task
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                disabled={!q.selectedModelId || q.availableModels.length < 2 || q.prompt.trim().length === 0}
-                onClick={() => setCompareOpen(true)}
-                title="Compare with other models"
-              >
-                <GitCompare className="mr-1 h-3.5 w-3.5" />
-                Compare
-              </Button>
-              {q.runMutation.isPending ? (
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => q.cancelMutation.mutate()}
-                >
-                  <XCircle className="mr-1 h-3.5 w-3.5" />
-                  Cancel
-                </Button>
-              ) : (
-                <Button
-                  size="sm"
-                  disabled={!q.canRun}
-                  onClick={() => q.runMutation.mutate(undefined)}
-                >
-                  <Play className="mr-1 h-3.5 w-3.5" />
-                  Run
-                </Button>
-              )}
-            </div>
-          </div>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => q.resetWorkspace()}
+            data-testid="workspace-new-task"
+          >
+            <Plus className="mr-1 h-3.5 w-3.5" />
+            New Chat
+          </Button>
         </div>
 
-        {/* Run error banner */}
+        <ChatWorkspace
+          modelSlot={modelSlot}
+          paramsSlot={paramsSlot}
+          extraActionsSlot={extraActionsSlot}
+        />
+
         {q.runMutation.error ? (
-          <div className="mt-4 rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive">
+          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" data-testid="workspace-run-error">
             <div>{q.runMutation.error.message}</div>
             {q.runMutation.error instanceof ApiError && q.runMutation.error.requestId ? (
               <div className="mt-1 text-xs text-destructive/70">requestId: {q.runMutation.error.requestId}</div>
@@ -200,7 +118,7 @@ export function WorkspaceShell() {
         ) : null}
 
         {pendingTemplateParams ? (
-          <div className="mt-4 flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+          <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
             <div>
               Template <span className="font-medium">{pendingTemplateParams.name}</span> recommends specific params.
               Apply them?
@@ -221,38 +139,6 @@ export function WorkspaceShell() {
             </div>
           </div>
         ) : null}
-
-        {/* Output section */}
-        <OutputSection
-          latestRun={q.latestRun}
-          runError={q.runMutation.error}
-          selectedModel={q.selectedModel}
-          history={q.history}
-          providers={q.providers}
-          onRerun={(run) => {
-            const runPrompt = typeof run.input?.prompt === "string" ? run.input.prompt : "";
-            const runFileIds = Array.isArray(run.input?.fileIds) ? run.input.fileIds.map(String) : [];
-            q.runMutation.mutate({
-              taskType: run.taskType,
-              modelId: run.modelId,
-              prompt: runPrompt,
-              fileIds: runFileIds,
-              params: run.params as Record<string, string | number | boolean>,
-            });
-          }}
-        />
-
-        {/* Hidden file input */}
-        <input
-          ref={q.fileInputRef}
-          type="file"
-          className="hidden"
-          onChange={(e) => {
-            const file = e.target.files?.[0];
-            if (file) q.uploadMutation.mutate(file);
-            e.currentTarget.value = "";
-          }}
-        />
 
         <CompareDrawer
           open={compareOpen}
@@ -275,21 +161,4 @@ export function WorkspaceShell() {
       </div>
     </div>
   );
-}
-
-/* ── Inline helpers ────────────────────────────────────── */
-
-function FileIcon({ file }: { file: FileRecord }) {
-  const type = file.detectedType;
-  if (type === "image") return <span className="text-xs">🖼</span>;
-  if (type === "video") return <span className="text-xs">🎬</span>;
-  if (type === "audio") return <span className="text-xs">🎵</span>;
-  if (type === "code") return <span className="text-xs">📄</span>;
-  return <span className="text-xs">📎</span>;
-}
-
-function formatBytes(bytes: number) {
-  if (bytes < 1024) return `${bytes} B`;
-  if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
-  return `${(bytes / 1024 / 1024).toFixed(2)} MB`;
 }

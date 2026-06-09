@@ -1,13 +1,12 @@
 import { test, expect } from "@playwright/test";
 
 /**
- * Output Tabs (P0-2) smoke spec.
- *
- * Verifies the Output / Timeline / Request / Archive tabs are present in
- * the workspace shell. The tab triggers should be visible on initial
- * load even before a run is executed.
+ * V2 Output Tabs spec — superseded by V3.1 Chat workspace.
+ * Output/Timeline/Request/Archive will return inside an Assistant Message
+ * Details drawer in a later V3.1 stage; re-enable then. See
+ * docs/04-开发管理/PlaygroundChat化改造分阶段计划.md §3.
  */
-test.describe("Workspace Output Tabs", () => {
+test.describe.skip("Workspace Output Tabs (V2 — superseded)", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/providers", async (route) => {
       await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });

@@ -72,6 +72,7 @@ export function useWorkspaceQueries() {
   const params = useWorkspaceStore((state) => state.params);
   const files = useWorkspaceStore((state) => state.files);
   const latestRun = useWorkspaceStore((state) => state.latestRun);
+  const messages = useWorkspaceStore((state) => state.messages);
   const setSelectedTaskType = useWorkspaceStore((state) => state.setSelectedTaskType);
   const setSelectedModelId = useWorkspaceStore((state) => state.setSelectedModelId);
   const setProviderFilter = useWorkspaceStore((state) => state.setProviderFilter);
@@ -81,7 +82,11 @@ export function useWorkspaceQueries() {
   const addFile = useWorkspaceStore((state) => state.addFile);
   const removeFile = useWorkspaceStore((state) => state.removeFile);
   const setLatestRun = useWorkspaceStore((state) => state.setLatestRun);
+  const appendMessage = useWorkspaceStore((state) => state.appendMessage);
+  const updateMessage = useWorkspaceStore((state) => state.updateMessage);
+  const clearMessages = useWorkspaceStore((state) => state.clearMessages);
   const resetWorkspace = useWorkspaceStore((state) => state.resetWorkspace);
+  const activeAssistantIdRef = useRef<string | null>(null);
 
   // Read ?fromRun= for "Rerun with another model" deep-link from Activity page
   const fromRunId = searchParams.get("fromRun");
@@ -225,6 +230,18 @@ export function useWorkspaceQueries() {
         throw new Error("Please select a model before running.");
       }
       currentRunIdRef.current = null;
+
+      const assistantId = `msg_assistant_${Date.now()}`;
+      activeAssistantIdRef.current = assistantId;
+      appendMessage({
+        id: assistantId,
+        role: "assistant",
+        content: "",
+        status: "streaming",
+        modelId: runPayload.modelId ?? undefined,
+        createdAt: new Date().toISOString(),
+      });
+
       return streamChatRun(
         {
           taskType: runPayload.taskType,
@@ -237,6 +254,16 @@ export function useWorkspaceQueries() {
           if (run.id) currentRunIdRef.current = run.id;
           setLatestRun(run);
           setActiveResultTab("preview");
+          const assistantMessageId = activeAssistantIdRef.current;
+          if (assistantMessageId) {
+            const text = run.output?.type === "text" ? (run.output as { text?: string }).text ?? "" : "";
+            updateMessage(assistantMessageId, {
+              content: text,
+              status: run.status === "cancelled" ? "cancelled" : "streaming",
+              runId: run.id,
+              providerId: run.providerId,
+            });
+          }
         },
       );
     },
@@ -244,9 +271,34 @@ export function useWorkspaceQueries() {
       setLatestRun(run);
       setActiveResultTab("preview");
       queryClient.invalidateQueries({ queryKey: ["history-runs"] });
+      const assistantMessageId = activeAssistantIdRef.current;
+      if (assistantMessageId) {
+        const text = run.output?.type === "text" ? (run.output as { text?: string }).text ?? "" : "";
+        updateMessage(assistantMessageId, {
+          content: text,
+          status: run.status === "cancelled" ? "cancelled" : "completed",
+          runId: run.id,
+          providerId: run.providerId,
+        });
+      }
+      activeAssistantIdRef.current = null;
       currentRunIdRef.current = null;
     },
-    onError: () => {
+    onError: (error) => {
+      const assistantMessageId = activeAssistantIdRef.current;
+      if (assistantMessageId) {
+        if (error instanceof CancelledRunError) {
+          updateMessage(assistantMessageId, { status: "cancelled" });
+        } else {
+          const apiError = error instanceof ApiError ? error : null;
+          updateMessage(assistantMessageId, {
+            status: "failed",
+            errorMessage: error instanceof Error ? error.message : "Run failed.",
+            errorType: apiError?.type,
+          });
+        }
+      }
+      activeAssistantIdRef.current = null;
       currentRunIdRef.current = null;
     },
     onSettled: () => {
@@ -266,6 +318,11 @@ export function useWorkspaceQueries() {
       if (response) {
         setLatestRun({ ...response, status: "cancelled" });
       }
+      const assistantMessageId = activeAssistantIdRef.current;
+      if (assistantMessageId) {
+        updateMessage(assistantMessageId, { status: "cancelled" });
+      }
+      activeAssistantIdRef.current = null;
       queryClient.invalidateQueries({ queryKey: ["history-runs"] });
     },
   });
@@ -286,6 +343,7 @@ export function useWorkspaceQueries() {
     params,
     files,
     latestRun,
+    messages,
     fromRunId,
     fromRunModelId,
     // Setters
@@ -298,6 +356,9 @@ export function useWorkspaceQueries() {
     addFile,
     removeFile,
     setLatestRun,
+    appendMessage,
+    updateMessage,
+    clearMessages,
     resetWorkspace,
     // Derived
     selectedTask,

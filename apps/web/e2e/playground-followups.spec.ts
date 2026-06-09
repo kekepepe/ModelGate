@@ -111,7 +111,7 @@ test.describe("Playground V2 follow-ups (templates / preset / compare)", () => {
 
     await expect(compareBtn).toBeDisabled();
 
-    await page.getByPlaceholder(/describe what you want/i).fill("hello world prompt for compare");
+    await page.getByPlaceholder(/message the model/i).fill("hello world prompt for compare");
     // Compare needs at least 2 models and a selected model; we mocked 2 models.
     await expect(compareBtn).toBeEnabled({ timeout: 5_000 });
     await compareBtn.click();
