@@ -570,3 +570,28 @@ class TestCreateWithMode:
         r = client.post("/api/projects", json={"goal": "test default"})
         assert r.status_code == 200
         assert r.json()["data"]["mode"] == "advisory"
+
+    def test_create_with_intake_model_id(self, client, monkeypatch):
+        """Create endpoint accepts and stores intakeModelId."""
+        async def _mock_run(*args, **kwargs):
+            pass
+
+        monkeypatch.setattr(
+            "app.api.projects.project_orchestrator.run", _mock_run
+        )
+
+        r = client.post("/api/projects", json={
+            "goal": "test per-agent models",
+            "intakeModelId": "gpt-4o",
+            "plannerModelId": "gpt-4o-mini",
+            "workerModelId": "gpt-4o",
+            "supervisorModelId": "gpt-4o",
+            "integratorModelId": "gpt-4o",
+        })
+        assert r.status_code == 200
+        data = r.json()["data"]
+        assert data["intakeModelId"] == "gpt-4o"
+        assert data["plannerModelId"] == "gpt-4o-mini"
+        assert data["workerModelId"] == "gpt-4o"
+        assert data["supervisorModelId"] == "gpt-4o"
+        assert data["integratorModelId"] == "gpt-4o"

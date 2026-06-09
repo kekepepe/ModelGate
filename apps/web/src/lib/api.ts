@@ -200,6 +200,7 @@ export interface ProjectRunView {
   goal: string;
   status: ProjectRunStatus;
   mode: string | null;
+  intakeModelId: string | null;
   plannerModelId: string | null;
   supervisorModelId: string | null;
   integratorModelId: string | null;
@@ -225,6 +226,7 @@ export interface CreateProjectRunBody {
   goal: string;
   title?: string;
   mode?: string;
+  intakeModelId?: string;
   plannerModelId?: string;
   supervisorModelId?: string;
   integratorModelId?: string;

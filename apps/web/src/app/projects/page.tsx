@@ -173,7 +173,7 @@ export default function ProjectsPage() {
         error={createMut.error instanceof Error ? createMut.error.message : null}
       />
 
-      <Dialog open={pendingDelete !== null} onOpenChange={(o) => !o && setPendingDelete(null)}>
+      <Dialog open={pendingDelete !== null} onOpenChange={(o) => { if (!deleteMut.isPending) { if (!o) setPendingDelete(null); } }}>
         <DialogContent data-testid="list-delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete this project run?</DialogTitle>
@@ -185,6 +185,7 @@ export default function ProjectsPage() {
           </DialogHeader>
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setPendingDelete(null)}
@@ -194,9 +195,17 @@ export default function ProjectsPage() {
               Cancel
             </Button>
             <Button
+              type="button"
               variant="destructive"
               size="sm"
-              onClick={() => pendingDelete && deleteMut.mutate(pendingDelete.id)}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                if (pendingDelete) deleteMut.mutate(pendingDelete.id);
+              }}
               disabled={deleteMut.isPending}
               data-testid="list-delete-confirm"
             >

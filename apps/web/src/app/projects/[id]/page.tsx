@@ -229,7 +229,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
         onOpenChange={(open) => !open && setSelectedAgent(null)}
       />
 
-      <Dialog open={deleteOpen} onOpenChange={(o) => { setDeleteOpen(o); if (!o) setDeleteError(null); }}>
+      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!deleteMut.isPending) { setDeleteOpen(o); if (!o) setDeleteError(null); } }}>
         <DialogContent data-testid="delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete this project run?</DialogTitle>
@@ -243,6 +243,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
           )}
           <DialogFooter>
             <Button
+              type="button"
               variant="outline"
               size="sm"
               onClick={() => setDeleteOpen(false)}
@@ -252,9 +253,17 @@ export default function ProjectDetailPage({ params }: PageProps) {
               Cancel
             </Button>
             <Button
+              type="button"
               variant="destructive"
               size="sm"
-              onClick={() => deleteMut.mutate()}
+              onPointerDown={(e) => {
+                e.stopPropagation();
+              }}
+              onClick={(e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                deleteMut.mutate();
+              }}
               disabled={deleteMut.isPending}
               data-testid="delete-confirm"
             >

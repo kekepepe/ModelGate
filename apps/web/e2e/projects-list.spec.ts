@@ -15,6 +15,11 @@ const SAMPLE_PROJECTS = [
     goal: "Add /health endpoint",
     status: "completed",
     mode: "advisory",
+    intakeModelId: "gpt-4o",
+    plannerModelId: "gpt-4o",
+    supervisorModelId: null,
+    integratorModelId: null,
+    workerModelId: null,
     intake: null,
     budget: { maxAgents: 6, maxTokens: 200000, maxRuntimeSeconds: 600 },
     usage: { agentsUsed: 4, tokensUsed: 12345, runtimeSeconds: 38, contextFilesUsed: 0 },
@@ -30,6 +35,11 @@ const SAMPLE_PROJECTS = [
     goal: "Add JSON export of model settings",
     status: "running",
     mode: "advisory",
+    intakeModelId: null,
+    plannerModelId: null,
+    supervisorModelId: null,
+    integratorModelId: null,
+    workerModelId: null,
     intake: null,
     budget: { maxAgents: 6, maxTokens: 200000, maxRuntimeSeconds: 600 },
     usage: { agentsUsed: 2, tokensUsed: 1234, runtimeSeconds: 4, contextFilesUsed: 0 },
@@ -149,6 +159,9 @@ test.describe("Projects list page", () => {
     await page.goto("/projects");
     await page.locator('[data-testid="new-project-button"]').click();
     await expect(page.locator('[data-testid="create-project-modal"]')).toBeVisible();
+
+    // Wait for models to load in the agent selectors
+    await expect(page.locator('[data-testid="agent-model-select-intake"]')).toBeVisible();
 
     await page.locator('[data-testid="goal-input"]').fill("Add OAuth2 login flow");
     await page.locator('[data-testid="create-submit"]').click();

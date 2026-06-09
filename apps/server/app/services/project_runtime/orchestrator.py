@@ -165,7 +165,9 @@ class ProjectOrchestrator:
         db: Session = SessionLocal()
         try:
             tracker = BudgetTracker(budget=budget)
-            model_id = project_run.planner_model_id or model_fallback(db)
+            fallback = model_fallback(db)
+            intake_model = project_run.intake_model_id or project_run.planner_model_id or fallback
+            planner_model = project_run.planner_model_id or fallback
 
             # Phase 1: Intake
             self._update(project_run, "running")
@@ -176,7 +178,7 @@ class ProjectOrchestrator:
                 project_run_id=project_run.id,
                 goal=project_run.goal,
                 budget=tracker,
-                model_id=model_id,
+                model_id=intake_model,
             )
             intake_artifact = write_artifact(
                 db=db,
@@ -206,7 +208,7 @@ class ProjectOrchestrator:
                 project_run_id=project_run.id,
                 intake_output=intake_output,
                 budget=tracker,
-                model_id=model_id,
+                model_id=planner_model,
             )
             planner_artifact = write_artifact(
                 db=db, project_run_id=project_run.id,
@@ -250,7 +252,10 @@ class ProjectOrchestrator:
                 raise ValueError(f"ProjectRun {project_run_id} not found")
 
             self._update(project_run, "running")
-            model_id = project_run.planner_model_id or model_fallback(db)
+            fallback = model_fallback(db)
+            worker_model = project_run.worker_model_id or project_run.planner_model_id or fallback
+            supervisor_model = project_run.supervisor_model_id or project_run.planner_model_id or fallback
+            integrator_model = project_run.integrator_model_id or project_run.planner_model_id or fallback
 
             planner_agent = (
                 db.query(AgentRun)
@@ -284,7 +289,7 @@ class ProjectOrchestrator:
                 tasks=tasks,
                 planner_output=planner_output,
                 tracker=tracker,
-                model_id=model_id,
+                model_id=worker_model,
             )
             # Re-attach updated tasks to current session for downstream phases.
             tasks = (
@@ -305,7 +310,7 @@ class ProjectOrchestrator:
                 project_run_id=project_run.id,
                 worker_outputs=worker_outputs,
                 budget=tracker,
-                model_id=model_id,
+                model_id=supervisor_model,
             )
             write_artifact(
                 db=db, project_run_id=project_run.id,
@@ -329,7 +334,7 @@ class ProjectOrchestrator:
                 worker_outputs=worker_outputs,
                 supervisor_output=supervisor_output,
                 budget=tracker,
-                model_id=model_id,
+                model_id=integrator_model,
             )
             integ_artifact = write_artifact(
                 db=db, project_run_id=project_run.id,

@@ -26,6 +26,7 @@ const COMPLETED_PATCH_DETAILS = {
       goal: "Add /health endpoint",
       status: "completed",
       mode: "patch",
+      intakeModelId: "gpt-4o",
       plannerModelId: "gpt-4o",
       supervisorModelId: null,
       integratorModelId: null,
@@ -103,6 +104,7 @@ const AWAITING_PATCH_DETAILS = {
       goal: "Add /health endpoint",
       status: "awaiting_approval",
       mode: "patch",
+      intakeModelId: "gpt-4o",
       plannerModelId: "gpt-4o",
       supervisorModelId: null,
       integratorModelId: null,
@@ -232,6 +234,9 @@ test.describe("V2.6 Patch Mode", () => {
     // Open create modal
     await page.locator('[data-testid="new-project-button"]').click();
     await expect(page.locator('[data-testid="create-project-modal"]')).toBeVisible();
+
+    // Wait for models to load
+    await expect(page.locator('[data-testid="agent-model-select-intake"]')).toBeVisible();
 
     // Mode selector should exist
     const modeSelect = page.locator('[data-testid="mode-select"]');

@@ -287,6 +287,7 @@ class ProjectRun(Base):
     goal: Mapped[str] = mapped_column(Text, nullable=False)
     status: Mapped[str] = mapped_column(String, nullable=False)
     mode: Mapped[str] = mapped_column(String, nullable=False, default="plan_only")
+    intake_model_id: Mapped[str | None] = mapped_column(String)
     planner_model_id: Mapped[str | None] = mapped_column(String)
     supervisor_model_id: Mapped[str | None] = mapped_column(String)
     integrator_model_id: Mapped[str | None] = mapped_column(String)
