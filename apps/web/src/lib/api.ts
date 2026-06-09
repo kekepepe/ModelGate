@@ -286,3 +286,42 @@ export const projectApi = {
     ),
 };
 
+// ── Conversation Persistence V3.2 ──────────────────────────────────────────
+
+export interface ConversationView {
+  id: string;
+  title: string;
+  taskType: string;
+  modelId: string | null;
+  params: Record<string, unknown> | null;
+  status: string;
+  createdAt: string | null;
+  updatedAt: string | null;
+  messages?: MessageView[];
+}
+
+export interface MessageView {
+  id: string;
+  conversationId: string;
+  role: "user" | "assistant" | "system";
+  content: string;
+  modelId: string | null;
+  providerId: string | null;
+  runId: string | null;
+  parentMessageId: string | null;
+  status: "pending" | "streaming" | "completed" | "failed" | "cancelled";
+  errorMessage: string | null;
+  metadata: unknown;
+  createdAt: string | null;
+}
+
+export const conversationApi = {
+  list: () => getData<ConversationView[]>("/conversations"),
+  get: (id: string) => getData<ConversationView>(`/conversations/${id}`),
+  create: (body: { title?: string; taskType?: string; modelId?: string; params?: Record<string, unknown> }) =>
+    postData<ConversationView>("/conversations", body),
+  patch: (id: string, body: { title?: string; modelId?: string; params?: Record<string, unknown> }) =>
+    putData<ConversationView>(`/conversations/${id}`, body),
+  delete: (id: string) => deleteData<{ id: string; status: string }>(`/conversations/${id}`),
+};
+

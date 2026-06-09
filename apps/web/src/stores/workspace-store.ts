@@ -37,6 +37,7 @@ type WorkspaceState = {
   files: FileRecord[];
   latestRun: RunRecord | null;
   messages: ChatMessage[];
+  conversationId: string | null;
   setSelectedTaskType: (taskType: string) => void;
   setSelectedModelId: (modelId: string | null) => void;
   setProviderFilter: (providerId: string | null) => void;
@@ -49,6 +50,8 @@ type WorkspaceState = {
   appendMessage: (message: ChatMessage) => void;
   updateMessage: (id: string, patch: Partial<ChatMessage>) => void;
   clearMessages: () => void;
+  setConversationId: (id: string | null) => void;
+  loadMessages: (messages: ChatMessage[]) => void;
   resetWorkspace: () => void;
 };
 
@@ -97,7 +100,7 @@ function clearDraftFromStorage() {
   }
 }
 
-function initialState(): Pick<WorkspaceState, "selectedTaskType" | "selectedModelId" | "providerFilter" | "prompt" | "params" | "files" | "latestRun" | "messages"> {
+function initialState(): Pick<WorkspaceState, "selectedTaskType" | "selectedModelId" | "providerFilter" | "prompt" | "params" | "files" | "latestRun" | "messages" | "conversationId"> {
   const draft = loadDraftFromStorage();
   return {
     selectedTaskType: draft?.selectedTaskType ?? "chat",
@@ -108,6 +111,7 @@ function initialState(): Pick<WorkspaceState, "selectedTaskType" | "selectedMode
     files: [],
     latestRun: null,
     messages: [],
+    conversationId: null,
   };
 }
 
@@ -170,6 +174,8 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => {
         messages: state.messages.map((m) => (m.id === id ? { ...m, ...patch } : m)),
       })),
     clearMessages: () => set({ messages: [] }),
+    setConversationId: (id) => set({ conversationId: id }),
+    loadMessages: (messages) => set({ messages }),
     resetWorkspace: () => {
       clearDraftFromStorage();
       set({
@@ -181,6 +187,7 @@ export const useWorkspaceStore = create<WorkspaceState>((set) => {
         files: [],
         latestRun: null,
         messages: [],
+        conversationId: null,
       });
     },
   };

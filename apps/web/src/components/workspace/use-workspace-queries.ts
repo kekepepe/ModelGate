@@ -18,7 +18,9 @@ import { useRouter, useSearchParams, usePathname } from "next/navigation";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { API_BASE_URL, ApiError, deleteData, getData, postData, uploadData } from "@/lib/api";
+import type { ConversationView, MessageView } from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/workspace-store";
+import type { ChatMessage } from "@/stores/workspace-store";
 import type { FileRecord, ModelInfo, ParamSchema, Provider, RecommendResult, RunRecord } from "@/types/model";
 
 export type TaskOption = {
@@ -38,6 +40,7 @@ export type ChatRunPayload = {
   prompt: string;
   fileIds: string[];
   params: Record<string, string | number | boolean>;
+  conversationId?: string | null;
 };
 
 export const tasks: TaskOption[] = [
@@ -85,6 +88,9 @@ export function useWorkspaceQueries() {
   const appendMessage = useWorkspaceStore((state) => state.appendMessage);
   const updateMessage = useWorkspaceStore((state) => state.updateMessage);
   const clearMessages = useWorkspaceStore((state) => state.clearMessages);
+  const conversationId = useWorkspaceStore((state) => state.conversationId);
+  const setConversationId = useWorkspaceStore((state) => state.setConversationId);
+  const loadMessages = useWorkspaceStore((state) => state.loadMessages);
   const resetWorkspace = useWorkspaceStore((state) => state.resetWorkspace);
   const activeAssistantIdRef = useRef<string | null>(null);
 
@@ -138,6 +144,36 @@ export function useWorkspaceQueries() {
     router.replace(`${pathname}${qs ? `?${qs}` : ""}`, { scroll: false });
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fromRunQuery.data, fromRunId]);
+
+  // Load conversation from URL ?conversationId=
+  const urlConversationId = searchParams.get("conversationId");
+  const conversationQuery = useQuery({
+    queryKey: ["conversation", urlConversationId],
+    queryFn: () => getData<ConversationView>(`/conversations/${urlConversationId}`),
+    enabled: Boolean(urlConversationId),
+    staleTime: 0,
+  });
+
+  useEffect(() => {
+    const conv = conversationQuery.data;
+    if (!conv || !urlConversationId) return;
+    setConversationId(urlConversationId);
+    if (conv.messages && conv.messages.length > 0) {
+      const mapped: ChatMessage[] = conv.messages.map((m: MessageView) => ({
+        id: m.id,
+        role: m.role,
+        content: m.content,
+        status: m.status as ChatMessage["status"],
+        modelId: m.modelId ?? undefined,
+        providerId: m.providerId ?? undefined,
+        runId: m.runId ?? undefined,
+        createdAt: m.createdAt ?? new Date().toISOString(),
+      }));
+      loadMessages(mapped);
+    }
+    if (conv.modelId) setSelectedModelId(conv.modelId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [conversationQuery.data, urlConversationId]);
 
   useEffect(() => {
     const taskType = searchParams.get("taskType");
@@ -225,6 +261,7 @@ export function useWorkspaceQueries() {
         prompt,
         fileIds,
         params,
+        conversationId,
       };
       if (!runPayload.modelId) {
         throw new Error("Please select a model before running.");
@@ -249,6 +286,7 @@ export function useWorkspaceQueries() {
           prompt: runPayload.prompt,
           fileIds: runPayload.fileIds,
           params: runPayload.params,
+          conversationId: runPayload.conversationId ?? undefined,
         },
         (run) => {
           if (run.id) currentRunIdRef.current = run.id;
@@ -271,6 +309,7 @@ export function useWorkspaceQueries() {
       setLatestRun(run);
       setActiveResultTab("preview");
       queryClient.invalidateQueries({ queryKey: ["history-runs"] });
+      queryClient.invalidateQueries({ queryKey: ["conversations"] });
       const assistantMessageId = activeAssistantIdRef.current;
       if (assistantMessageId) {
         const text = run.output?.type === "text" ? (run.output as { text?: string }).text ?? "" : "";
@@ -280,6 +319,14 @@ export function useWorkspaceQueries() {
           runId: run.id,
           providerId: run.providerId,
         });
+      }
+      // Update URL with conversationId if newly created
+      const newConvId = (run as RunRecord & { conversationId?: string }).conversationId;
+      if (newConvId && !conversationId) {
+        setConversationId(newConvId);
+        const nextParams = new URLSearchParams(searchParams.toString());
+        nextParams.set("conversationId", newConvId);
+        router.replace(`${pathname}?${nextParams.toString()}`, { scroll: false });
       }
       activeAssistantIdRef.current = null;
       currentRunIdRef.current = null;
@@ -344,6 +391,7 @@ export function useWorkspaceQueries() {
     files,
     latestRun,
     messages,
+    conversationId,
     fromRunId,
     fromRunModelId,
     // Setters
@@ -359,6 +407,8 @@ export function useWorkspaceQueries() {
     appendMessage,
     updateMessage,
     clearMessages,
+    setConversationId,
+    loadMessages,
     resetWorkspace,
     // Derived
     selectedTask,
@@ -400,6 +450,7 @@ export async function streamChatRun(
     fileIds: string[];
     params: Record<string, string | number | boolean>;
     compareGroupId?: string;
+    conversationId?: string;
   },
   onPartialRun: (run: RunRecord) => void,
 ): Promise<RunRecord> {
@@ -417,6 +468,7 @@ export async function streamChatRun(
   let runId = "";
   let outputText = "";
   let doneRun: RunRecord | null = null;
+  let capturedConversationId: string | undefined;
 
   const applyEvent = (event: Record<string, unknown>) => {
     if (event.type === "run") {
@@ -465,6 +517,9 @@ export async function streamChatRun(
     }
     if (event.type === "done" && event.run && typeof event.run === "object") {
       doneRun = event.run as RunRecord;
+      if (typeof event.conversationId === "string") {
+        capturedConversationId = event.conversationId;
+      }
     }
   };
 
@@ -498,7 +553,11 @@ export async function streamChatRun(
     }
   }
 
-  if (doneRun) return doneRun;
+  if (doneRun) {
+    const result = doneRun as RunRecord & { conversationId?: string };
+    result.conversationId = capturedConversationId;
+    return result;
+  }
   return {
     id: runId || "streaming-run",
     taskType: payload.taskType,
@@ -508,7 +567,8 @@ export async function streamChatRun(
     params: payload.params,
     output: { type: "text", text: outputText },
     status: "completed",
-  };
+    conversationId: capturedConversationId,
+  } as RunRecord & { conversationId?: string };
 }
 
 export class CancelledRunError extends Error {
