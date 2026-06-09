@@ -106,12 +106,13 @@ def env(monkeypatch):
     monkeypatch.setattr(session_module, "SessionLocal", TestSessionLocal)
     monkeypatch.setattr(orch_module, "SessionLocal", TestSessionLocal)
 
-    # Route mock to the right canned response by inspecting params.system_prompt.
+    # Route mock to the right canned response by inspecting the system_prompt
+    # passed as a top-level kwarg (chat_runtime now accepts it directly so the
+    # role-specific instructions actually reach the model).
     from app.services.project_runtime import agents as agents_module
 
     async def fake_run_chat(**kwargs):
-        params = kwargs.get("params") or {}
-        sys_prompt = (params.get("system_prompt") or "").lower()
+        sys_prompt = (kwargs.get("system_prompt") or "").lower()
         if "intake agent" in sys_prompt:
             role = "intake"
         elif "planner agent" in sys_prompt:

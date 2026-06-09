@@ -11,6 +11,7 @@ import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { UnifiedDiffView } from "./unified-diff-view";
 import { PatchActions } from "./patch-actions";
+import { TestResultsView } from "./test-results-view";
 import type { ArtifactView } from "@/lib/api";
 
 interface Props {
@@ -90,6 +91,23 @@ export function ArtifactDrawer({
                   </div>
                 )}
               </div>
+            ) : artifact.type === "verifier_report" ? (
+              <ScrollArea className="flex-1 rounded-md border bg-muted/30 p-3">
+                <TestResultsView
+                  verdict={String((artifact.content as Record<string, unknown>)?.verdict ?? "?")}
+                  analysis={String((artifact.content as Record<string, unknown>)?.analysis ?? "")}
+                  failedTests={
+                    ((artifact.content as Record<string, unknown>)?.failed_tests as Array<Record<string, unknown>>) ?? []
+                  }
+                  appliedFiles={
+                    ((artifact.content as Record<string, unknown>)?.applied_files as string[]) ?? []
+                  }
+                  round={(artifact.content as Record<string, unknown>)?.round as number | undefined}
+                  pytestSummary={
+                    (artifact.content as Record<string, unknown>)?.pytest as Record<string, unknown> | undefined
+                  }
+                />
+              </ScrollArea>
             ) : (
               <ScrollArea className="flex-1 rounded-md border bg-muted/30 p-3">
                 <pre

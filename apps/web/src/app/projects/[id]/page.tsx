@@ -203,6 +203,11 @@ export default function ProjectDetailPage({ params }: PageProps) {
         artifacts={artifacts}
         onArtifactClick={setSelectedArtifact}
         onAgentClick={(run, task) => setSelectedAgent({ run, task })}
+        mode={pr.mode}
+        round={pr.round}
+        stopReason={pr.stopReason}
+        stopRound={pr.stopRound}
+        maxRounds={(pr.budget as Record<string, unknown> | null)?.maxRounds as number | undefined}
       />
 
       <ArtifactDrawer

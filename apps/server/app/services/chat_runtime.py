@@ -55,6 +55,7 @@ class ChatRuntime:
         params: dict,
         idempotency_key: str | None = None,
         compare_group_id: str | None = None,
+        system_prompt: str | None = None,
     ) -> Run:
         if idempotency_key:
             existing = db.query(Run).filter(Run.idempotency_key == idempotency_key).one_or_none()
@@ -88,7 +89,7 @@ class ChatRuntime:
         latency_ms = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files)
+            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files, system_prompt_override=system_prompt)
             provider_params = self._map_provider_params(model=model, params=params)
             chat_input = ChatInput(
                 provider_id=provider["id"],
@@ -195,6 +196,7 @@ class ChatRuntime:
         params: dict,
         idempotency_key: str | None = None,
         compare_group_id: str | None = None,
+        system_prompt: str | None = None,
     ) -> AsyncIterator[dict]:
         if idempotency_key:
             existing = db.query(Run).filter(Run.idempotency_key == idempotency_key).one_or_none()
@@ -240,7 +242,7 @@ class ChatRuntime:
         terminal_event: dict | None = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files)
+            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files, system_prompt_override=system_prompt)
             provider_params = self._map_provider_params(model=model, params=params)
             provider_params["stream"] = True
             chat_input = ChatInput(
@@ -385,8 +387,9 @@ class ChatRuntime:
         task_type: str,
         prompt: str,
         files: list[FileRecord],
+        system_prompt_override: str | None = None,
     ) -> list[ChatMessage]:
-        system = _system_prompt(task_type)
+        system = system_prompt_override if system_prompt_override else _system_prompt(task_type)
         user_content: str | list[dict] = prompt.strip()
         file_context = _file_context(files)
         supports_vision = "vision_understanding" in (model.get("capabilities") or [])

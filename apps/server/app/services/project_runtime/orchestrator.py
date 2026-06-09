@@ -26,11 +26,13 @@ from app.services.project_runtime.agents import (
     run_intake,
     run_planner,
     run_supervisor,
+    run_verifier,
     run_worker,
     write_memory,
 )
 from app.services.project_runtime.artifacts import serialize_artifact, write_artifact
 from app.services.project_runtime.budget import Budget, BudgetExceeded, BudgetTracker
+from app.services.project_runtime.pytest_runner import run_pytest
 from app.services.project_runtime.schemas import PatchValidationResult
 
 _events: dict[str, list[dict]] = {}
@@ -367,6 +369,38 @@ class ProjectOrchestrator:
 
             project_run.usage_json = tracker.usage_snapshot()
             self._update(project_run, "completed")
+
+            # V2.7 Controlled Auto: run verifier loop after initial workers.
+            # Only meaningful in patch / apply_with_approval / controlled_auto modes.
+            if (project_run.mode or "") in {"controlled_auto", "patch", "apply_with_approval"}:
+                verifier_model = (
+                    project_run.supervisor_model_id
+                    or project_run.planner_model_id
+                    or fallback
+                )
+                verifier_result = await self._run_verifier_loop(
+                    db=db,
+                    project_run=project_run,
+                    tasks=tasks,
+                    planner_output=planner_output,
+                    tracker=tracker,
+                    worker_model_id=worker_model,
+                    verifier_model_id=verifier_model,
+                    max_rounds=budget.max_rounds,
+                )
+                _push_event(project_run.id, {
+                    "type": "verifier_loop_done",
+                    "result": verifier_result,
+                })
+                # Mark round/stop reason on the project run
+                project_run = db.query(ProjectRun).filter(
+                    ProjectRun.id == project_run.id
+                ).first()
+                if project_run is not None:
+                    project_run.stop_reason = verifier_result.get("stop_reason") or "NORMAL"
+                    project_run.stop_round = verifier_result.get("rounds")
+                    project_run.round = verifier_result.get("rounds", 0)
+                    db.commit()
             db.commit()
             _push_event(project_run.id, {
                 "type": "phase", "phase": "integrator", "status": "completed",
@@ -395,6 +429,7 @@ class ProjectOrchestrator:
         planner_output: dict,
         tracker: BudgetTracker,
         model_id: str,
+        feedback_prefix: str | None = None,
     ) -> list[tuple[ProjectTask, dict]]:
         """Run multiple workers concurrently bounded by max_agents.
 
@@ -429,6 +464,7 @@ class ProjectOrchestrator:
                         budget=tracker,
                         model_id=model_id,
                         project_root=project_root,
+                        feedback_prefix=feedback_prefix,
                     )
                     local_task.status = (
                         "completed" if agent.status == "completed" else "failed"
@@ -488,6 +524,370 @@ class ProjectOrchestrator:
                 t = session.query(ProjectTask).filter(ProjectTask.id == task_id).first()
                 outputs.append((t, output))
         return outputs
+
+    def _apply_patch_artifact(self, db: Session, artifact, project_run: ProjectRun) -> dict:
+        """Apply a single ``type=='patch'`` artifact to the project source tree.
+
+        Returns a result dict: ``{ok: bool, files: [...], error?: str}``.
+        Never raises — failures are captured so the verifier loop can decide
+        whether to retry or stop.
+        """
+        import subprocess
+        import tempfile
+
+        diff_text = artifact.content_text or ""
+        if not diff_text.strip():
+            return {"ok": False, "files": [], "error": "empty patch"}
+
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".diff", delete=False) as f:
+            f.write(diff_text)
+            tmp_path = f.name
+
+        paths: set[str] = set()
+        try:
+            check = subprocess.run(
+                ["git", "apply", "--check", tmp_path],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if check.returncode != 0:
+                return {
+                    "ok": False,
+                    "files": [],
+                    "error": f"dry-run failed: {check.stderr.strip()[:500]}",
+                }
+
+            apply = subprocess.run(
+                ["git", "apply", tmp_path],
+                cwd=str(PROJECT_ROOT),
+                capture_output=True,
+                text=True,
+                timeout=30,
+                check=False,
+            )
+            if apply.returncode != 0:
+                return {
+                    "ok": False,
+                    "files": [],
+                    "error": f"apply failed: {apply.stderr.strip()[:500]}",
+                }
+
+            paths = set(
+                _DIFF_HEADER_RE.findall(diff_text) + _DIFF_HEADER_NEW_RE.findall(diff_text)
+            )
+            paths.discard("/dev/null")
+            paths.discard("dev/null")
+            for p in paths:
+                subprocess.run(
+                    ["git", "add", p],
+                    cwd=str(PROJECT_ROOT),
+                    capture_output=True,
+                    timeout=10,
+                    check=False,
+                )
+
+            artifact.metadata_json = {
+                **(artifact.metadata_json or {}),
+                "applied": True,
+                "appliedAt": datetime.now(UTC).isoformat(),
+            }
+            db.commit()
+            return {"ok": True, "files": sorted(paths), "error": ""}
+        finally:
+            try:
+                os.unlink(tmp_path)
+            except OSError:
+                pass
+
+    async def _run_verifier_loop(
+        self,
+        *,
+        db: Session,
+        project_run: ProjectRun,
+        tasks: list[ProjectTask],
+        planner_output: dict,
+        tracker: BudgetTracker,
+        worker_model_id: str,
+        verifier_model_id: str,
+        max_rounds: int,
+    ) -> dict:
+        """V2.7 Controlled Auto loop.
+
+        For each round:
+          1. Collect ``type=='patch'`` artifacts (only from this run).
+          2. ``git apply --check`` + ``git apply`` each.
+          3. Run pytest on the project.
+          4. Call ``run_verifier`` to get a structured verdict.
+          5. If ``verdict == "pass"`` → return success.
+          6. Otherwise re-run the Worker roles named in ``next_actions`` with
+             the verifier's instructions injected into the prompt.
+
+        Returns a dict with keys: ``status`` ("pass" | "exhausted" | "no_patches"),
+        ``rounds``, ``failed_tests`` (last), ``verifier_output`` (last).
+        """
+        from datetime import UTC  # local import keeps top of file clean
+
+        previous_verdicts: list[dict] = []
+        original_tasks_payload = [
+            {
+                "id": t.id,
+                "role": t.role,
+                "title": t.title,
+                "description": t.description or "",
+            }
+            for t in tasks
+        ]
+
+        last_failed_tests: list[dict] = []
+        last_verifier_output: dict = {}
+        last_pytest_summary: dict = {}
+
+        for round_idx in range(max_rounds):
+            try:
+                tracker.reserve_round()
+            except BudgetExceeded as exc:
+                return {
+                    "status": "exhausted",
+                    "rounds": round_idx,
+                    "stop_reason": "MAX_ROUNDS",
+                    "failed_tests": last_failed_tests,
+                    "verifier_output": last_verifier_output,
+                    "pytest_summary": last_pytest_summary,
+                    "error": str(exc),
+                }
+
+            _push_event(project_run.id, {
+                "type": "verifier_round",
+                "round": round_idx + 1,
+                "maxRounds": max_rounds,
+                "status": "running",
+            })
+
+            # 1) Collect patch artifacts
+            from app.db.models import Artifact
+
+            patches = (
+                db.query(Artifact)
+                .filter(
+                    Artifact.project_run_id == project_run.id,
+                    Artifact.type == "patch",
+                )
+                .order_by(Artifact.created_at.asc())
+                .all()
+            )
+            # Filter: only patches not yet applied; round > 0 re-runs workers
+            # which produce new patches with newer created_at.
+            unapplied = [a for a in patches if not (a.metadata_json or {}).get("applied")]
+            if not unapplied and round_idx == 0:
+                # No patches at all → verifier loop is a no-op
+                return {
+                    "status": "no_patches",
+                    "rounds": 0,
+                    "stop_reason": "NO_PATCHES",
+                    "failed_tests": [],
+                    "verifier_output": {},
+                    "pytest_summary": {},
+                }
+
+            # 2) Apply each unapplied patch
+            applied_files: list[str] = []
+            apply_failures: list[str] = []
+            for art in unapplied:
+                result = self._apply_patch_artifact(db, art, project_run)
+                if result["ok"]:
+                    applied_files.extend(result["files"])
+                else:
+                    apply_failures.append(f"{art.name}: {result['error']}")
+
+            if apply_failures and not applied_files:
+                # Couldn't apply anything — bail out with stop_reason
+                _push_event(project_run.id, {
+                    "type": "verifier_round",
+                    "round": round_idx + 1,
+                    "status": "apply_failed",
+                    "errors": apply_failures,
+                })
+                return {
+                    "status": "exhausted",
+                    "rounds": round_idx + 1,
+                    "stop_reason": "PATCH_APPLY_FAILED",
+                    "failed_tests": [{"nodeid": "patch.apply", "message": "; ".join(apply_failures)}],
+                    "verifier_output": {},
+                    "pytest_summary": {},
+                }
+
+            # 3) Run pytest
+            test_paths = self._collect_test_paths(db, project_run, tasks)
+            py_result = run_pytest(
+                PROJECT_ROOT,
+                test_paths=test_paths or None,
+                timeout_s=300,
+            )
+            last_pytest_summary = py_result.summary_dict()
+            last_failed_tests = py_result.failed_tests_dict()
+            _push_event(project_run.id, {
+                "type": "verifier_round",
+                "round": round_idx + 1,
+                "status": "pytest_completed",
+                "pytest": last_pytest_summary,
+            })
+
+            # Check for repeated identical test failures
+            current_failed_ids = {ft.get("nodeid", "") for ft in last_failed_tests}
+            if tracker.record_failed_tests(current_failed_ids):
+                _push_event(project_run.id, {
+                    "type": "verifier_round",
+                    "round": round_idx + 1,
+                    "status": "repeated_test_failure",
+                })
+                return {
+                    "status": "exhausted",
+                    "rounds": round_idx + 1,
+                    "stop_reason": "REPEATED_TEST_FAILURE",
+                    "failed_tests": last_failed_tests,
+                    "verifier_output": last_verifier_output,
+                    "pytest_summary": last_pytest_summary,
+                }
+
+            # 4) Call verifier
+            verifier_agent, verifier_output = await run_verifier(
+                db=db,
+                project_run_id=project_run.id,
+                budget=tracker,
+                model_id=verifier_model_id,
+                applied_files=applied_files,
+                pytest_summary=last_pytest_summary,
+                failed_tests=last_failed_tests,
+                round_index=round_idx,
+                previous_verdicts=previous_verdicts,
+                original_tasks=original_tasks_payload,
+            )
+            last_verifier_output = verifier_output
+            previous_verdicts.append({
+                "round": round_idx + 1,
+                "verdict": verifier_output.get("verdict"),
+                "failed_tests": last_failed_tests,
+            })
+            write_artifact(
+                db=db, project_run_id=project_run.id,
+                artifact_type="verifier_report",
+                name=f"verifier-round-{round_idx + 1}.json",
+                content=json.dumps({
+                    "round": round_idx + 1,
+                    "verdict": verifier_output.get("verdict"),
+                    "applied_files": applied_files,
+                    "pytest": last_pytest_summary,
+                    "failed_tests": last_failed_tests,
+                    "analysis": verifier_output.get("analysis", ""),
+                    "next_actions": verifier_output.get("next_actions", []),
+                }, ensure_ascii=False),
+                agent_run_id=verifier_agent.id,
+            )
+            db.commit()
+
+            # 5) Verdict = pass → done
+            if verifier_output.get("verdict") == "pass":
+                _push_event(project_run.id, {
+                    "type": "verifier_round",
+                    "round": round_idx + 1,
+                    "status": "verifier_pass",
+                })
+                return {
+                    "status": "pass",
+                    "rounds": round_idx + 1,
+                    "stop_reason": "VERIFIER_PASS",
+                    "failed_tests": [],
+                    "verifier_output": verifier_output,
+                    "pytest_summary": last_pytest_summary,
+                }
+
+            # 6) Verdict = fail → re-run workers with verifier feedback
+            next_actions = verifier_output.get("next_actions") or []
+            roles_to_rerun = [a.get("worker_role") for a in next_actions if a.get("worker_role")]
+            if not roles_to_rerun:
+                # Verifier didn't suggest a fix — stop
+                return {
+                    "status": "exhausted",
+                    "rounds": round_idx + 1,
+                    "stop_reason": "NO_NEXT_ACTIONS",
+                    "failed_tests": last_failed_tests,
+                    "verifier_output": verifier_output,
+                    "pytest_summary": last_pytest_summary,
+                }
+
+            _push_event(project_run.id, {
+                "type": "verifier_round",
+                "round": round_idx + 1,
+                "status": "rerunning_workers",
+                "roles": roles_to_rerun,
+            })
+
+            rerun_tasks = [t for t in tasks if t.role in roles_to_rerun]
+            if not rerun_tasks:
+                continue
+
+            # Build a feedback prefix to inject into each worker prompt
+            feedback_lines = [
+                f"## Verifier feedback (round {round_idx + 1})",
+                verifier_output.get("analysis", ""),
+                "",
+                "## Failed tests",
+            ]
+            for ft in last_failed_tests[:5]:
+                feedback_lines.append(
+                    f"- {ft.get('nodeid', '?')}: {(ft.get('message') or '')[:300]}"
+                )
+            feedback_lines.append("")
+            feedback_lines.append("## Your specific instruction")
+            for action in next_actions:
+                if action.get("worker_role") in roles_to_rerun:
+                    feedback_lines.append(
+                        f"[{action['worker_role']}] {action.get('instruction', '')}"
+                    )
+            feedback_prefix = "\n".join(feedback_lines)
+
+            # Re-run the workers (they will produce new patch artifacts)
+            await self._run_workers_parallel(
+                project_run=project_run,
+                tasks=rerun_tasks,
+                planner_output=planner_output,
+                tracker=tracker,
+                model_id=worker_model_id,
+                feedback_prefix=feedback_prefix,
+            )
+            db.commit()
+
+        return {
+            "status": "exhausted",
+            "rounds": max_rounds,
+            "stop_reason": "MAX_ROUNDS",
+            "failed_tests": last_failed_tests,
+            "verifier_output": last_verifier_output,
+            "pytest_summary": last_pytest_summary,
+        }
+
+    def _collect_test_paths(
+        self, db: Session, project_run: ProjectRun, tasks: list[ProjectTask],
+    ) -> list[str]:
+        """Collect pytest test paths from the tasks' ``acceptance_criteria``
+        + the integration test directory if present. Best-effort; missing
+        paths are dropped at the runner level."""
+        from app.db.models import ProjectMemory
+
+        paths: list[str] = []
+        for t in tasks:
+            for c in t.acceptance_criteria or []:
+                # acceptance_criteria strings may include "pytest tests/test_x.py"
+                if "pytest" in c.lower() and ".py" in c:
+                    parts = c.split()
+                    for tok in parts:
+                        if tok.endswith(".py") or "/" in tok:
+                            paths.append(tok)
+        # De-dupe and drop project-memories-stored test_paths (future)
+        return list(dict.fromkeys(paths))
 
     def _create_tasks(
         self, project_run: ProjectRun, planner_output: dict, db: Session,

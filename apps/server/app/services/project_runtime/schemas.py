@@ -90,12 +90,38 @@ class IntegratorOutput(AgentOutput):
     decisions_update: str = ""
 
 
+class FailedTest(BaseModel):
+    """Single pytest failure surfaced to the Verifier agent."""
+
+    nodeid: str = Field(..., min_length=1)
+    file: str = ""
+    message: str = ""
+    traceback_excerpt: str = ""
+
+
+class VerifierNextAction(BaseModel):
+    """Suggested follow-up action for a Worker to take."""
+
+    worker_role: str = Field(..., min_length=1)
+    instruction: str = Field(..., min_length=1)
+
+
+class VerifierOutput(AgentOutput):
+    """Output of the V2.7 Verifier agent that reviews pytest results."""
+
+    verdict: Literal["pass", "fail"] = "pass"
+    failed_tests: list[FailedTest] = Field(default_factory=list)
+    analysis: str = ""
+    next_actions: list[VerifierNextAction] = Field(default_factory=list)
+
+
 _SCHEMA_BY_ROLE: dict[str, type[AgentOutput]] = {
     "intake": IntakeOutput,
     "planner": PlannerOutput,
     "worker": WorkerOutput,
     "supervisor": SupervisorOutput,
     "integrator": IntegratorOutput,
+    "verifier": VerifierOutput,
 }
 
 

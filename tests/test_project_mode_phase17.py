@@ -104,8 +104,7 @@ def client(monkeypatch):
     from app.services.project_runtime import agents as agents_module
 
     async def fake_run_chat(**kwargs):
-        params = kwargs.get("params") or {}
-        sys_prompt = (params.get("system_prompt") or "").lower()
+        sys_prompt = (kwargs.get("system_prompt") or "").lower()
         if "intake agent" in sys_prompt:
             role = "intake"
         elif "planner agent" in sys_prompt:

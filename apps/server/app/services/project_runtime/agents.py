@@ -121,11 +121,32 @@ async def _run_agent(
             model_id=model_id,
             prompt=user_prompt,
             file_ids=[],
-            params={"system_prompt": system_prompt},
+            params={},
+            system_prompt=system_prompt,
         )
 
         raw_output = (run.output_json or {}).get("text", "")
-        parsed = _try_parse_json(raw_output)
+        try:
+            parsed = _try_parse_json(raw_output)
+        except ValueError as parse_exc:
+            agent_run.status = "failed"
+            agent_run.error_type = "JSON_PARSE_ERROR"
+            agent_run.error_message = str(parse_exc)[:500]
+            agent_run.run_id = run.id
+            agent_run.output_json = {
+                "raw": (raw_output or "")[:5000],
+                "parse_error": str(parse_exc),
+            }
+            agent_run.input_tokens = _get_run_tokens(db, run.id, "input_tokens")
+            agent_run.output_tokens = _get_run_tokens(db, run.id, "output_tokens")
+            agent_run.total_tokens = _get_run_tokens(db, run.id, "total_tokens")
+            agent_run.latency_ms = _compute_latency(run)
+            agent_run.completed_at = _now_iso()
+            budget.add_tokens(agent_run.total_tokens or 0)
+            db.commit()
+            db.refresh(agent_run)
+            return agent_run, (agent_run.output_json or {})
+
         validated = validate_agent_output(schema_role or role, parsed)
         output_dict = validated.model_dump(by_alias=True)
 
@@ -158,10 +179,21 @@ async def _run_agent(
 
 
 def _try_parse_json(text: str) -> dict:
-    """Best-effort JSON extraction. Handles markdown-fenced JSON."""
+    """Best-effort JSON extraction.
+
+    1. Strip surrounding whitespace.
+    2. If the text starts with a ``` fence, strip all fence lines.
+    3. Try ``json.loads`` directly.
+    4. On failure, scan for the first top-level balanced ``{...}`` block and
+       try loading that. Handles prose-prefixed / prose-suffixed outputs from
+       weaker models that ignore "JSON-only" instructions.
+    5. If both attempts fail, raise ``ValueError`` with a truncated preview of
+       the raw text for debugging.
+    """
     import json
 
-    text = text.strip()
+    original = text or ""
+    text = original.strip()
     if text.startswith("```"):
         lines = text.splitlines()
         cleaned = []
@@ -169,13 +201,63 @@ def _try_parse_json(text: str) -> dict:
             if line.strip().startswith("```"):
                 continue
             cleaned.append(line)
-        text = "\n".join(cleaned)
-        text = text.strip()
+        text = "\n".join(cleaned).strip()
 
     try:
         return json.loads(text)
     except json.JSONDecodeError:
-        raise ValueError(f"Agent output is not valid JSON")
+        pass
+
+    block = _extract_first_json_object(text) if text else None
+    if block is None:
+        # Try the original (with fences still in place) as a last resort
+        block = _extract_first_json_object(original)
+
+    if block is not None:
+        try:
+            return json.loads(block)
+        except json.JSONDecodeError:
+            pass
+
+    preview = original.strip()[:500]
+    raise ValueError(
+        f"Agent output is not valid JSON. Raw preview (first 500 chars): {preview!r}"
+    )
+
+
+def _extract_first_json_object(text: str) -> str | None:
+    """Scan for the first top-level balanced ``{...}`` block.
+
+    Handles string-state (so braces inside strings don't break balance) and
+    escape sequences. Returns None if no balanced block is found.
+    """
+    depth = 0
+    start = -1
+    in_string = False
+    escape = False
+    for i, ch in enumerate(text):
+        if escape:
+            escape = False
+            continue
+        if in_string:
+            if ch == "\\":
+                escape = True
+            elif ch == '"':
+                in_string = False
+            continue
+        if ch == '"':
+            in_string = True
+            continue
+        if ch == "{":
+            if depth == 0:
+                start = i
+            depth += 1
+        elif ch == "}":
+            if depth > 0:
+                depth -= 1
+                if depth == 0 and start >= 0:
+                    return text[start : i + 1]
+    return None
 
 
 def _get_run_tokens(db: Session, run_id: str, field: str) -> int | None:
@@ -254,12 +336,15 @@ async def run_worker(
     budget: BudgetTracker,
     model_id: str,
     project_root: Path | None = None,
+    feedback_prefix: str | None = None,
 ) -> tuple[AgentRun, dict]:
     role = task.role if task.role in _ALLOWED_WORKER_ROLES else "backend"
     file_contents = None
     if project_root is not None:
         file_contents = _read_task_file_contents(task, project_root)
     prompt = _worker_user_prompt(task, planner_output, file_contents=file_contents)
+    if feedback_prefix:
+        prompt = f"{feedback_prefix}\n\n---\n\n{prompt}"
     return await _run_agent(
         db=db,
         project_run_id=project_run_id,
@@ -354,6 +439,94 @@ async def run_integrator(
         user_prompt=prompt,
         budget=budget,
         model_id=model_id,
+    )
+
+
+def _verifier_user_prompt(
+    *,
+    applied_files: list[str],
+    pytest_summary: dict,
+    failed_tests: list[dict],
+    round_index: int,
+    previous_verdicts: list[dict],
+    original_tasks: list[dict],
+) -> str:
+    """Build the user prompt for the V2.7 Verifier agent."""
+    lines: list[str] = [
+        "Review the patch that was just applied to the project and the pytest results.",
+        "",
+        f"Round: {round_index + 1}",
+        f"Files changed: {', '.join(applied_files) or '(none)'}",
+        "",
+        f"Pytest summary: passed={pytest_summary.get('passed', 0)}, "
+        f"failed={pytest_summary.get('failed', 0)}, errors={pytest_summary.get('errors', 0)}, "
+        f"timed_out={pytest_summary.get('timed_out', False)}",
+        "",
+    ]
+    if failed_tests:
+        lines.append("Failed tests:")
+        for ft in failed_tests[:20]:
+            lines.append(
+                f"- {ft.get('nodeid', '?')}: {ft.get('message', '')[:300]}"
+            )
+        lines.append("")
+    if previous_verdicts:
+        lines.append("Previous verdicts (for context on repeats):")
+        for i, prev in enumerate(previous_verdicts[-3:], start=1):
+            lines.append(
+                f"- Round {prev.get('round', '?')}: verdict={prev.get('verdict', '?')}, "
+                f"failed={len(prev.get('failed_tests', []))}"
+            )
+        lines.append("")
+    if original_tasks:
+        lines.append("Original tasks the workers were asked to complete:")
+        for t in original_tasks[:20]:
+            lines.append(
+                f"- [{t.get('role', '?')}] {t.get('title', t.get('id', '?'))}: "
+                f"{(t.get('description') or '')[:200]}"
+            )
+        lines.append("")
+    lines.append("Output the required JSON verdict now.")
+    return "\n".join(lines)
+
+
+async def run_verifier(
+    *,
+    db: Session,
+    project_run_id: str,
+    budget: BudgetTracker,
+    model_id: str,
+    applied_files: list[str],
+    pytest_summary: dict,
+    failed_tests: list[dict],
+    round_index: int,
+    previous_verdicts: list[dict] | None = None,
+    original_tasks: list[dict] | None = None,
+) -> tuple[AgentRun, dict]:
+    """V2.7 Controlled Auto Verifier agent.
+
+    Decides whether the applied patch passes pytest + original acceptance
+    criteria. When it fails, returns ``next_actions`` that the orchestrator
+    re-dispatches to the relevant Worker for the next round.
+    """
+    prompt = _verifier_user_prompt(
+        applied_files=applied_files,
+        pytest_summary=pytest_summary,
+        failed_tests=failed_tests,
+        round_index=round_index,
+        previous_verdicts=previous_verdicts or [],
+        original_tasks=original_tasks or [],
+    )
+    return await _run_agent(
+        db=db,
+        project_run_id=project_run_id,
+        task=None,
+        role="verifier",
+        system_prompt=PROMPT_BY_ROLE["verifier"],
+        user_prompt=prompt,
+        budget=budget,
+        model_id=model_id,
+        schema_role="verifier",
     )
 
 

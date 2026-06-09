@@ -136,6 +136,7 @@ export function ProjectCreateModal({
     advisory: "Workers propose changes without generating code",
     patch: "Workers generate unified diffs for review and application",
     apply_with_approval: "Workers generate patches; you choose what to apply to source",
+    controlled_auto: "Auto-apply patches, run pytest, verifier reviews in a loop",
   };
 
   function handleSubmit() {
@@ -198,6 +199,7 @@ export function ProjectCreateModal({
                 <SelectItem value="advisory">Advisory</SelectItem>
                 <SelectItem value="patch">Patch</SelectItem>
                 <SelectItem value="apply_with_approval">Apply with approval</SelectItem>
+                <SelectItem value="controlled_auto">Controlled Auto</SelectItem>
               </SelectContent>
             </Select>
             <p className="text-xs text-muted-foreground">

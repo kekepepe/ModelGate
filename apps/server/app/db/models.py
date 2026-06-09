@@ -295,6 +295,9 @@ class ProjectRun(Base):
     intake_json: Mapped[dict | None] = mapped_column(JSON)
     budget_json: Mapped[dict | None] = mapped_column(JSON)
     usage_json: Mapped[dict | None] = mapped_column(JSON)
+    round: Mapped[int] = mapped_column(Integer, default=0)  # V2.7 verifier loop round reached
+    stop_reason: Mapped[str | None] = mapped_column(String)  # V2.7 stop condition that fired
+    stop_round: Mapped[int | None] = mapped_column(Integer)  # V2.7 round number when stopped
     error_type: Mapped[str | None] = mapped_column(String)
     error_message: Mapped[str | None] = mapped_column(Text)
     started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))

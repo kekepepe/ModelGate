@@ -210,6 +210,9 @@ export interface ProjectRunView {
   usage: { agentsUsed?: number; tokensUsed?: number; runtimeSeconds?: number; contextFilesUsed?: number } | null;
   errorType: string | null;
   errorMessage: string | null;
+  round: number | null;
+  stopReason: string | null;
+  stopRound: number | null;
   startedAt: string | null;
   completedAt: string | null;
   createdAt: string | null;

@@ -205,4 +205,39 @@ test.describe("Projects agent board", () => {
     await expect(page.locator('[data-testid="agent-run-prompt"]')).toBeVisible();
     await expect(page.locator('[data-testid="agent-run-output"]')).toBeVisible();
   });
+
+  test("renders the agent board as a layered DAG (Intake→Planner→Workers→Supervisor→Integrator)", async ({ page }) => {
+    await page.route("**/api/projects/pr_done", async (route) => {
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(COMPLETED_DETAILS),
+      });
+    });
+
+    await page.goto("/projects/pr_done");
+
+    // ReactFlow mounted with the agent board container.
+    const board = page.locator('[data-testid="agent-board"]');
+    await expect(board).toBeVisible();
+
+    // ReactFlow renders a viewport and nodes inside the container.
+    await expect(board.locator(".react-flow__viewport")).toBeVisible();
+
+    // All 6 role cards are present as ReactFlow nodes.
+    await expect(board.locator('[data-testid="agent-card-intake"]')).toBeVisible();
+    await expect(board.locator('[data-testid="agent-card-planner"]')).toBeVisible();
+    await expect(board.locator('[data-testid="agent-card-worker-t1"]')).toBeVisible();
+    await expect(board.locator('[data-testid="agent-card-worker-t2"]')).toBeVisible();
+    await expect(board.locator('[data-testid="agent-card-supervisor"]')).toBeVisible();
+    await expect(board.locator('[data-testid="agent-card-integrator"]')).toBeVisible();
+
+    // Edges (SVG paths) are drawn between nodes.
+    const edgeCount = await board.locator(".react-flow__edge").count();
+    expect(edgeCount).toBeGreaterThanOrEqual(5); // intake→planner + planner→w1/w2 + w1/w2→supervisor + supervisor→integrator
+
+    // Completed status drives the green border on intake/planner/supervisor/integrator.
+    await expect(board.locator('[data-testid="agent-card-intake"]')).toHaveClass(/border-emerald-400/);
+    await expect(board.locator('[data-testid="agent-card-integrator"]')).toHaveClass(/border-emerald-400/);
+  });
 });

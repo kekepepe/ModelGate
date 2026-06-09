@@ -29,6 +29,8 @@ class Budget:
     max_tokens: int = 200_000
     max_runtime_seconds: int = 600
     max_context_files: int = 8
+    max_schema_failures: int = 2
+    max_same_test_failures: int = 2
 
     @classmethod
     def from_dict(cls, data: dict | None) -> "Budget":
@@ -44,6 +46,12 @@ class Budget:
             max_context_files=int(
                 data.get("maxContextFiles", data.get("max_context_files", 8))
             ),
+            max_schema_failures=int(
+                data.get("maxSchemaFailures", data.get("max_schema_failures", 2))
+            ),
+            max_same_test_failures=int(
+                data.get("maxSameTestFailures", data.get("max_same_test_failures", 2))
+            ),
         )
 
     def to_dict(self) -> dict:
@@ -53,6 +61,8 @@ class Budget:
             "maxTokens": self.max_tokens,
             "maxRuntimeSeconds": self.max_runtime_seconds,
             "maxContextFiles": self.max_context_files,
+            "maxSchemaFailures": self.max_schema_failures,
+            "maxSameTestFailures": self.max_same_test_failures,
         }
 
 
@@ -64,6 +74,8 @@ class BudgetTracker:
     rounds_used: int = 0
     tokens_used: int = 0
     context_files_used: int = 0
+    schema_failures_per_task: dict[str, int] = field(default_factory=dict)
+    failed_test_nodeids: list[set[str]] = field(default_factory=list)
 
     def usage_snapshot(self) -> dict:
         return {
@@ -124,3 +136,28 @@ class BudgetTracker:
                 count,
             )
         self.context_files_used = max(self.context_files_used, count)
+
+    def record_schema_failure(self, task_id: str) -> bool:
+        """Record a schema failure for *task_id*.
+
+        Returns True if the task has exceeded ``max_schema_failures``.
+        """
+        self.schema_failures_per_task[task_id] = (
+            self.schema_failures_per_task.get(task_id, 0) + 1
+        )
+        return self.schema_failures_per_task[task_id] >= self.budget.max_schema_failures
+
+    def record_failed_tests(self, nodeids: set[str]) -> bool:
+        """Record the set of failed test nodeids for this round.
+
+        Returns True if the same non-empty set of nodeids appears
+        ``max_same_test_failures`` times consecutively.
+        """
+        self.failed_test_nodeids.append(nodeids)
+        if len(self.failed_test_nodeids) < self.budget.max_same_test_failures:
+            return False
+        threshold = self.budget.max_same_test_failures
+        recent = self.failed_test_nodeids[-threshold:]
+        if not recent[0]:
+            return False
+        return all(s == recent[0] for s in recent)
