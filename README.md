@@ -1,18 +1,18 @@
 # ModelGate
 
-> Local-first multi-model AI workspace for token plan APIs.
+> Local-first multi-model AI workspace for token plan APIs and agentic project runs.
 
 **[English](README.md)** · **[简体中文](README.zh-CN.md)**
 
 ModelGate is a self-hosted, single-user AI workbench that unifies multiple
 "token plan" providers (Xiaomi MiMo, MiniMax, Volcengine Coding Plan,
-Volcengine Seedance, …) behind one capability-aware UI, one history, and
-one set of safety guarantees. It is the missing layer between you and
-your model subscriptions.
+Volcengine Seedance, ...) behind one capability-aware UI, one shared activity
+timeline, one encrypted key store, and one project orchestration surface.
+It is the missing layer between you and your model subscriptions.
 
 It is **not** an LLM proxy, an IDE plugin, a chat-only playground, or a
-SaaS. It is a personal command center that turns "I have five token
-plans" into "I can ask any of them anything, and trust what comes back."
+SaaS. It is a personal command center that turns "I have five token plans"
+into "I can route, compare, audit, and orchestrate them from one local app."
 
 ---
 
@@ -28,7 +28,9 @@ leaked key. ModelGate collapses all of that:
 | **One Adapter per protocol, one Config per model** | Add a new provider in `configs/*.json` + one Python file. No code changes anywhere else. |
 | **Capability Router** | A model is selected by `taskType` + `inputTypes` + `outputTypes` + `enabled`, not by name. The UI never shows a model that cannot answer your request. |
 | **Dynamic parameter panel** | Parameters are declared as JSON Schemas, not hard-coded. The form is rendered from the schema, including provider-specific mappings. |
-| **Synchronous Chat Runtime + Async Generation Runtime** | One runtime for fast chat, another for slow video/image generation. They share the same storage, logging, and cancel path. |
+| **Synchronous Chat Runtime + Async Generation Runtime** | One runtime for fast chat, another for slow video/image generation. They share storage, logging, usage accounting, and cancel paths. |
+| **Playground with Compare** | Run chat, coding, code review, document analysis, and prompt optimization tasks from one surface; compare up to three models in parallel with a shared prompt and params. |
+| **Project Mode** | Run multi-agent projects through Intake, Planner, Workers, Supervisor, Integrator, and optional Verifier stages, with approval gates, budgets, artifacts, patches, and stop reasons. |
 | **Encrypted provider-key storage** | API keys written from the UI live in `provider_secrets` as AES-256-GCM ciphertext, derived from `MODELGATE_SECRET_KEY` via HKDF. Disk dump does not equal key leak. |
 | **Streaming + cancel + idempotency** | All three work for both chat and generation. Streaming is real SSE; cancel propagates to the provider. |
 | **End-to-end request IDs + log redaction** | Every entry in `request_logs` and `usage_logs` carries the same `requestId` you see in the response header. Authorization headers and absolute paths are auto-redacted. |
@@ -38,24 +40,32 @@ leaked key. ModelGate collapses all of that:
 
 ---
 
-## First version scope
+## Current scope
 
 - **No login.** Single user, local.
 - **Local storage.** Postgres + Redis + filesystem. (S3-style storage is
   feature-flagged and ready to enable.)
-- **Chat / coding models first.** Vision-capable models can already
+- **Unified work surface.** Overview, Playground, Models, Usage, Activity,
+  Projects, API Keys, and Settings are available in the sidebar.
+- **Chat / coding / document models first.** Vision-capable models can
   accept image inputs; the model registry filters by capability.
+- **Multi-model compare.** Compare is available from the Playground and model
+  management flows for chat-compatible tasks.
+- **Project Mode.** Multi-agent project runs support planning, approval,
+  worker execution, artifacts, patch mode, controlled auto verification, and
+  deletion/cancel flows.
 - **Providers in scope.** Xiaomi MiMo, MiniMax, Volcengine Coding Plan.
   Volcengine Seedance video generation is gated by
   `MODELGATE_ENABLE_SEEDANCE=true` and is fully implemented but
   off by default.
-- **What is *not* in v1.** Workflows, multi-model compare, an
-  OpenAI-compatible inbound endpoint, MCP server, and multi-tenant auth
-  are reserved for Phase 10. The DB and feature flags are already
-  shaped for them.
+- **What is still out of scope.** Hosted SaaS, multi-tenant auth, an
+  OpenAI-compatible inbound proxy endpoint, MCP server mode, and cloud key
+  sync are intentionally not part of the local-first release.
 
-See [`docs/00-项目概览/第一版范围与开发决策.md`](docs/00-项目概览/第一版范围与开发决策.md)
-for the full decision log.
+See [`docs/04-开发管理/项目总TODO.md`](docs/04-开发管理/项目总TODO.md)
+for current progress and
+[`docs/04-开发管理/设计决策.md`](docs/04-开发管理/设计决策.md)
+for implementation decisions.
 
 ---
 
@@ -80,7 +90,7 @@ for the full request flows, data model, and deployment topology.
 
 ## Stack
 
-- **Frontend:** Next.js 15 · TypeScript · Tailwind CSS · shadcn/ui · Zustand · TanStack Query · React Hook Form + Zod
+- **Frontend:** Next.js 15 · TypeScript · Tailwind CSS · shadcn/ui · Zustand · TanStack Query · React Hook Form + Zod · ReactFlow
 - **Backend:** FastAPI · Pydantic · SQLAlchemy 2.x · Alembic · Celery · httpx
 - **Data:** PostgreSQL 16 · Redis 7
 - **Storage:** `app/services/storage.py` adapter (local today, pluggable)
@@ -100,12 +110,13 @@ statistics, and the last few runs with status badges.
 
 ### Playground
 
-![ModelGate Playground — task type, model, parameter schema, and output panel](github-picture/github2.png)
+![ModelGate Playground — task tabs, model recommendation, prompt input, compare, and output tabs](github-picture/github2.png)
 
-The Playground is the work surface. Pick a task type (chat, coding,
-code review, document analysis, prompt optimize, …), pick a model from
-the ones that can answer it, and edit parameters rendered live from the
-JSON Schema in `configs/param-schemas.json`.
+The Playground is the main work surface. Pick a task type (chat, coding,
+code review, document analysis, prompt optimize, ...), pick a model from
+the ones that can answer it, upload files, apply prompt templates, tune
+schema-driven parameters, run or cancel a task, and open Compare to run
+multiple models side by side.
 
 ### Models
 
@@ -123,6 +134,15 @@ Usage analytics is sourced from `usage_logs` and `request_logs`: daily
 token spend, provider distribution, per-model ranking, success rate,
 and a recent request log with the same `requestId` you can grep in the
 backend logs.
+
+### Project Mode
+
+![ModelGate Project Mode — multi-agent project runs with status, goal, tokens, and actions](github-picture/github5.png)
+
+Project Mode is the multi-agent side of ModelGate: create a goal, let the
+Intake and Planner agents structure it, approve or adjust the task tree,
+then run Workers, Supervisor, Integrator, and optional Verifier stages with
+budgets, artifacts, patch review, test feedback, and explicit stop reasons.
 
 ---
 
@@ -228,7 +248,7 @@ for the current acceptance checklist.
 | Database schema | [`docs/02-技术设计/数据库详细设计文档.md`](docs/02-技术设计/数据库详细设计文档.md) |
 | Provider adapter rules | [`docs/02-技术设计/ProviderAdapter开发规范.md`](docs/02-技术设计/ProviderAdapter开发规范.md) |
 | Security & API-key encryption | [`docs/03-安全与风险/`](docs/03-安全与风险/) |
-| Roadmap and progress | [`项目总TODO.md`](项目总TODO.md) |
+| Roadmap and progress | [`docs/04-开发管理/项目总TODO.md`](docs/04-开发管理/项目总TODO.md) |
 
 The full document index is in [`docs/README.md`](docs/README.md).
 
