@@ -46,6 +46,7 @@ export default function ProjectsPage() {
   const qc = useQueryClient();
   const [createOpen, setCreateOpen] = useState(false);
   const [pendingDelete, setPendingDelete] = useState<ProjectRunView | null>(null);
+  const [listDeleteError, setListDeleteError] = useState<string | null>(null);
 
   const { data, isLoading } = useQuery({
     queryKey: ["projects"],
@@ -75,6 +76,10 @@ export default function ProjectsPage() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ["projects"] });
       setPendingDelete(null);
+      setListDeleteError(null);
+    },
+    onError: (err: Error) => {
+      setListDeleteError(err.message || "Delete failed");
     },
   });
 
@@ -149,6 +154,7 @@ export default function ProjectsPage() {
                       onClick={(e) => {
                         e.preventDefault();
                         e.stopPropagation();
+                        setListDeleteError(null);
                         setPendingDelete(pr);
                       }}
                       data-testid={`project-delete-${pr.id}`}
@@ -173,7 +179,7 @@ export default function ProjectsPage() {
         error={createMut.error instanceof Error ? createMut.error.message : null}
       />
 
-      <Dialog open={pendingDelete !== null} onOpenChange={(o) => { if (!deleteMut.isPending) { if (!o) setPendingDelete(null); } }}>
+      <Dialog open={pendingDelete !== null} onOpenChange={(o) => { if (!deleteMut.isPending) { if (!o) { setPendingDelete(null); setListDeleteError(null); } } }}>
         <DialogContent data-testid="list-delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete this project run?</DialogTitle>
@@ -183,12 +189,17 @@ export default function ProjectsPage() {
                 : "This action cannot be undone."}
             </DialogDescription>
           </DialogHeader>
+          {listDeleteError && (
+            <p className="text-sm text-destructive" data-testid="list-delete-error">
+              {listDeleteError}
+            </p>
+          )}
           <DialogFooter>
             <Button
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => setPendingDelete(null)}
+              onClick={() => { setPendingDelete(null); setListDeleteError(null); }}
               disabled={deleteMut.isPending}
               data-testid="list-delete-cancel"
             >
@@ -198,12 +209,7 @@ export default function ProjectsPage() {
               type="button"
               variant="destructive"
               size="sm"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
+              onClick={() => {
                 if (pendingDelete) deleteMut.mutate(pendingDelete.id);
               }}
               disabled={deleteMut.isPending}

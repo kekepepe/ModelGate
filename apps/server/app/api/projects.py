@@ -310,11 +310,26 @@ def delete_project_run(
     if not pr:
         raise HTTPException(status_code=404, detail="ProjectRun not found")
 
-    # Cascade: tasks, agent runs, artifacts, memory entries.
-    db.query(ProjectTask).filter(ProjectTask.project_run_id == project_run_id).delete()
-    db.query(AgentRun).filter(AgentRun.project_run_id == project_run_id).delete()
-    db.query(Artifact).filter(Artifact.project_run_id == project_run_id).delete()
-    db.query(ProjectMemory).filter(ProjectMemory.project_run_id == project_run_id).delete()
+    # Cascade in FK-safe order. The schema (alembic 0004) defines these FKs
+    # WITHOUT ondelete=CASCADE, so we must delete leaves before parents:
+    #   artifacts → agent_runs → project_tasks → project_run.
+    # project_tasks also has a self-referential parent_task_id FK; bulk DELETE
+    # does not order rows, so null out parent_task_id first to break the cycle.
+    db.query(Artifact).filter(Artifact.project_run_id == project_run_id).delete(
+        synchronize_session=False
+    )
+    db.query(AgentRun).filter(AgentRun.project_run_id == project_run_id).delete(
+        synchronize_session=False
+    )
+    db.query(ProjectMemory).filter(
+        ProjectMemory.project_run_id == project_run_id
+    ).delete(synchronize_session=False)
+    db.query(ProjectTask).filter(
+        ProjectTask.project_run_id == project_run_id
+    ).update({ProjectTask.parent_task_id: None}, synchronize_session=False)
+    db.query(ProjectTask).filter(
+        ProjectTask.project_run_id == project_run_id
+    ).delete(synchronize_session=False)
     db.delete(pr)
     db.commit()
     return {"data": {"deleted": True, "id": project_run_id}}

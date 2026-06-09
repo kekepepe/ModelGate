@@ -256,14 +256,7 @@ export default function ProjectDetailPage({ params }: PageProps) {
               type="button"
               variant="destructive"
               size="sm"
-              onPointerDown={(e) => {
-                e.stopPropagation();
-              }}
-              onClick={(e) => {
-                e.preventDefault();
-                e.stopPropagation();
-                deleteMut.mutate();
-              }}
+              onClick={() => deleteMut.mutate()}
               disabled={deleteMut.isPending}
               data-testid="delete-confirm"
             >
