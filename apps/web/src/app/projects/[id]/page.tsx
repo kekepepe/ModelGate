@@ -126,6 +126,11 @@ export default function ProjectDetailPage({ params }: PageProps) {
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
   });
 
+  const retryPlannerMut = useMutation({
+    mutationFn: () => projectApi.retryPlanner(id),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
+  });
+
   if (isLoading) {
     return (
       <div className="flex items-center gap-2 p-6 text-sm text-muted-foreground">
@@ -237,9 +242,11 @@ export default function ProjectDetailPage({ params }: PageProps) {
                 artifacts={selectedArtifacts}
                 projectStatus={pr.status}
                 mode={pr.mode ?? undefined}
-                isRetrying={retryWorkerMut.isPending}
+                isRetrying={retryWorkerMut.isPending || retryPlannerMut.isPending}
                 onRetry={() => {
-                  if (selectedAgentRun?.taskId) {
+                  if (selectedAgentRun?.role === "planner" || selectedAgentRun?.role === "intake") {
+                    retryPlannerMut.mutate();
+                  } else if (selectedAgentRun?.taskId) {
                     retryWorkerMut.mutate(selectedAgentRun.taskId);
                   }
                 }}

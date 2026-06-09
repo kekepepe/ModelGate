@@ -126,6 +126,19 @@ async def _run_agent(
         )
 
         raw_output = (run.output_json or {}).get("text", "")
+
+        # Retry once if the LLM returned empty output
+        if not raw_output or not raw_output.strip():
+            run = await chat_runtime.run_chat(
+                db=db,
+                task_type="chat",
+                model_id=model_id,
+                prompt=user_prompt,
+                file_ids=[],
+                params={},
+                system_prompt=system_prompt,
+            )
+            raw_output = (run.output_json or {}).get("text", "")
         try:
             parsed = _try_parse_json(raw_output)
         except ValueError as parse_exc:

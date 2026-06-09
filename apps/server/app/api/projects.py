@@ -531,3 +531,34 @@ async def regenerate_patches(
         )
     )
     return {"data": {"projectRunId": project_run_id, "status": "running", "regenerating": task_ids}}
+
+
+@router.post("/{project_run_id}/retry-planner")
+async def retry_planner(
+    project_run_id: str,
+    db: Session = Depends(get_db),
+) -> dict[str, Any]:
+    """Re-run the planner phase for a failed project run."""
+    pr = db.query(ProjectRun).filter(ProjectRun.id == project_run_id).first()
+    if not pr:
+        raise HTTPException(status_code=404, detail="ProjectRun not found")
+    if pr.status not in ("failed",):
+        raise HTTPException(
+            status_code=409,
+            detail=f"ProjectRun is in status '{pr.status}', cannot retry planner",
+        )
+    if not pr.intake_json:
+        raise HTTPException(
+            status_code=409,
+            detail="No intake output available to re-run planner from",
+        )
+
+    budget = Budget.from_dict(pr.budget_json)
+
+    asyncio.create_task(
+        project_orchestrator.retry_planner(
+            project_run_id=project_run_id,
+            budget=budget,
+        )
+    )
+    return {"data": {"projectRunId": project_run_id, "status": "running"}}

@@ -182,6 +182,20 @@ class ProjectOrchestrator:
                 budget=tracker,
                 model_id=intake_model,
             )
+
+            if intake_agent.status == "failed":
+                project_run.status = "failed"
+                project_run.error_type = intake_agent.error_type or "AGENT_FAILED"
+                project_run.error_message = intake_agent.error_message or "Intake agent failed"
+                project_run.completed_at = _now_iso()
+                self._save_and_event(project_run, {
+                    "type": "phase", "phase": "intake", "status": "failed",
+                    "agentRunId": intake_agent.id,
+                    "errorType": intake_agent.error_type,
+                    "errorMessage": intake_agent.error_message,
+                })
+                return
+
             intake_artifact = write_artifact(
                 db=db,
                 project_run_id=project_run.id,
@@ -212,6 +226,20 @@ class ProjectOrchestrator:
                 budget=tracker,
                 model_id=planner_model,
             )
+
+            if planner_agent.status == "failed":
+                project_run.status = "failed"
+                project_run.error_type = planner_agent.error_type or "AGENT_FAILED"
+                project_run.error_message = planner_agent.error_message or "Planner agent failed"
+                project_run.completed_at = _now_iso()
+                self._save_and_event(project_run, {
+                    "type": "phase", "phase": "planner", "status": "failed",
+                    "agentRunId": planner_agent.id,
+                    "errorType": planner_agent.error_type,
+                    "errorMessage": planner_agent.error_message,
+                })
+                return
+
             planner_artifact = write_artifact(
                 db=db, project_run_id=project_run.id,
                 artifact_type="plan", name="plan.json",
@@ -912,6 +940,82 @@ class ProjectOrchestrator:
         for t in tasks:
             db.refresh(t)
         return tasks
+
+    async def retry_planner(
+        self,
+        *,
+        project_run_id: str,
+        budget: Budget,
+    ) -> None:
+        """Re-run the planner phase for a failed project run."""
+        db: Session = SessionLocal()
+        try:
+            tracker = BudgetTracker(budget=budget)
+            project_run = db.query(ProjectRun).filter(ProjectRun.id == project_run_id).first()
+            if not project_run:
+                return
+
+            planner_model = project_run.planner_model_id or model_fallback(db)
+
+            # Reset status
+            project_run.status = "running"
+            project_run.error_type = None
+            project_run.error_message = None
+            project_run.completed_at = None
+            db.commit()
+
+            _push_event(project_run.id, {"type": "phase", "phase": "planner", "status": "running"})
+
+            intake_output = project_run.intake_json or {}
+
+            planner_agent, planner_output = await run_planner(
+                db=db,
+                project_run_id=project_run.id,
+                intake_output=intake_output,
+                budget=tracker,
+                model_id=planner_model,
+            )
+
+            if planner_agent.status == "failed":
+                project_run.status = "failed"
+                project_run.error_type = planner_agent.error_type or "AGENT_FAILED"
+                project_run.error_message = planner_agent.error_message or "Planner agent failed"
+                project_run.completed_at = _now_iso()
+                self._save_and_event(project_run, {
+                    "type": "phase", "phase": "planner", "status": "failed",
+                    "agentRunId": planner_agent.id,
+                    "errorType": planner_agent.error_type,
+                    "errorMessage": planner_agent.error_message,
+                })
+                return
+
+            planner_artifact = write_artifact(
+                db=db, project_run_id=project_run.id,
+                artifact_type="plan", name="plan.json",
+                content=planner_output, agent_run_id=planner_agent.id,
+            )
+            project_run.usage_json = tracker.usage_snapshot()
+            project_run.title = planner_output.get("project_title", project_run.title)
+
+            # Remove old tasks and create new ones
+            db.query(ProjectTask).filter(ProjectTask.project_run_id == project_run.id).delete()
+            db.commit()
+            project_tasks = self._create_tasks(project_run, planner_output, db)
+
+            write_memory(
+                db=db, project_run_id=project_run.id, memory_type="decision",
+                content=json.dumps(planner_output, ensure_ascii=False), source="planner",
+            )
+
+            self._update(project_run, "awaiting_approval")
+            self._save_and_event(project_run, {
+                "type": "phase", "phase": "planner", "status": "awaiting_approval",
+                "agentRunId": planner_agent.id,
+                "artifact": serialize_artifact(planner_artifact),
+                "tasks": [self._serialize_task(t) for t in project_tasks],
+            })
+        finally:
+            db.close()
 
     @staticmethod
     def _update(project_run: ProjectRun, status: str) -> None:

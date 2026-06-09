@@ -133,18 +133,23 @@ export function AgentRunInspector({
   }
 
   const isWorker = WORKER_ROLES.has(agentRun.role);
+  const isPlannerOrIntake = agentRun.role === "planner" || agentRun.role === "intake";
   const isTerminal =
     projectStatus === "completed" ||
     projectStatus === "failed" ||
     projectStatus === "validation_failed";
-  const canRetry = isWorker && isTerminal && mode !== "advisory";
-  const retryDisabledReason = !isWorker
+  const canRetry = (isWorker || isPlannerOrIntake) && isTerminal && mode !== "advisory";
+  const retryDisabledReason = !(isWorker || isPlannerOrIntake)
     ? "Cannot retry this agent type"
     : mode === "advisory"
       ? "Advisory mode does not support retry"
       : !isTerminal
         ? "Project must be in a terminal state"
         : null;
+
+  const retryLabel = isPlannerOrIntake
+    ? `Re-run ${agentRun.role}`
+    : "Re-run this worker";
 
   return (
     <div
@@ -279,7 +284,7 @@ export function AgentRunInspector({
             ) : (
               <RotateCcw className="mr-1 h-3 w-3" />
             )}
-            Re-run this worker
+            {retryLabel}
           </Button>
         ) : retryDisabledReason ? (
           <TooltipProvider>

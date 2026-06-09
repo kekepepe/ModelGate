@@ -279,5 +279,10 @@ export const projectApi = {
       `/projects/${id}/patches/regenerate`,
       body,
     ),
+  retryPlanner: (id: string) =>
+    postData<{ projectRunId: string; status: string }>(
+      `/projects/${id}/retry-planner`,
+      {},
+    ),
 };
 
