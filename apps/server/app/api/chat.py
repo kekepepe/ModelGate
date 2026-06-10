@@ -11,7 +11,7 @@ from app.core.errors import AppError
 from app.db.models import Conversation, Message, Run
 from app.db.session import get_db
 from app.providers.base import ChatMessage
-from app.services.chat_runtime import FILE_CONTEXT_BEGIN, FILE_CONTEXT_END, chat_runtime
+from app.services.chat_runtime import FILE_CONTEXT_BEGIN, FILE_CONTEXT_END, _system_prompt, chat_runtime
 from app.services.context_builder import (
     DEFAULT_BUDGET_RATIO,
     build_context_messages,
@@ -100,7 +100,7 @@ def _build_context_for_stream(
         return [], None
 
     # Build system + current user messages (mirrors chat_runtime._build_messages logic)
-    system_prompt = system_prompt_override or chat_runtime._system_prompt(task_type)
+    system_prompt = system_prompt_override or _system_prompt(task_type)
 
     files: list[FileRecord] = []
     for fid in file_ids:
