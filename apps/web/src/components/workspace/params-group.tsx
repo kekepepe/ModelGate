@@ -7,17 +7,23 @@ import { Switch } from "@/components/ui/switch";
 import type { ParamField, ParamSchema } from "@/types/model";
 
 const FIELD_GROUPS: Record<string, string> = {
+  // Generation — sampling behavior
   temperature: "Generation",
   top_p: "Generation",
   top_k: "Generation",
+  // Sampling — output limits
   max_tokens: "Sampling",
   max_output_tokens: "Sampling",
+  max_completion_tokens: "Sampling",
+  contextBudget: "Sampling",
   timeout: "Sampling",
   seed: "Sampling",
+  // Output — format & rendering
   response_format: "Output",
   quality: "Output",
   size: "Output",
   aspect_ratio: "Output",
+  // Provider — transport
   stream: "Provider",
   cache: "Provider",
 };

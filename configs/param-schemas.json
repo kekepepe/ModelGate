@@ -36,8 +36,8 @@
       {
         "key": "max_completion_tokens",
         "type": "number",
-        "label": "Max Tokens",
-        "default": 1024,
+        "label": "Max Output Tokens",
+        "default": 4096,
         "required": false,
         "min": 1,
         "max": 32768,
@@ -46,6 +46,19 @@
           "volcengine_coding": "max_tokens",
           "minimax": "max_tokens"
         }
+      },
+      {
+        "key": "contextBudget",
+        "type": "select",
+        "label": "Context Budget",
+        "default": "auto",
+        "required": false,
+        "options": [
+          { "label": "Auto (70%)", "value": "auto" },
+          { "label": "Conservative (50%)", "value": "conservative" },
+          { "label": "Balanced (70%)", "value": "balanced" },
+          { "label": "Aggressive (85%)", "value": "aggressive" }
+        ]
       },
       {
         "key": "stream",

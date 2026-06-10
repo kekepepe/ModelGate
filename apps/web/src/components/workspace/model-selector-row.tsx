@@ -257,6 +257,10 @@ function ModelDetailsSheet({
               label="Context window"
               value={model.contextWindow ? `${model.contextWindow.toLocaleString()} tokens` : "—"}
             />
+            <DetailField
+              label="Max output"
+              value={model.maxOutputTokens ? `${model.maxOutputTokens.toLocaleString()} tokens` : "—"}
+            />
             <DetailField label="Params schema" value={model.paramsSchema} />
 
             <div className="rounded-md border bg-muted/40 p-3">

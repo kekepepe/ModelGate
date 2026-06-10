@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { RefreshCw, SlidersHorizontal, X, Sparkles } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -50,6 +50,21 @@ export function ParamsPopover({
   const [saveName, setSaveName] = useState("");
 
   const applicablePresets = BUILTIN_PRESETS.filter((p) => isPresetApplicable(p, taskId));
+
+  // Cap max_completion_tokens at model's maxOutputTokens
+  const effectiveSchema = useMemo(() => {
+    if (!schema || !model?.maxOutputTokens) return schema;
+    const cap = model.maxOutputTokens;
+    let changed = false;
+    const fields = schema.fields.map((f) => {
+      if (f.key === "max_completion_tokens" && typeof f.max === "number" && f.max > cap) {
+        changed = true;
+        return { ...f, max: cap };
+      }
+      return f;
+    });
+    return changed ? { ...schema, fields } : schema;
+  }, [schema, model?.maxOutputTokens]);
 
   // Load custom presets on mount
   useEffect(() => {
@@ -287,7 +302,7 @@ export function ParamsPopover({
 
           {/* Body */}
           <div className="max-h-[280px] overflow-y-auto p-4">
-            <ParamsGroup schema={schema} params={params} onChange={handleFieldChange} modifiedFields={modifiedFields} />
+            <ParamsGroup schema={effectiveSchema} params={params} onChange={handleFieldChange} modifiedFields={modifiedFields} />
 
             {/* Schema source info */}
             {schema ? (

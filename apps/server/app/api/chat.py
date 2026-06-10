@@ -22,6 +22,19 @@ from app.services.model_registry import model_registry
 
 router = APIRouter()
 
+CONTEXT_BUDGET_RATIOS: dict[str, float] = {
+    "auto": DEFAULT_BUDGET_RATIO,
+    "conservative": 0.50,
+    "balanced": 0.70,
+    "aggressive": 0.85,
+}
+
+
+def _resolve_budget_ratio(params: dict) -> float:
+    """Map contextBudget param value to a budget ratio float."""
+    raw = params.get("contextBudget", "auto")
+    return CONTEXT_BUDGET_RATIOS.get(str(raw), DEFAULT_BUDGET_RATIO)
+
 
 class CreateRunInput(BaseModel):
     taskType: str
@@ -197,6 +210,7 @@ async def create_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
         file_ids=input_data.fileIds,
         system_prompt_override=None,
         current_user_message_id=user_msg.id,
+        budget_ratio=_resolve_budget_ratio(input_data.params),
     )
 
     record = await chat_runtime.run_chat(
@@ -296,6 +310,7 @@ async def stream_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
         file_ids=input_data.fileIds,
         system_prompt_override=None,
         current_user_message_id=user_message_id,
+        budget_ratio=_resolve_budget_ratio(input_data.params),
     )
 
     # Pre-create assistant message (streaming)

@@ -23,6 +23,7 @@ export type ModelInfo = {
   outputTypes: string[];
   taskTypes: string[];
   contextWindow: number | null;
+  maxOutputTokens: number | null;
   async: boolean;
   paramsSchema: string;
   enabled: boolean;

@@ -68,6 +68,7 @@ class ModelConfig(BaseModel):
     output_types: list[str] = Field(alias="outputTypes")
     task_types: list[str] = Field(alias="taskTypes")
     context_window: int | None = Field(default=None, alias="contextWindow")
+    max_output_tokens: int | None = Field(default=None, alias="maxOutputTokens")
     is_async: bool = Field(alias="async")
     enabled: bool
     params_schema: str = Field(alias="paramsSchema")

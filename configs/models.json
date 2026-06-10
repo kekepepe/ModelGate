@@ -6,11 +6,32 @@
     "provider": "mimo",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "vision_understanding", "file_understanding", "streaming", "tool_calling"],
-    "inputTypes": ["text", "code", "file", "image"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "vision_understanding",
+      "file_understanding",
+      "streaming",
+      "tool_calling"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file",
+      "image"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
+    "maxOutputTokens": 16384,
     "async": false,
     "enabled": true,
     "paramsSchema": "chat_openai_compatible_schema",
@@ -27,10 +48,27 @@
     "provider": "mimo",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding", "streaming"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "file_understanding",
+      "streaming"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
     "async": false,
     "enabled": true,
@@ -39,7 +77,8 @@
       "protocol": "openai_compatible",
       "providerModelName": "mimo-v2.5",
       "baseUrl": "https://token-plan-cn.xiaomimimo.com/v1"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "minimax.m2_7",
@@ -48,10 +87,26 @@
     "provider": "minimax",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "file_understanding"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
     "async": false,
     "enabled": true,
@@ -59,7 +114,8 @@
     "adapterConfig": {
       "protocol": "anthropic_compatible",
       "providerModelName": "MiniMax-M2.7"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "minimax.m3",
@@ -68,10 +124,26 @@
     "provider": "minimax",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "file_understanding"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": 1000000,
     "async": false,
     "enabled": true,
@@ -79,7 +151,8 @@
     "adapterConfig": {
       "protocol": "anthropic_compatible",
       "providerModelName": "MiniMax-M3"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "volcengine_coding.kimi_k2_6",
@@ -88,10 +161,27 @@
     "provider": "volcengine_coding",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding", "streaming"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "file_understanding",
+      "streaming"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
     "async": false,
     "enabled": true,
@@ -100,7 +190,8 @@
       "protocol": "openai_compatible",
       "providerModelName": "kimi-k2.6",
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "volcengine_coding.glm_5_1",
@@ -109,10 +200,27 @@
     "provider": "volcengine_coding",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding", "streaming"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "file_understanding",
+      "streaming"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
     "async": false,
     "enabled": true,
@@ -121,7 +229,8 @@
       "protocol": "openai_compatible",
       "providerModelName": "glm-5.1",
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "volcengine_coding.deepseek_v4_pro",
@@ -130,10 +239,27 @@
     "provider": "volcengine_coding",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding", "streaming"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "file_understanding",
+      "streaming"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
     "async": false,
     "enabled": true,
@@ -142,7 +268,8 @@
       "protocol": "openai_compatible",
       "providerModelName": "deepseek-v4-pro",
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "volcengine_coding.deepseek_v4_flash",
@@ -151,10 +278,27 @@
     "provider": "volcengine_coding",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding", "streaming"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "file_understanding",
+      "streaming"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
     "async": false,
     "enabled": true,
@@ -163,7 +307,8 @@
       "protocol": "openai_compatible",
       "providerModelName": "deepseek-v4-flash",
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "volcengine_coding.doubao_seed_2_0_code",
@@ -172,10 +317,27 @@
     "provider": "volcengine_coding",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "file_understanding", "streaming"],
-    "inputTypes": ["text", "code", "file"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "file_understanding",
+      "streaming"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
     "async": false,
     "enabled": true,
@@ -184,7 +346,8 @@
       "protocol": "openai_compatible",
       "providerModelName": "doubao-seed-2.0-code",
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "volcengine_coding.doubao_seed_2_0_pro",
@@ -193,10 +356,29 @@
     "provider": "volcengine_coding",
     "category": "chat",
     "runtime": "chat_completion",
-    "capabilities": ["text", "code", "vision_understanding", "file_understanding", "streaming"],
-    "inputTypes": ["text", "code", "file", "image"],
-    "outputTypes": ["text"],
-    "taskTypes": ["chat", "coding", "code_review", "document_analysis", "prompt_optimize"],
+    "capabilities": [
+      "text",
+      "code",
+      "vision_understanding",
+      "file_understanding",
+      "streaming"
+    ],
+    "inputTypes": [
+      "text",
+      "code",
+      "file",
+      "image"
+    ],
+    "outputTypes": [
+      "text"
+    ],
+    "taskTypes": [
+      "chat",
+      "coding",
+      "code_review",
+      "document_analysis",
+      "prompt_optimize"
+    ],
     "contextWindow": null,
     "async": false,
     "enabled": true,
@@ -205,7 +387,8 @@
       "protocol": "openai_compatible",
       "providerModelName": "doubao-seed-2.0-pro",
       "baseUrl": "https://ark.cn-beijing.volces.com/api/coding/v3"
-    }
+    },
+    "maxOutputTokens": 16384
   },
   {
     "id": "volcengine_seedance.doubao_seedance_2_0",
@@ -214,10 +397,24 @@
     "provider": "volcengine_seedance",
     "category": "generation",
     "runtime": "video_generation",
-    "capabilities": ["text_to_video", "image_to_video", "first_last_frame_video", "async_generation"],
-    "inputTypes": ["text", "image"],
-    "outputTypes": ["video"],
-    "taskTypes": ["text_to_video", "image_to_video", "first_last_frame_video"],
+    "capabilities": [
+      "text_to_video",
+      "image_to_video",
+      "first_last_frame_video",
+      "async_generation"
+    ],
+    "inputTypes": [
+      "text",
+      "image"
+    ],
+    "outputTypes": [
+      "video"
+    ],
+    "taskTypes": [
+      "text_to_video",
+      "image_to_video",
+      "first_last_frame_video"
+    ],
     "contextWindow": null,
     "async": true,
     "enabled": true,
