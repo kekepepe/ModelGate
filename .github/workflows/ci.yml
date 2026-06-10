@@ -60,7 +60,7 @@ jobs:
         run: ruff check apps/server/app tests
 
       - name: Black
-        run: black --check apps/server/app tests
+        run: black --check --config apps/server/pyproject.toml apps/server/app tests
 
       - name: Compile backend
         run: python -m compileall apps/server/app

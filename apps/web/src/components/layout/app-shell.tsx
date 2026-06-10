@@ -69,7 +69,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         </Button>
 
         {/* Page content */}
-        <main className={cn("flex-1 overflow-y-auto", base !== "/workspace" && "p-6")}>{children}</main>
+        <main className={cn("flex-1 overflow-y-auto", base !== "/workspace" && "p-6")}>
+          {children}
+        </main>
       </div>
     </div>
   );

@@ -17,7 +17,6 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
 from unittest.mock import patch
 
 import httpx
@@ -41,7 +40,7 @@ class _FakeRedis:
         pass
 
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
         return cls()
 
     def ping(self) -> None:

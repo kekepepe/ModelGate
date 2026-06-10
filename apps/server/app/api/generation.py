@@ -96,7 +96,9 @@ async def get_generation_task_result(task_id: str, db: Session = Depends(get_db)
         return RedirectResponse(
             url=f"/api/files/_by_key/{storage_key}",
             status_code=302,
-            headers={"Content-Disposition": f'attachment; filename="{record.id}_{kind}{_extension_for_kind(kind)}"'},
+            headers={
+                "Content-Disposition": f'attachment; filename="{record.id}_{kind}{_extension_for_kind(kind)}"'
+            },
         )
 
     # Multi-artifact or no-artifact: return the JSON descriptor so the

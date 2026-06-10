@@ -46,7 +46,6 @@ from app.services.generation_runtime import (  # noqa: E402
     transition_generation_task,
 )
 
-
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
@@ -194,9 +193,9 @@ def test_state_machine_from_status_mismatch_raises_conflict() -> None:
 
 def test_terminal_statuses_have_no_outgoing_edges() -> None:
     for status in TERMINAL_STATUSES:
-        assert ALLOWED_TRANSITIONS[status] == set(), (
-            f"terminal state {status} unexpectedly has outgoing transitions"
-        )
+        assert (
+            ALLOWED_TRANSITIONS[status] == set()
+        ), f"terminal state {status} unexpectedly has outgoing transitions"
 
 
 # ---------------------------------------------------------------------------
@@ -298,7 +297,7 @@ def test_concurrent_submits_only_one_transitions_task(monkeypatch) -> None:
                     generation_runtime.submit_provider_task(db=db, task_id=task_id)
                 )
                 results.append(result.status if result else "none")
-        except Exception as exc:  # noqa: BLE001
+        except Exception as exc:
             results.append(exc)
 
     threads = [threading.Thread(target=_worker) for _ in range(2)]
@@ -307,9 +306,9 @@ def test_concurrent_submits_only_one_transitions_task(monkeypatch) -> None:
     for t in threads:
         t.join(timeout=10)
 
-    assert _FakeAdapter.create_calls == 1, (
-        f"expected exactly one provider call, got {_FakeAdapter.create_calls}; results={results}"
-    )
+    assert (
+        _FakeAdapter.create_calls == 1
+    ), f"expected exactly one provider call, got {_FakeAdapter.create_calls}; results={results}"
     # We deliberately do NOT assert per-thread returned status here. The losing
     # thread's ``db.get()`` may land before the winner's commit (returning
     # "queued"), between commits (returning "submitted"), or after the
@@ -355,9 +354,7 @@ def test_poll_on_queued_task_is_noop(monkeypatch) -> None:
     import asyncio as _asyncio
 
     with SessionLocal() as db:
-        result = _asyncio.run(
-            generation_runtime.poll_provider_task(db=db, task_id=task_id)
-        )
+        result = _asyncio.run(generation_runtime.poll_provider_task(db=db, task_id=task_id))
     assert result is not None
     assert result.status == "queued"
 
@@ -461,9 +458,9 @@ def test_dispatch_submit_dedupes_with_disable_celery(monkeypatch) -> None:
     # The runtime guard rejects tasks whose status is not "queued".
     _dispatch_submit(task_id)
     time.sleep(0.5)
-    assert _FakeAdapter.create_calls == 1, (
-        "second dispatch should have been a no-op on a non-queued task"
-    )
+    assert (
+        _FakeAdapter.create_calls == 1
+    ), "second dispatch should have been a no-op on a non-queued task"
 
     monkeypatch.setattr("app.core.config.settings.disable_celery", False)
 
@@ -480,7 +477,9 @@ def test_worker_lock_acquire_release_and_takeover(monkeypatch) -> None:
     """
     store: dict[str, str] = {}
     fake_redis = SimpleNamespace(
-        set=lambda key, value, nx=False, ex=0: (store.update({key: value}) or True) if nx and key not in store else None,
+        set=lambda key, value, nx=False, ex=0: (
+            (store.update({key: value}) or True) if nx and key not in store else None
+        ),
         get=lambda key: store.get(key),
         delete=lambda key: store.pop(key, None) is not None,
         close=lambda: None,

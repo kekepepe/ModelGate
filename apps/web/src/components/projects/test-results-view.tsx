@@ -61,9 +61,7 @@ export function TestResultsView({
       {pytestSummary ? (
         <div>
           <p className="font-semibold">Pytest summary</p>
-          <p className="text-xs text-muted-foreground font-mono">
-            {JSON.stringify(pytestSummary)}
-          </p>
+          <p className="text-xs text-muted-foreground font-mono">{JSON.stringify(pytestSummary)}</p>
         </div>
       ) : null}
 
@@ -72,7 +70,9 @@ export function TestResultsView({
           <p className="font-semibold">Applied files</p>
           <ul className="list-disc pl-5 text-muted-foreground">
             {appliedFiles.map((f) => (
-              <li key={f} className="font-mono text-xs">{f}</li>
+              <li key={f} className="font-mono text-xs">
+                {f}
+              </li>
             ))}
           </ul>
         </div>

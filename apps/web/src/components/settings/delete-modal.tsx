@@ -57,8 +57,8 @@ export function DeleteModal({
         <DialogHeader>
           <DialogTitle>Delete Local Data</DialogTitle>
           <DialogDescription>
-            Permanently delete runs, request logs, and usage logs older than a specified number of days.
-            API keys are preserved.
+            Permanently delete runs, request logs, and usage logs older than a specified number of
+            days. API keys are preserved.
           </DialogDescription>
         </DialogHeader>
 
@@ -107,11 +107,7 @@ export function DeleteModal({
             {result ? "Close" : "Cancel"}
           </Button>
           {!result && (
-            <Button
-              variant="destructive"
-              onClick={handleDelete}
-              disabled={!confirmed || loading}
-            >
+            <Button variant="destructive" onClick={handleDelete} disabled={!confirmed || loading}>
               <Trash2 className="mr-1.5 h-3.5 w-3.5" />
               {loading ? "Deleting..." : "Delete Data"}
             </Button>

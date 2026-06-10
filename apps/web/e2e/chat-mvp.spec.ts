@@ -56,7 +56,11 @@ function sse(events: Array<Record<string, unknown>>) {
 test.describe("V3.1 Chat MVP", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/providers", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(providers) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(providers),
+      }),
     );
     await page.route("**/api/models", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(models) }),
@@ -71,10 +75,18 @@ test.describe("V3.1 Chat MVP", () => {
       }),
     );
     await page.route("**/api/usage/models**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      }),
     );
     await page.route("**/api/history/runs", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      }),
     );
     await page.route("**/api/param-schemas/**", (route) =>
       route.fulfill({
@@ -134,8 +146,11 @@ test.describe("V3.1 Chat MVP", () => {
 
     await expect(page.getByTestId("chat-message-user")).toHaveCount(2);
     await expect(page.getByTestId("chat-message-assistant")).toHaveCount(2);
-    await expect(page.getByTestId("chat-message-assistant-content").nth(1)).toContainText("Hello from run 2", {
-      timeout: 10_000,
-    });
+    await expect(page.getByTestId("chat-message-assistant-content").nth(1)).toContainText(
+      "Hello from run 2",
+      {
+        timeout: 10_000,
+      },
+    );
   });
 });

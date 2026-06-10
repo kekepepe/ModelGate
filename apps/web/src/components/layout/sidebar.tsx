@@ -19,12 +19,7 @@ import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { StatusPill } from "@/components/ui/status-pill";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipTrigger,
-  TooltipProvider,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipTrigger, TooltipProvider } from "@/components/ui/tooltip";
 
 const navItems = [
   { href: "/", label: "Overview", icon: LayoutDashboard },
@@ -58,7 +53,7 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
       <aside
         className={cn(
           "flex flex-col border-r bg-background transition-all duration-200",
-          collapsed ? "w-[60px]" : "w-[248px]"
+          collapsed ? "w-[60px]" : "w-[248px]",
         )}
       >
         {/* Logo */}
@@ -66,11 +61,7 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
           <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-md bg-primary">
             <Bot className="h-4 w-4 text-primary-foreground" />
           </div>
-          {!collapsed && (
-            <span className="text-sm font-semibold tracking-tight">
-              ModelGate
-            </span>
-          )}
+          {!collapsed && <span className="text-sm font-semibold tracking-tight">ModelGate</span>}
         </div>
 
         {/* Navigation */}
@@ -86,7 +77,7 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
                     "flex items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-colors",
                     active
                       ? "bg-primary/10 text-primary"
-                      : "text-muted-foreground hover:bg-muted hover:text-foreground"
+                      : "text-muted-foreground hover:bg-muted hover:text-foreground",
                   )}
                 >
                   <Icon className="h-4 w-4 shrink-0" />
@@ -98,9 +89,7 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
                 return (
                   <Tooltip key={item.href}>
                     <TooltipTrigger asChild>{linkContent}</TooltipTrigger>
-                    <TooltipContent side="right">
-                      {item.label}
-                    </TooltipContent>
+                    <TooltipContent side="right">{item.label}</TooltipContent>
                   </Tooltip>
                 );
               }
@@ -118,13 +107,8 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
             </p>
             <div className="flex flex-col gap-1.5">
               {providerStatus.slice(0, 4).map((p) => (
-                <div
-                  key={p.id}
-                  className="flex items-center justify-between text-xs"
-                >
-                  <span className="truncate text-muted-foreground">
-                    {p.name}
-                  </span>
+                <div key={p.id} className="flex items-center justify-between text-xs">
+                  <span className="truncate text-muted-foreground">{p.name}</span>
                   <StatusPill tone={p.configured ? "ready" : "warn"} className="text-[10px]">
                     {p.configured ? "Ready" : "No Key"}
                   </StatusPill>
@@ -139,9 +123,7 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
         {/* Footer */}
         <div className="flex items-center justify-between px-4 py-3">
           {!collapsed && (
-            <span className="text-[11px] text-muted-foreground">
-              Local Mode · v2.0
-            </span>
+            <span className="text-[11px] text-muted-foreground">Local Mode · v2.0</span>
           )}
           <Button
             variant="ghost"
@@ -149,11 +131,7 @@ export function Sidebar({ collapsed, onToggle, providerStatus }: SidebarProps) {
             className={cn("h-7 w-7 shrink-0", collapsed && "mx-auto")}
             onClick={onToggle}
           >
-            {collapsed ? (
-              <PanelLeft className="h-4 w-4" />
-            ) : (
-              <PanelLeftClose className="h-4 w-4" />
-            )}
+            {collapsed ? <PanelLeft className="h-4 w-4" /> : <PanelLeftClose className="h-4 w-4" />}
           </Button>
         </div>
       </aside>

@@ -8,4 +8,3 @@ export function QueryProvider({ children }: Readonly<{ children: React.ReactNode
 
   return <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>;
 }
-

@@ -9,21 +9,21 @@ for status updates.
 from __future__ import annotations
 
 import asyncio
+import contextlib
 import fnmatch
 import json
 import os
 import re
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
-from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
 from app.db.models import AgentRun, ProjectRun, ProjectTask
 from app.db.session import SessionLocal
 from app.services.project_runtime.agents import (
-    run_integrator,
     run_intake,
+    run_integrator,
     run_planner,
     run_supervisor,
     run_verifier,
@@ -113,9 +113,7 @@ def validate_patch(diff_text: str, allowed_files: list[str]) -> PatchValidationR
     for filepath in all_paths:
         # Check allowed_files
         if allowed_files:
-            matched = any(
-                fnmatch.fnmatch(filepath, pattern) for pattern in allowed_files
-            )
+            matched = any(fnmatch.fnmatch(filepath, pattern) for pattern in allowed_files)
             if not matched:
                 violations.append(f"File '{filepath}' is not in allowed_files")
 
@@ -140,8 +138,6 @@ def pop_events(project_run_id: str) -> list[dict]:
 
 
 def _now_iso() -> datetime:
-    from datetime import UTC, datetime
-
     return datetime.now(UTC)
 
 
@@ -188,12 +184,17 @@ class ProjectOrchestrator:
                 project_run.error_type = intake_agent.error_type or "AGENT_FAILED"
                 project_run.error_message = intake_agent.error_message or "Intake agent failed"
                 project_run.completed_at = _now_iso()
-                self._save_and_event(project_run, {
-                    "type": "phase", "phase": "intake", "status": "failed",
-                    "agentRunId": intake_agent.id,
-                    "errorType": intake_agent.error_type,
-                    "errorMessage": intake_agent.error_message,
-                })
+                self._save_and_event(
+                    project_run,
+                    {
+                        "type": "phase",
+                        "phase": "intake",
+                        "status": "failed",
+                        "agentRunId": intake_agent.id,
+                        "errorType": intake_agent.error_type,
+                        "errorMessage": intake_agent.error_message,
+                    },
+                )
                 return
 
             intake_artifact = write_artifact(
@@ -206,18 +207,32 @@ class ProjectOrchestrator:
             )
             project_run.intake_json = intake_output
             write_memory(
-                db=db, project_run_id=project_run.id, memory_type="requirement",
-                content=json.dumps(intake_output, ensure_ascii=False), source="intake",
+                db=db,
+                project_run_id=project_run.id,
+                memory_type="requirement",
+                content=json.dumps(intake_output, ensure_ascii=False),
+                source="intake",
             )
             project_run.usage_json = tracker.usage_snapshot()
-            self._save_and_event(project_run, {
-                "type": "phase", "phase": "intake", "status": "completed",
-                "agentRunId": intake_agent.id, "artifact": serialize_artifact(intake_artifact),
-            })
+            self._save_and_event(
+                project_run,
+                {
+                    "type": "phase",
+                    "phase": "intake",
+                    "status": "completed",
+                    "agentRunId": intake_agent.id,
+                    "artifact": serialize_artifact(intake_artifact),
+                },
+            )
 
-            self._save_and_event(project_run, {
-                "type": "phase", "phase": "planner", "status": "running",
-            })
+            self._save_and_event(
+                project_run,
+                {
+                    "type": "phase",
+                    "phase": "planner",
+                    "status": "running",
+                },
+            )
 
             planner_agent, planner_output = await run_planner(
                 db=db,
@@ -232,18 +247,26 @@ class ProjectOrchestrator:
                 project_run.error_type = planner_agent.error_type or "AGENT_FAILED"
                 project_run.error_message = planner_agent.error_message or "Planner agent failed"
                 project_run.completed_at = _now_iso()
-                self._save_and_event(project_run, {
-                    "type": "phase", "phase": "planner", "status": "failed",
-                    "agentRunId": planner_agent.id,
-                    "errorType": planner_agent.error_type,
-                    "errorMessage": planner_agent.error_message,
-                })
+                self._save_and_event(
+                    project_run,
+                    {
+                        "type": "phase",
+                        "phase": "planner",
+                        "status": "failed",
+                        "agentRunId": planner_agent.id,
+                        "errorType": planner_agent.error_type,
+                        "errorMessage": planner_agent.error_message,
+                    },
+                )
                 return
 
             planner_artifact = write_artifact(
-                db=db, project_run_id=project_run.id,
-                artifact_type="plan", name="plan.json",
-                content=planner_output, agent_run_id=planner_agent.id,
+                db=db,
+                project_run_id=project_run.id,
+                artifact_type="plan",
+                name="plan.json",
+                content=planner_output,
+                agent_run_id=planner_agent.id,
             )
             project_run.usage_json = tracker.usage_snapshot()
 
@@ -251,17 +274,25 @@ class ProjectOrchestrator:
 
             project_tasks = self._create_tasks(project_run, planner_output, db)
             write_memory(
-                db=db, project_run_id=project_run.id, memory_type="decision",
-                content=json.dumps(planner_output, ensure_ascii=False), source="planner",
+                db=db,
+                project_run_id=project_run.id,
+                memory_type="decision",
+                content=json.dumps(planner_output, ensure_ascii=False),
+                source="planner",
             )
 
             self._update(project_run, "awaiting_approval")
-            self._save_and_event(project_run, {
-                "type": "phase", "phase": "planner", "status": "awaiting_approval",
-                "agentRunId": planner_agent.id,
-                "artifact": serialize_artifact(planner_artifact),
-                "tasks": [self._serialize_task(t) for t in project_tasks],
-            })
+            self._save_and_event(
+                project_run,
+                {
+                    "type": "phase",
+                    "phase": "planner",
+                    "status": "awaiting_approval",
+                    "agentRunId": planner_agent.id,
+                    "artifact": serialize_artifact(planner_artifact),
+                    "tasks": [self._serialize_task(t) for t in project_tasks],
+                },
+            )
             return
         finally:
             db.close()
@@ -284,8 +315,12 @@ class ProjectOrchestrator:
             self._update(project_run, "running")
             fallback = model_fallback(db)
             worker_model = project_run.worker_model_id or project_run.planner_model_id or fallback
-            supervisor_model = project_run.supervisor_model_id or project_run.planner_model_id or fallback
-            integrator_model = project_run.integrator_model_id or project_run.planner_model_id or fallback
+            supervisor_model = (
+                project_run.supervisor_model_id or project_run.planner_model_id or fallback
+            )
+            integrator_model = (
+                project_run.integrator_model_id or project_run.planner_model_id or fallback
+            )
 
             planner_agent = (
                 db.query(AgentRun)
@@ -307,12 +342,22 @@ class ProjectOrchestrator:
             if not tasks:
                 raise ValueError("No tasks selected for execution")
 
-            _push_event(project_run.id, {
-                "type": "phase", "phase": "intake", "status": "approved",
-            })
-            _push_event(project_run.id, {
-                "type": "phase", "phase": "planner", "status": "approved",
-            })
+            _push_event(
+                project_run.id,
+                {
+                    "type": "phase",
+                    "phase": "intake",
+                    "status": "approved",
+                },
+            )
+            _push_event(
+                project_run.id,
+                {
+                    "type": "phase",
+                    "phase": "planner",
+                    "status": "approved",
+                },
+            )
 
             worker_outputs = await self._run_workers_parallel(
                 project_run=project_run,
@@ -331,9 +376,14 @@ class ProjectOrchestrator:
             project_run.usage_json = tracker.usage_snapshot()
 
             self._update(project_run, "running")
-            _push_event(project_run.id, {
-                "type": "phase", "phase": "supervisor", "status": "running",
-            })
+            _push_event(
+                project_run.id,
+                {
+                    "type": "phase",
+                    "phase": "supervisor",
+                    "status": "running",
+                },
+            )
 
             supervisor_agent, supervisor_output = await run_supervisor(
                 db=db,
@@ -343,19 +393,31 @@ class ProjectOrchestrator:
                 model_id=supervisor_model,
             )
             write_artifact(
-                db=db, project_run_id=project_run.id,
-                artifact_type="review", name="review-report.md",
+                db=db,
+                project_run_id=project_run.id,
+                artifact_type="review",
+                name="review-report.md",
                 content=json.dumps(supervisor_output, ensure_ascii=False),
                 agent_run_id=supervisor_agent.id,
             )
             project_run.usage_json = tracker.usage_snapshot()
-            self._save_and_event(project_run, {
-                "type": "phase", "phase": "supervisor", "status": "completed",
-            })
+            self._save_and_event(
+                project_run,
+                {
+                    "type": "phase",
+                    "phase": "supervisor",
+                    "status": "completed",
+                },
+            )
 
-            _push_event(project_run.id, {
-                "type": "phase", "phase": "integrator", "status": "running",
-            })
+            _push_event(
+                project_run.id,
+                {
+                    "type": "phase",
+                    "phase": "integrator",
+                    "status": "running",
+                },
+            )
 
             integrator_agent, integrator_output = await run_integrator(
                 db=db,
@@ -367,14 +429,18 @@ class ProjectOrchestrator:
                 model_id=integrator_model,
             )
             integ_artifact = write_artifact(
-                db=db, project_run_id=project_run.id,
-                artifact_type="final_plan", name="final-implementation-plan.md",
+                db=db,
+                project_run_id=project_run.id,
+                artifact_type="final_plan",
+                name="final-implementation-plan.md",
                 content=integrator_output.get("final_plan", ""),
                 agent_run_id=integrator_agent.id,
             )
 
             write_memory(
-                db=db, project_run_id=project_run.id, memory_type="completed_task",
+                db=db,
+                project_run_id=project_run.id,
+                memory_type="completed_task",
                 content=f"Integrator plan: {integrator_output.get('summary', '')}",
                 source="integrator",
             )
@@ -382,16 +448,20 @@ class ProjectOrchestrator:
             progress_text = integrator_output.get("progress_update", "")
             if progress_text:
                 write_artifact(
-                    db=db, project_run_id=project_run.id,
-                    artifact_type="progress", name="progress-update.md",
+                    db=db,
+                    project_run_id=project_run.id,
+                    artifact_type="progress",
+                    name="progress-update.md",
                     content=progress_text,
                 )
 
             decisions_text = integrator_output.get("decisions_update", "")
             if decisions_text:
                 write_artifact(
-                    db=db, project_run_id=project_run.id,
-                    artifact_type="decisions", name="decisions-update.md",
+                    db=db,
+                    project_run_id=project_run.id,
+                    artifact_type="decisions",
+                    name="decisions-update.md",
                     content=decisions_text,
                 )
 
@@ -402,9 +472,7 @@ class ProjectOrchestrator:
             # Only meaningful in patch / apply_with_approval / controlled_auto modes.
             if (project_run.mode or "") in {"controlled_auto", "patch", "apply_with_approval"}:
                 verifier_model = (
-                    project_run.supervisor_model_id
-                    or project_run.planner_model_id
-                    or fallback
+                    project_run.supervisor_model_id or project_run.planner_model_id or fallback
                 )
                 verifier_result = await self._run_verifier_loop(
                     db=db,
@@ -416,25 +484,31 @@ class ProjectOrchestrator:
                     verifier_model_id=verifier_model,
                     max_rounds=budget.max_rounds,
                 )
-                _push_event(project_run.id, {
-                    "type": "verifier_loop_done",
-                    "result": verifier_result,
-                })
+                _push_event(
+                    project_run.id,
+                    {
+                        "type": "verifier_loop_done",
+                        "result": verifier_result,
+                    },
+                )
                 # Mark round/stop reason on the project run
-                project_run = db.query(ProjectRun).filter(
-                    ProjectRun.id == project_run.id
-                ).first()
+                project_run = db.query(ProjectRun).filter(ProjectRun.id == project_run.id).first()
                 if project_run is not None:
                     project_run.stop_reason = verifier_result.get("stop_reason") or "NORMAL"
                     project_run.stop_round = verifier_result.get("rounds")
                     project_run.round = verifier_result.get("rounds", 0)
                     db.commit()
             db.commit()
-            _push_event(project_run.id, {
-                "type": "phase", "phase": "integrator", "status": "completed",
-                "artifact": serialize_artifact(integ_artifact),
-                "usage": tracker.usage_snapshot(),
-            })
+            _push_event(
+                project_run.id,
+                {
+                    "type": "phase",
+                    "phase": "integrator",
+                    "status": "completed",
+                    "artifact": serialize_artifact(integ_artifact),
+                    "usage": tracker.usage_snapshot(),
+                },
+            )
             _push_event(project_run.id, {"type": "done", "status": "completed"})
         except BudgetExceeded as exc:
             project_run.status = "budget_exceeded"
@@ -472,15 +546,19 @@ class ProjectOrchestrator:
 
         async def _one(task_id: str, title: str, role: str) -> tuple[str, dict]:
             async with semaphore:
-                _push_event(project_run_id, {
-                    "type": "phase", "phase": "worker", "taskId": task_id,
-                    "status": "running",
-                })
+                _push_event(
+                    project_run_id,
+                    {
+                        "type": "phase",
+                        "phase": "worker",
+                        "taskId": task_id,
+                        "status": "running",
+                    },
+                )
                 local_db = SessionLocal()
                 try:
                     local_task = (
-                        local_db.query(ProjectTask)
-                        .filter(ProjectTask.id == task_id).first()
+                        local_db.query(ProjectTask).filter(ProjectTask.id == task_id).first()
                     )
                     if local_task is None:
                         raise ValueError(f"Task {task_id} not found")
@@ -494,22 +572,20 @@ class ProjectOrchestrator:
                         project_root=project_root,
                         feedback_prefix=feedback_prefix,
                     )
-                    local_task.status = (
-                        "completed" if agent.status == "completed" else "failed"
-                    )
+                    local_task.status = "completed" if agent.status == "completed" else "failed"
 
                     # V2.6 Patch Mode: extract and validate patch
                     patch_combined = output.pop("patch_combined", "")
                     if patch_combined and is_patch_mode:
-                        validation = validate_patch(
-                            patch_combined, local_task.allowed_files or []
-                        )
+                        validation = validate_patch(patch_combined, local_task.allowed_files or [])
                         write_artifact(
-                            db=local_db, project_run_id=project_run_id,
+                            db=local_db,
+                            project_run_id=project_run_id,
                             artifact_type="patch",
                             name=f"patch-{role}-{task_id}.diff",
                             content=patch_combined,
-                            task_id=task_id, agent_run_id=agent.id,
+                            task_id=task_id,
+                            agent_run_id=agent.id,
                             metadata=validation.model_dump(),
                         )
                         if not validation.valid:
@@ -521,15 +597,23 @@ class ProjectOrchestrator:
 
                     local_db.commit()
                     write_artifact(
-                        db=local_db, project_run_id=project_run_id,
+                        db=local_db,
+                        project_run_id=project_run_id,
                         artifact_type="worker",
                         name=f"worker-{role}-{task_id}.json",
-                        content=output, task_id=task_id, agent_run_id=agent.id,
+                        content=output,
+                        task_id=task_id,
+                        agent_run_id=agent.id,
                     )
-                    _push_event(project_run_id, {
-                        "type": "phase", "phase": "worker", "taskId": task_id,
-                        "status": local_task.status,
-                    })
+                    _push_event(
+                        project_run_id,
+                        {
+                            "type": "phase",
+                            "phase": "worker",
+                            "taskId": task_id,
+                            "status": local_task.status,
+                        },
+                    )
                     return task_id, output
                 finally:
                     local_db.close()
@@ -603,9 +687,7 @@ class ProjectOrchestrator:
                     "error": f"apply failed: {apply.stderr.strip()[:500]}",
                 }
 
-            paths = set(
-                _DIFF_HEADER_RE.findall(diff_text) + _DIFF_HEADER_NEW_RE.findall(diff_text)
-            )
+            paths = set(_DIFF_HEADER_RE.findall(diff_text) + _DIFF_HEADER_NEW_RE.findall(diff_text))
             paths.discard("/dev/null")
             paths.discard("dev/null")
             for p in paths:
@@ -625,10 +707,8 @@ class ProjectOrchestrator:
             db.commit()
             return {"ok": True, "files": sorted(paths), "error": ""}
         finally:
-            try:
+            with contextlib.suppress(OSError):
                 os.unlink(tmp_path)
-            except OSError:
-                pass
 
     async def _run_verifier_loop(
         self,
@@ -656,7 +736,6 @@ class ProjectOrchestrator:
         Returns a dict with keys: ``status`` ("pass" | "exhausted" | "no_patches"),
         ``rounds``, ``failed_tests`` (last), ``verifier_output`` (last).
         """
-        from datetime import UTC  # local import keeps top of file clean
 
         previous_verdicts: list[dict] = []
         original_tasks_payload = [
@@ -687,12 +766,15 @@ class ProjectOrchestrator:
                     "error": str(exc),
                 }
 
-            _push_event(project_run.id, {
-                "type": "verifier_round",
-                "round": round_idx + 1,
-                "maxRounds": max_rounds,
-                "status": "running",
-            })
+            _push_event(
+                project_run.id,
+                {
+                    "type": "verifier_round",
+                    "round": round_idx + 1,
+                    "maxRounds": max_rounds,
+                    "status": "running",
+                },
+            )
 
             # 1) Collect patch artifacts
             from app.db.models import Artifact
@@ -732,17 +814,22 @@ class ProjectOrchestrator:
 
             if apply_failures and not applied_files:
                 # Couldn't apply anything — bail out with stop_reason
-                _push_event(project_run.id, {
-                    "type": "verifier_round",
-                    "round": round_idx + 1,
-                    "status": "apply_failed",
-                    "errors": apply_failures,
-                })
+                _push_event(
+                    project_run.id,
+                    {
+                        "type": "verifier_round",
+                        "round": round_idx + 1,
+                        "status": "apply_failed",
+                        "errors": apply_failures,
+                    },
+                )
                 return {
                     "status": "exhausted",
                     "rounds": round_idx + 1,
                     "stop_reason": "PATCH_APPLY_FAILED",
-                    "failed_tests": [{"nodeid": "patch.apply", "message": "; ".join(apply_failures)}],
+                    "failed_tests": [
+                        {"nodeid": "patch.apply", "message": "; ".join(apply_failures)}
+                    ],
                     "verifier_output": {},
                     "pytest_summary": {},
                 }
@@ -756,21 +843,27 @@ class ProjectOrchestrator:
             )
             last_pytest_summary = py_result.summary_dict()
             last_failed_tests = py_result.failed_tests_dict()
-            _push_event(project_run.id, {
-                "type": "verifier_round",
-                "round": round_idx + 1,
-                "status": "pytest_completed",
-                "pytest": last_pytest_summary,
-            })
+            _push_event(
+                project_run.id,
+                {
+                    "type": "verifier_round",
+                    "round": round_idx + 1,
+                    "status": "pytest_completed",
+                    "pytest": last_pytest_summary,
+                },
+            )
 
             # Check for repeated identical test failures
             current_failed_ids = {ft.get("nodeid", "") for ft in last_failed_tests}
             if tracker.record_failed_tests(current_failed_ids):
-                _push_event(project_run.id, {
-                    "type": "verifier_round",
-                    "round": round_idx + 1,
-                    "status": "repeated_test_failure",
-                })
+                _push_event(
+                    project_run.id,
+                    {
+                        "type": "verifier_round",
+                        "round": round_idx + 1,
+                        "status": "repeated_test_failure",
+                    },
+                )
                 return {
                     "status": "exhausted",
                     "rounds": round_idx + 1,
@@ -794,35 +887,44 @@ class ProjectOrchestrator:
                 original_tasks=original_tasks_payload,
             )
             last_verifier_output = verifier_output
-            previous_verdicts.append({
-                "round": round_idx + 1,
-                "verdict": verifier_output.get("verdict"),
-                "failed_tests": last_failed_tests,
-            })
-            write_artifact(
-                db=db, project_run_id=project_run.id,
-                artifact_type="verifier_report",
-                name=f"verifier-round-{round_idx + 1}.json",
-                content=json.dumps({
+            previous_verdicts.append(
+                {
                     "round": round_idx + 1,
                     "verdict": verifier_output.get("verdict"),
-                    "applied_files": applied_files,
-                    "pytest": last_pytest_summary,
                     "failed_tests": last_failed_tests,
-                    "analysis": verifier_output.get("analysis", ""),
-                    "next_actions": verifier_output.get("next_actions", []),
-                }, ensure_ascii=False),
+                }
+            )
+            write_artifact(
+                db=db,
+                project_run_id=project_run.id,
+                artifact_type="verifier_report",
+                name=f"verifier-round-{round_idx + 1}.json",
+                content=json.dumps(
+                    {
+                        "round": round_idx + 1,
+                        "verdict": verifier_output.get("verdict"),
+                        "applied_files": applied_files,
+                        "pytest": last_pytest_summary,
+                        "failed_tests": last_failed_tests,
+                        "analysis": verifier_output.get("analysis", ""),
+                        "next_actions": verifier_output.get("next_actions", []),
+                    },
+                    ensure_ascii=False,
+                ),
                 agent_run_id=verifier_agent.id,
             )
             db.commit()
 
             # 5) Verdict = pass → done
             if verifier_output.get("verdict") == "pass":
-                _push_event(project_run.id, {
-                    "type": "verifier_round",
-                    "round": round_idx + 1,
-                    "status": "verifier_pass",
-                })
+                _push_event(
+                    project_run.id,
+                    {
+                        "type": "verifier_round",
+                        "round": round_idx + 1,
+                        "status": "verifier_pass",
+                    },
+                )
                 return {
                     "status": "pass",
                     "rounds": round_idx + 1,
@@ -846,12 +948,15 @@ class ProjectOrchestrator:
                     "pytest_summary": last_pytest_summary,
                 }
 
-            _push_event(project_run.id, {
-                "type": "verifier_round",
-                "round": round_idx + 1,
-                "status": "rerunning_workers",
-                "roles": roles_to_rerun,
-            })
+            _push_event(
+                project_run.id,
+                {
+                    "type": "verifier_round",
+                    "round": round_idx + 1,
+                    "status": "rerunning_workers",
+                    "roles": roles_to_rerun,
+                },
+            )
 
             rerun_tasks = [t for t in tasks if t.role in roles_to_rerun]
             if not rerun_tasks:
@@ -898,12 +1003,14 @@ class ProjectOrchestrator:
         }
 
     def _collect_test_paths(
-        self, db: Session, project_run: ProjectRun, tasks: list[ProjectTask],
+        self,
+        db: Session,
+        project_run: ProjectRun,
+        tasks: list[ProjectTask],
     ) -> list[str]:
         """Collect pytest test paths from the tasks' ``acceptance_criteria``
         + the integration test directory if present. Best-effort; missing
         paths are dropped at the runner level."""
-        from app.db.models import ProjectMemory
 
         paths: list[str] = []
         for t in tasks:
@@ -918,7 +1025,10 @@ class ProjectOrchestrator:
         return list(dict.fromkeys(paths))
 
     def _create_tasks(
-        self, project_run: ProjectRun, planner_output: dict, db: Session,
+        self,
+        project_run: ProjectRun,
+        planner_output: dict,
+        db: Session,
     ) -> list[ProjectTask]:
         tasks = []
         for td in planner_output.get("tasks", []):
@@ -981,18 +1091,26 @@ class ProjectOrchestrator:
                 project_run.error_type = planner_agent.error_type or "AGENT_FAILED"
                 project_run.error_message = planner_agent.error_message or "Planner agent failed"
                 project_run.completed_at = _now_iso()
-                self._save_and_event(project_run, {
-                    "type": "phase", "phase": "planner", "status": "failed",
-                    "agentRunId": planner_agent.id,
-                    "errorType": planner_agent.error_type,
-                    "errorMessage": planner_agent.error_message,
-                })
+                self._save_and_event(
+                    project_run,
+                    {
+                        "type": "phase",
+                        "phase": "planner",
+                        "status": "failed",
+                        "agentRunId": planner_agent.id,
+                        "errorType": planner_agent.error_type,
+                        "errorMessage": planner_agent.error_message,
+                    },
+                )
                 return
 
             planner_artifact = write_artifact(
-                db=db, project_run_id=project_run.id,
-                artifact_type="plan", name="plan.json",
-                content=planner_output, agent_run_id=planner_agent.id,
+                db=db,
+                project_run_id=project_run.id,
+                artifact_type="plan",
+                name="plan.json",
+                content=planner_output,
+                agent_run_id=planner_agent.id,
             )
             project_run.usage_json = tracker.usage_snapshot()
             project_run.title = planner_output.get("project_title", project_run.title)
@@ -1003,17 +1121,25 @@ class ProjectOrchestrator:
             project_tasks = self._create_tasks(project_run, planner_output, db)
 
             write_memory(
-                db=db, project_run_id=project_run.id, memory_type="decision",
-                content=json.dumps(planner_output, ensure_ascii=False), source="planner",
+                db=db,
+                project_run_id=project_run.id,
+                memory_type="decision",
+                content=json.dumps(planner_output, ensure_ascii=False),
+                source="planner",
             )
 
             self._update(project_run, "awaiting_approval")
-            self._save_and_event(project_run, {
-                "type": "phase", "phase": "planner", "status": "awaiting_approval",
-                "agentRunId": planner_agent.id,
-                "artifact": serialize_artifact(planner_artifact),
-                "tasks": [self._serialize_task(t) for t in project_tasks],
-            })
+            self._save_and_event(
+                project_run,
+                {
+                    "type": "phase",
+                    "phase": "planner",
+                    "status": "awaiting_approval",
+                    "agentRunId": planner_agent.id,
+                    "artifact": serialize_artifact(planner_artifact),
+                    "tasks": [self._serialize_task(t) for t in project_tasks],
+                },
+            )
         finally:
             db.close()
 
@@ -1029,7 +1155,7 @@ class ProjectOrchestrator:
 
         db2 = _SL()
         try:
-            merged = db2.merge(project_run)
+            db2.merge(project_run)
             db2.commit()
         finally:
             db2.close()
@@ -1052,7 +1178,9 @@ class ProjectOrchestrator:
 def model_fallback(db: Session) -> str:
     from app.services.model_registry import model_registry
 
-    models = model_registry.recommend(task_type="chat", input_types=["text"], required_output="text")
+    models = model_registry.recommend(
+        task_type="chat", input_types=["text"], required_output="text"
+    )
     available = models.get("availableModels", [])
     if available:
         return available[0]["id"]

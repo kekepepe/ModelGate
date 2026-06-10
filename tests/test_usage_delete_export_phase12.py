@@ -6,7 +6,7 @@ Self-contained: no Postgres, no Redis, no real network.
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 import pytest
@@ -23,7 +23,6 @@ from app.db.models import RequestLog, Run, UsageLog  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
 
@@ -32,7 +31,7 @@ class _FakeRedis:
         pass
 
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
         return cls()
 
     def ping(self) -> None:
@@ -124,7 +123,7 @@ def _seed_run(SessionLocal, run_id: str, created_at: datetime) -> None:
 
 def test_delete_single_existing(client) -> None:
     c, SessionLocal = client
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _seed_run(SessionLocal, "run-1", now)
 
     resp = c.delete("/api/usage/logs/ul-run-1")
@@ -152,7 +151,7 @@ def test_delete_single_not_found(client) -> None:
 
 def test_delete_batch_older_than(client) -> None:
     c, SessionLocal = client
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old = now - timedelta(days=30)
     recent = now - timedelta(hours=1)
 
@@ -174,7 +173,7 @@ def test_delete_batch_older_than(client) -> None:
 
 def test_delete_batch_empty(client) -> None:
     c, _ = client
-    cutoff = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    cutoff = datetime.now(UTC).strftime("%Y-%m-%dT%H:%M:%SZ")
     resp = c.delete(f"/api/usage/logs?olderThan={cutoff}")
     assert resp.status_code == 200
     data = resp.json()["data"]["deleted"]
@@ -186,7 +185,7 @@ def test_delete_batch_empty(client) -> None:
 
 def test_export_usage_logs_json(client) -> None:
     c, SessionLocal = client
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _seed_run(SessionLocal, "run-export", now)
 
     resp = c.get("/api/usage/export?scope=usageLogs&format=json")
@@ -199,7 +198,7 @@ def test_export_usage_logs_json(client) -> None:
 
 def test_export_runs_json(client) -> None:
     c, SessionLocal = client
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _seed_run(SessionLocal, "run-export2", now)
 
     resp = c.get("/api/usage/export?scope=runs&format=json")
@@ -211,7 +210,7 @@ def test_export_runs_json(client) -> None:
 
 def test_export_request_logs_json(client) -> None:
     c, SessionLocal = client
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _seed_run(SessionLocal, "run-export3", now)
 
     resp = c.get("/api/usage/export?scope=requestLogs&format=json")
@@ -223,7 +222,7 @@ def test_export_request_logs_json(client) -> None:
 
 def test_export_mask_json(client) -> None:
     c, SessionLocal = client
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _seed_run(SessionLocal, "run-mask", now)
 
     resp = c.get("/api/usage/export?scope=runs&format=json&mask=true")
@@ -236,7 +235,7 @@ def test_export_mask_json(client) -> None:
 
 def test_export_older_than(client) -> None:
     c, SessionLocal = client
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     old = now - timedelta(days=30)
     recent = now - timedelta(hours=1)
 
@@ -256,7 +255,7 @@ def test_export_older_than(client) -> None:
 
 def test_export_zip(client) -> None:
     c, SessionLocal = client
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     _seed_run(SessionLocal, "run-zip", now)
 
     resp = c.get("/api/usage/export?scope=usageLogs&format=zip")

@@ -46,10 +46,14 @@ async def list_providers(db: Session = Depends(get_db)):
 
 
 @router.put("/{provider_id}/key")
-async def update_provider_key(provider_id: str, input_data: ProviderKeyInput, db: Session = Depends(get_db)):
+async def update_provider_key(
+    provider_id: str, input_data: ProviderKeyInput, db: Session = Depends(get_db)
+):
     provider = model_registry.get_provider(provider_id)
     if provider.get("authType") != "bearer":
-        raise AppError("PROVIDER_KEY_UNSUPPORTED", "This provider does not support bearer API keys.", 400)
+        raise AppError(
+            "PROVIDER_KEY_UNSUPPORTED", "This provider does not support bearer API keys.", 400
+        )
     secret = input_data.apiKey.strip()
     if len(secret) < 8:
         raise AppError("PROVIDER_KEY_INVALID", "Provider API key is too short.", 422)
@@ -102,7 +106,9 @@ async def test_provider_connection(provider_id: str, db: Session = Depends(get_d
             }
         }
 
-    provider_model_name = (chat_model.get("adapterConfig") or {}).get("providerModelName") or chat_model.get("officialModelName")
+    provider_model_name = (chat_model.get("adapterConfig") or {}).get(
+        "providerModelName"
+    ) or chat_model.get("officialModelName")
     chat_input = ChatInput(
         provider_id=provider_id,
         model_id=chat_model["id"],
@@ -127,7 +133,7 @@ async def test_provider_connection(provider_id: str, db: Session = Depends(get_d
                 "modelId": chat_model["id"],
             }
         }
-    except Exception as exc:  # noqa: BLE001 — defensive boundary
+    except Exception as exc:
         return {
             "data": {
                 "providerId": provider_id,
@@ -225,7 +231,7 @@ async def _try_generation_probe(
             "errorType": "PROVIDER_CONNECT_ERROR",
             "message": "Cannot reach provider endpoint.",
         }
-    except Exception as exc:  # noqa: BLE001
+    except Exception as exc:
         return {
             "providerId": provider_id,
             "status": "error",
@@ -302,4 +308,3 @@ def _classify_probe_error(error_type: str) -> str:
         "PROVIDER_REQUEST_ERROR": "request_error",
     }
     return mapping.get(error_type, "error")
-

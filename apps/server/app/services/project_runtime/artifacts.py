@@ -87,7 +87,9 @@ def serialize_artifact(artifact: Artifact) -> dict:
         "agentRunId": artifact.agent_run_id,
         "type": artifact.type,
         "name": artifact.name,
-        "content": artifact.content_json if artifact.content_json is not None else artifact.content_text,
+        "content": (
+            artifact.content_json if artifact.content_json is not None else artifact.content_text
+        ),
         "contentKind": "json" if artifact.content_json is not None else "text",
         "sizeBytes": artifact.size_bytes,
         "truncated": artifact.truncated,

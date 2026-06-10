@@ -56,7 +56,10 @@ export function Composer({
         {files.length > 0 ? (
           <div className="mb-2 flex flex-wrap gap-2">
             {files.map((file) => (
-              <div key={file.id} className="flex items-center gap-1.5 rounded-md border bg-muted/50 py-1 pl-2 pr-1 text-xs">
+              <div
+                key={file.id}
+                className="flex items-center gap-1.5 rounded-md border bg-muted/50 py-1 pl-2 pr-1 text-xs"
+              >
                 <FileChipIcon file={file} />
                 <span className="max-w-[180px] truncate">{file.originalName}</span>
                 <span className="text-muted-foreground">{formatBytes(file.sizeBytes)}</span>
@@ -116,7 +119,12 @@ export function Composer({
 
         <div className="flex items-center gap-2">
           {isStreaming ? (
-            <Button variant="destructive" size="sm" onClick={onStop} data-testid="chat-composer-stop">
+            <Button
+              variant="destructive"
+              size="sm"
+              onClick={onStop}
+              data-testid="chat-composer-stop"
+            >
               <XCircle className="mr-1 h-3.5 w-3.5" />
               Stop
             </Button>

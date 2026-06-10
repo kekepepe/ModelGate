@@ -54,7 +54,11 @@ test.describe("V2 screenshots", () => {
       });
     });
     await page.route("**/api/usage/models**", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
     });
     await page.route("**/api/history/runs**", async (route) => {
       await route.fulfill({
@@ -81,14 +85,23 @@ test.describe("V2 screenshots", () => {
       });
     });
     await page.route("**/api/logs/requests**", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
     });
     await page.route("**/api/providers/mimo/test", async (route) => {
       await route.fulfill({
         status: 200,
         contentType: "application/json",
         body: JSON.stringify({
-          data: { providerId: "mimo", status: "ok", message: "Connected", modelId: "mimo.mimo_v2_5" },
+          data: {
+            providerId: "mimo",
+            status: "ok",
+            message: "Connected",
+            modelId: "mimo.mimo_v2_5",
+          },
         }),
       });
     });

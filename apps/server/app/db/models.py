@@ -432,9 +432,7 @@ class Conversation(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (
-        Index("ix_conversations_updated_at", "updated_at"),
-    )
+    __table_args__ = (Index("ix_conversations_updated_at", "updated_at"),)
 
 
 class Message(Base):
@@ -458,6 +456,4 @@ class Message(Base):
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()
     )
 
-    __table_args__ = (
-        Index("ix_messages_conversation_id", "conversation_id"),
-    )
+    __table_args__ = (Index("ix_messages_conversation_id", "conversation_id"),)

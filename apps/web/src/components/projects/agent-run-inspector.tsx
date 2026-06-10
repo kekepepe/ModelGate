@@ -5,12 +5,7 @@ import { ChevronDown, ChevronRight, FileText, Loader2, RotateCcw } from "lucide-
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { Button } from "@/components/ui/button";
 import { ScrollArea } from "@/components/ui/scroll-area";
-import {
-  Tooltip,
-  TooltipContent,
-  TooltipProvider,
-  TooltipTrigger,
-} from "@/components/ui/tooltip";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import type { AgentRunView, ArtifactView, ProjectTaskView } from "@/lib/api";
 
 interface Props {
@@ -35,18 +30,12 @@ const WORKER_ROLES = new Set([
 ]);
 
 const ROLE_DESCRIPTIONS: Record<string, string> = {
-  intake:
-    "Parses the user goal and produces a structured intake summary.",
-  planner:
-    "Breaks the goal into typed tasks with allowed files and acceptance criteria.",
-  worker:
-    "Implements a single task with proposed code changes.",
-  supervisor:
-    "Reviews all worker outputs for conflicts and missing tests.",
-  integrator:
-    "Combines everything into a final implementation plan.",
-  verifier:
-    "Runs tests and judges whether the changes pass.",
+  intake: "Parses the user goal and produces a structured intake summary.",
+  planner: "Breaks the goal into typed tasks with allowed files and acceptance criteria.",
+  worker: "Implements a single task with proposed code changes.",
+  supervisor: "Reviews all worker outputs for conflicts and missing tests.",
+  integrator: "Combines everything into a final implementation plan.",
+  verifier: "Runs tests and judges whether the changes pass.",
 };
 
 function statusTone(status: string | undefined): StatusTone {
@@ -75,9 +64,7 @@ function formatRoleLabel(role: string): string {
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border bg-background p-1.5">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="mt-0.5 truncate font-mono text-xs">{value}</p>
     </div>
   );
@@ -100,11 +87,7 @@ function CollapsibleSection({
         className="flex w-full items-center gap-1 text-xs font-semibold uppercase tracking-wider text-muted-foreground hover:text-foreground"
         onClick={() => setOpen(!open)}
       >
-        {open ? (
-          <ChevronDown className="h-3 w-3" />
-        ) : (
-          <ChevronRight className="h-3 w-3" />
-        )}
+        {open ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
         {title}
       </button>
       {open ? children : null}
@@ -147,9 +130,7 @@ export function AgentRunInspector({
         ? "Project must be in a terminal state"
         : null;
 
-  const retryLabel = isPlannerOrIntake
-    ? `Re-run ${agentRun.role}`
-    : "Re-run this worker";
+  const retryLabel = isPlannerOrIntake ? `Re-run ${agentRun.role}` : "Re-run this worker";
 
   return (
     <div
@@ -167,18 +148,12 @@ export function AgentRunInspector({
                     <Loader2 className="h-3 w-3 animate-spin" /> running
                   </span>
                 ) : (
-                  agentRun.status ?? "queued"
+                  (agentRun.status ?? "queued")
                 )}
               </StatusPill>
-              <span className="text-sm font-semibold">
-                {formatRoleLabel(agentRun.role)}
-              </span>
+              <span className="text-sm font-semibold">{formatRoleLabel(agentRun.role)}</span>
             </div>
-            {task ? (
-              <p className="truncate text-xs text-muted-foreground">
-                {task.title}
-              </p>
-            ) : null}
+            {task ? <p className="truncate text-xs text-muted-foreground">{task.title}</p> : null}
             <p className="text-[10px] text-muted-foreground">
               {ROLE_DESCRIPTIONS[agentRun.role] ?? "Agent run details."}
             </p>
@@ -204,13 +179,9 @@ export function AgentRunInspector({
               className="rounded-md border border-rose-300 bg-rose-50 p-2 text-xs text-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
               data-testid="agent-run-inspector-error"
             >
-              <p className="font-semibold">
-                {agentRun.errorType ?? "Error"}
-              </p>
+              <p className="font-semibold">{agentRun.errorType ?? "Error"}</p>
               {agentRun.errorMessage && (
-                <p className="mt-0.5 whitespace-pre-wrap break-words">
-                  {agentRun.errorMessage}
-                </p>
+                <p className="mt-0.5 whitespace-pre-wrap break-words">{agentRun.errorMessage}</p>
               )}
             </div>
           ) : null}

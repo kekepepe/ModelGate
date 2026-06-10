@@ -63,7 +63,8 @@ function loadDraftFromStorage(): Partial<WorkspaceState> | null {
     const parsed = JSON.parse(raw) as PersistedDraft;
     if (!parsed || typeof parsed !== "object") return null;
     return {
-      selectedTaskType: typeof parsed.selectedTaskType === "string" ? parsed.selectedTaskType : "chat",
+      selectedTaskType:
+        typeof parsed.selectedTaskType === "string" ? parsed.selectedTaskType : "chat",
       selectedModelId: typeof parsed.selectedModelId === "string" ? parsed.selectedModelId : null,
       providerFilter: typeof parsed.providerFilter === "string" ? parsed.providerFilter : null,
       prompt: typeof parsed.prompt === "string" ? parsed.prompt : "",
@@ -100,7 +101,18 @@ function clearDraftFromStorage() {
   }
 }
 
-function initialState(): Pick<WorkspaceState, "selectedTaskType" | "selectedModelId" | "providerFilter" | "prompt" | "params" | "files" | "latestRun" | "messages" | "conversationId"> {
+function initialState(): Pick<
+  WorkspaceState,
+  | "selectedTaskType"
+  | "selectedModelId"
+  | "providerFilter"
+  | "prompt"
+  | "params"
+  | "files"
+  | "latestRun"
+  | "messages"
+  | "conversationId"
+> {
   const draft = loadDraftFromStorage();
   return {
     selectedTaskType: draft?.selectedTaskType ?? "chat",

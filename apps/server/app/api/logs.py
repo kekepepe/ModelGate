@@ -29,10 +29,18 @@ def serialize_request_log(record: RequestLog) -> dict:
 @router.get("/requests")
 async def list_request_logs(
     db: Session = Depends(get_db),
-    providerId: str | None = Query(default=None, description="Filter by provider id (e.g. mimo, minimax)."),
-    recordType: str | None = Query(default=None, description="Filter by record type (run, generation_task)."),
-    recordId: str | None = Query(default=None, description="Filter by parent record id (run_* or task_*)."),
-    limit: int = Query(default=100, ge=1, le=200, description="Maximum number of records to return."),
+    providerId: str | None = Query(
+        default=None, description="Filter by provider id (e.g. mimo, minimax)."
+    ),
+    recordType: str | None = Query(
+        default=None, description="Filter by record type (run, generation_task)."
+    ),
+    recordId: str | None = Query(
+        default=None, description="Filter by parent record id (run_* or task_*)."
+    ),
+    limit: int = Query(
+        default=100, ge=1, le=200, description="Maximum number of records to return."
+    ),
 ):
     """List recent request logs with optional server-side filters.
 

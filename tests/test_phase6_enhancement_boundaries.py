@@ -1,7 +1,7 @@
-from io import BytesIO
-from pathlib import Path
 import socket
 import sys
+from io import BytesIO
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,9 +14,10 @@ from app.main import app  # noqa: E402
 from app.providers.base import ChatOutput  # noqa: E402
 from app.providers.openai_compatible import (  # noqa: E402
     _normalize_params as normalize_openai_params,
+)
+from app.providers.openai_compatible import (  # noqa: E402
     _parse_openai_stream_line,
 )
-from app.services.chat_runtime import FILE_CONTEXT_BEGIN  # noqa: E402
 
 
 def require_local_port(port: int) -> None:
@@ -57,7 +58,9 @@ def test_openai_adapter_stream_param_and_sse_delta_parsing() -> None:
 def test_cancel_completed_run_keeps_terminal_status(monkeypatch) -> None:
     require_local_port(5432)
     require_local_port(6379)
-    monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CapturingAdapter())
+    monkeypatch.setattr(
+        "app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CapturingAdapter()
+    )
 
     with TestClient(app) as client:
         run_response = client.post(
@@ -89,7 +92,9 @@ def test_image_file_with_non_vision_model_is_rejected(monkeypatch) -> None:
     """
     require_local_port(5432)
     require_local_port(6379)
-    monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CapturingAdapter())
+    monkeypatch.setattr(
+        "app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CapturingAdapter()
+    )
 
     image_buffer = BytesIO()
     Image.new("RGB", (8, 8), color=(255, 0, 0)).save(image_buffer, format="PNG")

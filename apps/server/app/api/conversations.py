@@ -3,7 +3,7 @@ from typing import Any
 from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
 from app.db.models import Conversation, Message
@@ -105,7 +105,9 @@ def get_conversation(conversation_id: str, db: Session = Depends(get_db)):
 
 
 @router.patch("/{conversation_id}")
-def patch_conversation(conversation_id: str, input_data: PatchConversationInput, db: Session = Depends(get_db)):
+def patch_conversation(
+    conversation_id: str, input_data: PatchConversationInput, db: Session = Depends(get_db)
+):
     conv = db.get(Conversation, conversation_id)
     if conv is None or conv.status == "deleted":
         raise HTTPException(status_code=404, detail="Conversation not found")
@@ -127,7 +129,9 @@ def delete_conversation(conversation_id: str, db: Session = Depends(get_db)):
     if conv is None:
         raise HTTPException(status_code=404, detail="Conversation not found")
     # Delete messages first (no CASCADE FK — lesson from V2.5 Postgres delete bug)
-    db.query(Message).filter(Message.conversation_id == conversation_id).delete(synchronize_session=False)
+    db.query(Message).filter(Message.conversation_id == conversation_id).delete(
+        synchronize_session=False
+    )
     conv.status = "deleted"
     conv.updated_at = datetime.now(UTC)
     db.commit()

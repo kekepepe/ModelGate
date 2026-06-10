@@ -37,6 +37,16 @@ router = APIRouter()
 
 _VALID_STATUSES_FOR_CANCEL = {"running", "awaiting_approval"}
 
+# Keep references to background orchestrator tasks so they are not garbage-collected
+# while in flight. Tasks self-discard on completion.
+_BACKGROUND_TASKS: set[asyncio.Task[Any]] = set()
+
+
+def _spawn_background(coro: Any) -> None:
+    task = asyncio.create_task(coro)
+    _BACKGROUND_TASKS.add(task)
+    task.add_done_callback(_BACKGROUND_TASKS.discard)
+
 
 def _serialize_project_run(pr: ProjectRun) -> dict[str, Any]:
     return {
@@ -136,7 +146,7 @@ async def create_project_run(
     budget = Budget.from_dict(body.get("budget"))
 
     # Schedule orchestrator in background so request returns immediately.
-    asyncio.create_task(project_orchestrator.run(project_run=pr, budget=budget))
+    _spawn_background(project_orchestrator.run(project_run=pr, budget=budget))
 
     return {"data": _serialize_project_run(pr)}
 
@@ -245,10 +255,14 @@ async def approve_project_run(
     file_approvals = body.get("fileApprovals")
     if file_approvals:
         for task_id, approvals in file_approvals.items():
-            task = db.query(ProjectTask).filter(
-                ProjectTask.id == task_id,
-                ProjectTask.project_run_id == project_run_id,
-            ).first()
+            task = (
+                db.query(ProjectTask)
+                .filter(
+                    ProjectTask.id == task_id,
+                    ProjectTask.project_run_id == project_run_id,
+                )
+                .first()
+            )
             if task:
                 task.metadata_json = {
                     **(task.metadata_json or {}),
@@ -257,7 +271,7 @@ async def approve_project_run(
         db.commit()
 
     budget = Budget.from_dict(body.get("budget") or pr.budget_json)
-    asyncio.create_task(
+    _spawn_background(
         project_orchestrator.run_approved(
             project_run_id=project_run_id,
             task_ids=list(task_ids),
@@ -324,15 +338,15 @@ def delete_project_run(
     db.query(AgentRun).filter(AgentRun.project_run_id == project_run_id).delete(
         synchronize_session=False
     )
-    db.query(ProjectMemory).filter(
-        ProjectMemory.project_run_id == project_run_id
-    ).delete(synchronize_session=False)
-    db.query(ProjectTask).filter(
-        ProjectTask.project_run_id == project_run_id
-    ).update({ProjectTask.parent_task_id: None}, synchronize_session=False)
-    db.query(ProjectTask).filter(
-        ProjectTask.project_run_id == project_run_id
-    ).delete(synchronize_session=False)
+    db.query(ProjectMemory).filter(ProjectMemory.project_run_id == project_run_id).delete(
+        synchronize_session=False
+    )
+    db.query(ProjectTask).filter(ProjectTask.project_run_id == project_run_id).update(
+        {ProjectTask.parent_task_id: None}, synchronize_session=False
+    )
+    db.query(ProjectTask).filter(ProjectTask.project_run_id == project_run_id).delete(
+        synchronize_session=False
+    )
     db.delete(pr)
     db.commit()
     return {"data": {"deleted": True, "id": project_run_id}}
@@ -523,7 +537,7 @@ async def regenerate_patches(
     pr.error_message = None
     db.commit()
 
-    asyncio.create_task(
+    _spawn_background(
         project_orchestrator.run_approved(
             project_run_id=project_run_id,
             task_ids=list(task_ids),
@@ -555,7 +569,7 @@ async def retry_planner(
 
     budget = Budget.from_dict(pr.budget_json)
 
-    asyncio.create_task(
+    _spawn_background(
         project_orchestrator.retry_planner(
             project_run_id=project_run_id,
             budget=budget,

@@ -15,8 +15,8 @@ sys.path.insert(0, str(SERVER_ROOT))
 
 from app.core.config import settings  # noqa: E402
 from app.core.logging import (  # noqa: E402
-    JSONFormatter,
     _VALID_LOG_FORMATS,
+    JSONFormatter,
     configure_logging,
 )
 

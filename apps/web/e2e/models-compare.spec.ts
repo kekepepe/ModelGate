@@ -8,8 +8,22 @@ test.describe("Models compare mode", () => {
         contentType: "application/json",
         body: JSON.stringify({
           data: [
-            { id: "openai", name: "OpenAI", enabled: true, configured: true, authType: "api_key", adapter: "openai" },
-            { id: "anthropic", name: "Anthropic", enabled: true, configured: true, authType: "api_key", adapter: "anthropic" },
+            {
+              id: "openai",
+              name: "OpenAI",
+              enabled: true,
+              configured: true,
+              authType: "api_key",
+              adapter: "openai",
+            },
+            {
+              id: "anthropic",
+              name: "Anthropic",
+              enabled: true,
+              configured: true,
+              authType: "api_key",
+              adapter: "anthropic",
+            },
           ],
         }),
       });
@@ -86,7 +100,11 @@ test.describe("Models compare mode", () => {
     await expect(page.getByText("2 models selected")).toBeVisible();
 
     // Click the Compare button in the sticky bar
-    await page.locator("text=2 models selected").locator("..").getByRole("button", { name: "Compare" }).click();
+    await page
+      .locator("text=2 models selected")
+      .locator("..")
+      .getByRole("button", { name: "Compare" })
+      .click();
 
     // Dialog should show with comparison table
     const dialog = page.getByRole("dialog");

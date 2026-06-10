@@ -12,8 +12,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { PageHeader } from "@/components/layout/page-header";
 
 export function ModelManagement() {
-  const providersQuery = useQuery({ queryKey: ["providers"], queryFn: () => getData<Provider[]>("/providers") });
-  const modelsQuery = useQuery({ queryKey: ["models"], queryFn: () => getData<ModelInfo[]>("/models") });
+  const providersQuery = useQuery({
+    queryKey: ["providers"],
+    queryFn: () => getData<Provider[]>("/providers"),
+  });
+  const modelsQuery = useQuery({
+    queryKey: ["models"],
+    queryFn: () => getData<ModelInfo[]>("/models"),
+  });
   const providers = providersQuery.data ?? [];
   const models = modelsQuery.data ?? [];
 
@@ -42,7 +48,14 @@ export function ModelManagement() {
         description={`${models.length} models / ${providers.length} providers`}
         action={
           compareMode ? (
-            <Button variant="outline" size="sm" onClick={() => { setCompareMode(false); setSelectedIds(new Set()); }}>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setCompareMode(false);
+                setSelectedIds(new Set());
+              }}
+            >
               <X className="mr-1 h-3.5 w-3.5" /> Exit compare
             </Button>
           ) : (
@@ -89,16 +102,21 @@ export function ModelManagement() {
                 ) : null}
                 <td className="px-3 py-3">
                   <div className="font-medium">{model.displayName}</div>
-                  <div className="text-xs text-muted-foreground font-mono">{model.officialModelName}</div>
+                  <div className="text-xs text-muted-foreground font-mono">
+                    {model.officialModelName}
+                  </div>
                 </td>
                 <td className="px-3 py-3 text-muted-foreground">
-                  {providers.find((provider) => provider.id === model.provider)?.name ?? model.provider}
+                  {providers.find((provider) => provider.id === model.provider)?.name ??
+                    model.provider}
                 </td>
                 <td className="px-3 py-3 text-muted-foreground">{model.runtime}</td>
                 <td className="px-3 py-3">
                   <div className="flex flex-wrap gap-1">
                     {model.capabilities.slice(0, 4).map((cap) => (
-                      <Badge key={cap} variant="secondary" className="text-[10px]">{cap}</Badge>
+                      <Badge key={cap} variant="secondary" className="text-[10px]">
+                        {cap}
+                      </Badge>
                     ))}
                   </div>
                 </td>
@@ -135,7 +153,9 @@ export function ModelManagement() {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b">
-                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">Field</th>
+                  <th className="px-3 py-2 text-left text-xs font-medium text-muted-foreground">
+                    Field
+                  </th>
                   {selectedModels.map((m) => (
                     <th key={m.id} className="px-3 py-2 text-left text-xs font-medium">
                       {m.displayName}
@@ -144,20 +164,41 @@ export function ModelManagement() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-border">
-                <CompareRow label="Provider" values={selectedModels.map((m) => providers.find((p) => p.id === m.provider)?.name ?? m.provider)} />
+                <CompareRow
+                  label="Provider"
+                  values={selectedModels.map(
+                    (m) => providers.find((p) => p.id === m.provider)?.name ?? m.provider,
+                  )}
+                />
                 <CompareRow label="Runtime" values={selectedModels.map((m) => m.runtime)} />
                 <CompareRow label="Category" values={selectedModels.map((m) => m.category)} />
-                <CompareRow label="Input types" values={selectedModels.map((m) => m.inputTypes.join(", ") || "—")} />
-                <CompareRow label="Output types" values={selectedModels.map((m) => m.outputTypes.join(", ") || "—")} />
-                <CompareRow label="Context window" values={selectedModels.map((m) => m.contextWindow ? `${(m.contextWindow / 1000).toFixed(0)}K` : "—")} />
-                <CompareRow label="Async" values={selectedModels.map((m) => m.async ? "Yes" : "No")} />
+                <CompareRow
+                  label="Input types"
+                  values={selectedModels.map((m) => m.inputTypes.join(", ") || "—")}
+                />
+                <CompareRow
+                  label="Output types"
+                  values={selectedModels.map((m) => m.outputTypes.join(", ") || "—")}
+                />
+                <CompareRow
+                  label="Context window"
+                  values={selectedModels.map((m) =>
+                    m.contextWindow ? `${(m.contextWindow / 1000).toFixed(0)}K` : "—",
+                  )}
+                />
+                <CompareRow
+                  label="Async"
+                  values={selectedModels.map((m) => (m.async ? "Yes" : "No"))}
+                />
                 <CompareRow
                   label="Capabilities"
-                  values={selectedModels.map((m) => m.capabilities.length > 0 ? m.capabilities.join(", ") : "—")}
+                  values={selectedModels.map((m) =>
+                    m.capabilities.length > 0 ? m.capabilities.join(", ") : "—",
+                  )}
                 />
                 <CompareRow
                   label="Status"
-                  values={selectedModels.map((m) => m.enabled ? "Enabled" : "Disabled")}
+                  values={selectedModels.map((m) => (m.enabled ? "Enabled" : "Disabled"))}
                 />
               </tbody>
             </table>
@@ -173,7 +214,9 @@ function CompareRow({ label, values }: { label: string; values: string[] }) {
     <tr>
       <td className="px-3 py-2 text-xs text-muted-foreground">{label}</td>
       {values.map((v, i) => (
-        <td key={i} className="px-3 py-2 text-xs">{v}</td>
+        <td key={i} className="px-3 py-2 text-xs">
+          {v}
+        </td>
       ))}
     </tr>
   );

@@ -107,7 +107,11 @@ const paramSchemas = {
 test.describe("V3.4 Param Schema & Model Capabilities", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/providers", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(providers) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(providers),
+      }),
     );
     await page.route("**/api/models", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(models) }),
@@ -122,10 +126,18 @@ test.describe("V3.4 Param Schema & Model Capabilities", () => {
       }),
     );
     await page.route("**/api/usage/models**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      }),
     );
     await page.route("**/api/history/runs", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      }),
     );
     await page.route("**/api/param-schemas/**", (route) =>
       route.fulfill({
@@ -151,7 +163,7 @@ test.describe("V3.4 Param Schema & Model Capabilities", () => {
     await expect(page.getByTestId("chat-workspace")).toBeVisible({ timeout: 10_000 });
 
     // Open params popover
-    const paramsButton = page.locator('button:has(svg.lucide-sliders-horizontal)').first();
+    const paramsButton = page.locator("button:has(svg.lucide-sliders-horizontal)").first();
     await paramsButton.click();
 
     // Verify the popover opened
@@ -168,7 +180,7 @@ test.describe("V3.4 Param Schema & Model Capabilities", () => {
     await page.goto("/workspace?taskType=chat");
     await expect(page.getByTestId("chat-workspace")).toBeVisible({ timeout: 10_000 });
 
-    const paramsButton = page.locator('button:has(svg.lucide-sliders-horizontal)').first();
+    const paramsButton = page.locator("button:has(svg.lucide-sliders-horizontal)").first();
     await paramsButton.click();
 
     // Verify Max Output Tokens label (updated from "Max Tokens")

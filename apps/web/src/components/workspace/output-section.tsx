@@ -65,7 +65,12 @@ export function OutputSection({
           </TabsContent>
 
           <TabsContent value="request" className="m-0 p-5">
-            <RequestSummary run={latestRun} error={runError} selectedModel={selectedModel} providers={providers} />
+            <RequestSummary
+              run={latestRun}
+              error={runError}
+              selectedModel={selectedModel}
+              providers={providers}
+            />
           </TabsContent>
 
           <TabsContent value="archive" className="m-0 p-5">
@@ -102,12 +107,16 @@ function OutputPreview({
   }
 
   const toAbsolute = (url: string) =>
-    url.startsWith("http://") || url.startsWith("https://") ? url : `${API_BASE_URL.replace(/\/api$/, "")}${url}`;
+    url.startsWith("http://") || url.startsWith("https://")
+      ? url
+      : `${API_BASE_URL.replace(/\/api$/, "")}${url}`;
 
   const videoStorageUrl = (run?.output as { videoStorageUrl?: string } | null)?.videoStorageUrl;
   const imageStorageUrl = (run?.output as { imageStorageUrl?: string } | null)?.imageStorageUrl;
-  const videoUrl = run?.output?.videoUrl ?? (videoStorageUrl ? toAbsolute(videoStorageUrl) : undefined);
-  const imageUrl = run?.output?.imageUrl ?? (imageStorageUrl ? toAbsolute(imageStorageUrl) : undefined);
+  const videoUrl =
+    run?.output?.videoUrl ?? (videoStorageUrl ? toAbsolute(videoStorageUrl) : undefined);
+  const imageUrl =
+    run?.output?.imageUrl ?? (imageStorageUrl ? toAbsolute(imageStorageUrl) : undefined);
 
   if (videoUrl) {
     return (
@@ -116,7 +125,11 @@ function OutputPreview({
           <Video className="h-4 w-4" />
           <span>{selectedModel?.displayName ?? run?.modelId} Video Output</span>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={() => window.open(videoUrl, "_blank", "noopener,noreferrer")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(videoUrl, "_blank", "noopener,noreferrer")}
+          >
             <Download className="mr-1 h-3.5 w-3.5" />
             Download
           </Button>
@@ -133,7 +146,11 @@ function OutputPreview({
           <ImageIcon className="h-4 w-4" />
           <span>{selectedModel?.displayName ?? run?.modelId} Image Output</span>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={() => window.open(imageUrl, "_blank", "noopener,noreferrer")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => window.open(imageUrl, "_blank", "noopener,noreferrer")}
+          >
             <Download className="mr-1 h-3.5 w-3.5" />
             Download
           </Button>
@@ -163,7 +180,11 @@ function OutputPreview({
           <Sparkles className="h-4 w-4" />
           <span>{selectedModel?.displayName ?? run.modelId} Output</span>
           <div className="flex-1" />
-          <Button variant="outline" size="sm" onClick={() => navigator.clipboard.writeText(run.output?.text ?? "")}>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => navigator.clipboard.writeText(run.output?.text ?? "")}
+          >
             <Copy className="mr-1 h-3.5 w-3.5" />
             Copy
           </Button>
@@ -172,7 +193,9 @@ function OutputPreview({
             Download
           </Button>
         </div>
-        <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm leading-relaxed">{run.output.text}</pre>
+        <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-muted/50 p-3 text-sm leading-relaxed">
+          {run.output.text}
+        </pre>
       </div>
     );
   }
@@ -196,9 +219,7 @@ function RunTimeline({ run, error }: { run: RunRecord | null; error: Error | nul
 
   if (!run && !error) {
     return (
-      <div className="text-sm text-muted-foreground">
-        Run a task to see the execution timeline.
-      </div>
+      <div className="text-sm text-muted-foreground">Run a task to see the execution timeline.</div>
     );
   }
 
@@ -290,9 +311,9 @@ function RequestSummary({
   }
 
   const providerName = run?.providerId
-    ? providers.find((p) => p.id === run.providerId)?.name ?? run.providerId
+    ? (providers.find((p) => p.id === run.providerId)?.name ?? run.providerId)
     : "—";
-  const statusTone = statusToTone(error ? "failed" : run?.status ?? "idle");
+  const statusTone = statusToTone(error ? "failed" : (run?.status ?? "idle"));
   const statusLabel = error ? "Failed" : titleCase(run?.status ?? "idle");
   const requestId = error instanceof ApiError ? error.requestId : undefined;
 
@@ -351,7 +372,11 @@ function Field({
           </button>
         ) : null}
       </div>
-      <div className={mono ? "mt-0.5 truncate font-mono text-xs" : "mt-0.5 truncate text-sm font-medium"}>
+      <div
+        className={
+          mono ? "mt-0.5 truncate font-mono text-xs" : "mt-0.5 truncate text-sm font-medium"
+        }
+      >
         {children ?? value ?? "—"}
       </div>
     </div>
@@ -360,12 +385,22 @@ function Field({
 
 /* ── Archive ──────────────────────────────────────────── */
 
-function ArchiveList({ history, onRerun }: { history: RunRecord[]; onRerun: (run: RunRecord) => void }) {
-  if (history.length === 0) return <div className="text-sm text-muted-foreground">No archived results yet.</div>;
+function ArchiveList({
+  history,
+  onRerun,
+}: {
+  history: RunRecord[];
+  onRerun: (run: RunRecord) => void;
+}) {
+  if (history.length === 0)
+    return <div className="text-sm text-muted-foreground">No archived results yet.</div>;
   return (
     <div className="space-y-2">
       {history.slice(0, 8).map((item) => (
-        <div key={item.id} className="flex items-center justify-between rounded-md border bg-muted/30 p-2.5 text-sm">
+        <div
+          key={item.id}
+          className="flex items-center justify-between rounded-md border bg-muted/30 p-2.5 text-sm"
+        >
           <div className="flex min-w-0 items-center gap-3">
             <span className="truncate font-mono text-xs text-muted-foreground">{item.id}</span>
             <span className="text-xs text-muted-foreground">{item.taskType}</span>

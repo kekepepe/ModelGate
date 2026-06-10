@@ -26,7 +26,9 @@ def map_httpx_error(exc: httpx.HTTPError) -> ProviderError:
     if isinstance(exc, httpx.TimeoutException):
         return ProviderError("PROVIDER_TIMEOUT", "Provider request timed out.", status_code=504)
     if isinstance(exc, httpx.ConnectError):
-        return ProviderError("PROVIDER_CONNECT_ERROR", "Provider connection failed.", status_code=502)
+        return ProviderError(
+            "PROVIDER_CONNECT_ERROR", "Provider connection failed.", status_code=502
+        )
     if isinstance(exc, httpx.HTTPStatusError):
         return map_provider_status(exc.response)
     return ProviderError("PROVIDER_REQUEST_ERROR", "Provider request failed.", status_code=502)

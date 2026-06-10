@@ -54,13 +54,7 @@ function findRecommendedModel(models: ModelInfo[]): ModelInfo | null {
   return largeContext[0] ?? withChat[0] ?? models[0] ?? null;
 }
 
-export function ProjectCreateModal({
-  open,
-  onOpenChange,
-  onSubmit,
-  isSubmitting,
-  error,
-}: Props) {
+export function ProjectCreateModal({ open, onOpenChange, onSubmit, isSubmitting, error }: Props) {
   const [goal, setGoal] = useState("");
   const [title, setTitle] = useState("");
   const [mode, setMode] = useState("advisory");
@@ -159,12 +153,15 @@ export function ProjectCreateModal({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-[480px] max-h-[85vh] flex flex-col" data-testid="create-project-modal">
+      <DialogContent
+        className="sm:max-w-[480px] max-h-[85vh] flex flex-col"
+        data-testid="create-project-modal"
+      >
         <DialogHeader>
           <DialogTitle>New project run</DialogTitle>
           <DialogDescription>
-            Describe the goal. Intake will structure it, then Planner breaks it into
-            2-6 tasks for review.
+            Describe the goal. Intake will structure it, then Planner breaks it into 2-6 tasks for
+            review.
           </DialogDescription>
         </DialogHeader>
 
@@ -202,9 +199,7 @@ export function ProjectCreateModal({
                 <SelectItem value="controlled_auto">Controlled Auto</SelectItem>
               </SelectContent>
             </Select>
-            <p className="text-xs text-muted-foreground">
-              {modeDescriptions[mode]}
-            </p>
+            <p className="text-xs text-muted-foreground">{modeDescriptions[mode]}</p>
           </div>
 
           <div className="space-y-2">
@@ -231,9 +226,7 @@ export function ProjectCreateModal({
                       className="h-8 flex-1 text-xs"
                       data-testid={`agent-model-select-${role.key}`}
                     >
-                      <SelectValue
-                        placeholder={isLoading ? "Loading…" : "Select model"}
-                      />
+                      <SelectValue placeholder={isLoading ? "Loading…" : "Select model"} />
                     </SelectTrigger>
                     <SelectContent className="max-h-[280px]">
                       {modelOptions.map(([providerId, { provider, models: pModels }]) => (

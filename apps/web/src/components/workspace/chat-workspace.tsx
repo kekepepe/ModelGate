@@ -51,7 +51,10 @@ export function ChatWorkspace({ modelSlot, paramsSlot, extraActionsSlot }: Props
   }, [q]);
 
   return (
-    <div className="flex h-[calc(100vh-180px)] min-h-[480px] flex-col rounded-2xl border bg-card shadow-[0_12px_36px_rgba(72,60,45,0.06)]" data-testid="chat-workspace">
+    <div
+      className="flex h-[calc(100vh-180px)] min-h-[480px] flex-col rounded-2xl border bg-card shadow-[0_12px_36px_rgba(72,60,45,0.06)]"
+      data-testid="chat-workspace"
+    >
       {conversationId && summary && (
         <ConversationHeader conversationId={conversationId} summary={summary} />
       )}

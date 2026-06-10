@@ -12,7 +12,7 @@ const PRICING: Record<string, ModelPricing> = {
   "gpt-4o-mini": { input: 0.15, output: 0.6 },
   "gpt-4-turbo": { input: 10, output: 30 },
   "gpt-3.5-turbo": { input: 0.5, output: 1.5 },
-  "o1": { input: 15, output: 60 },
+  o1: { input: 15, output: 60 },
   "o1-mini": { input: 3, output: 12 },
   "o3-mini": { input: 1.1, output: 4.4 },
   // Anthropic

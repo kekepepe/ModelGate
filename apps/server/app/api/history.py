@@ -19,7 +19,9 @@ async def list_runs(db: Session = Depends(get_db)):
 
 @router.get("/generation-tasks")
 async def list_generation_tasks(db: Session = Depends(get_db)):
-    records = db.scalars(select(GenerationTask).order_by(desc(GenerationTask.created_at)).limit(50)).all()
+    records = db.scalars(
+        select(GenerationTask).order_by(desc(GenerationTask.created_at)).limit(50)
+    ).all()
     return {"data": [serialize_task(record) for record in records]}
 
 

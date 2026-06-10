@@ -10,7 +10,7 @@ Self-contained: no Postgres, no Redis, no real network.
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from unittest.mock import AsyncMock, patch
 
@@ -28,7 +28,6 @@ from app.db.models import Run, UsageLog  # noqa: E402
 from app.db.session import get_db  # noqa: E402
 from app.main import app  # noqa: E402
 
-
 # ── Fixtures ─────────────────────────────────────────────────────────────────
 
 
@@ -37,7 +36,7 @@ class _FakeRedis:
         pass
 
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
         return cls()
 
     def ping(self) -> None:
@@ -84,7 +83,7 @@ def client(monkeypatch):
 
 
 def _seed_run_with_group(SessionLocal, run_id: str, group_id: str | None) -> None:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with SessionLocal() as session:
         run = Run(
             id=run_id,
@@ -128,17 +127,20 @@ def test_run_metadata_json_stores_compare_group(client) -> None:
         params_json={},
         status="completed",
         metadata_json={"compare_group_id": "group-abc"},
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
 
     with patch("app.api.chat.chat_runtime") as mock_rt:
         mock_rt.run_chat = AsyncMock(return_value=mock_run)
-        resp = c.post("/api/chat/runs", json={
-            "taskType": "chat",
-            "modelId": "mimo-chat",
-            "prompt": "hi",
-            "compareGroupId": "group-abc",
-        })
+        resp = c.post(
+            "/api/chat/runs",
+            json={
+                "taskType": "chat",
+                "modelId": "mimo-chat",
+                "prompt": "hi",
+                "compareGroupId": "group-abc",
+            },
+        )
 
     assert resp.status_code == 200
     data = resp.json()["data"]
@@ -156,16 +158,19 @@ def test_run_without_compare_group(client) -> None:
         input_json={"prompt": "hi"},
         params_json={},
         status="completed",
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
 
     with patch("app.api.chat.chat_runtime") as mock_rt:
         mock_rt.run_chat = AsyncMock(return_value=mock_run)
-        resp = c.post("/api/chat/runs", json={
-            "taskType": "chat",
-            "modelId": "mimo-chat",
-            "prompt": "hi",
-        })
+        resp = c.post(
+            "/api/chat/runs",
+            json={
+                "taskType": "chat",
+                "modelId": "mimo-chat",
+                "prompt": "hi",
+            },
+        )
 
     assert resp.status_code == 200
     data = resp.json()["data"]

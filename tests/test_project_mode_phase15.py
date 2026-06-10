@@ -66,12 +66,19 @@ def _make_pr_with_tasks(session_factory, task_count: int = 3) -> tuple[str, list
         s.add(pr)
         for i in range(task_count):
             tid = f"t{i}_{uuid4().hex[:6]}"
-            s.add(db_models.ProjectTask(
-                id=tid, project_run_id=pr_id, title=f"Task {i}",
-                description="d", role="backend", status="pending",
-                allowed_files=["apps/server/app/api/x.py"],
-                acceptance_criteria=[], depends_on=[],
-            ))
+            s.add(
+                db_models.ProjectTask(
+                    id=tid,
+                    project_run_id=pr_id,
+                    title=f"Task {i}",
+                    description="d",
+                    role="backend",
+                    status="pending",
+                    allowed_files=["apps/server/app/api/x.py"],
+                    acceptance_criteria=[],
+                    depends_on=[],
+                )
+            )
             task_ids.append(tid)
         s.commit()
     return pr_id, task_ids
@@ -108,14 +115,17 @@ class TestParallelWorkers:
         orch = ProjectOrchestrator()
         with patched_session() as s:
             pr = s.query(db_models.ProjectRun).filter_by(id=pr_id).one()
-            tasks = s.query(db_models.ProjectTask).filter(
-                db_models.ProjectTask.id.in_(task_ids)
-            ).all()
+            tasks = (
+                s.query(db_models.ProjectTask).filter(db_models.ProjectTask.id.in_(task_ids)).all()
+            )
 
         tracker = BudgetTracker(budget=Budget(max_agents=10))
         outputs = await orch._run_workers_parallel(
-            project_run=pr, tasks=tasks, planner_output={"project_title": "X"},
-            tracker=tracker, model_id="gpt-4o",
+            project_run=pr,
+            tasks=tasks,
+            planner_output={"project_title": "X"},
+            tracker=tracker,
+            model_id="gpt-4o",
         )
 
         assert len(outputs) == 3
@@ -133,20 +143,28 @@ class TestParallelWorkers:
         orch = ProjectOrchestrator()
         with patched_session() as s:
             pr = s.query(db_models.ProjectRun).filter_by(id=pr_id).one()
-            tasks = s.query(db_models.ProjectTask).filter(
-                db_models.ProjectTask.id.in_(task_ids)
-            ).all()
+            tasks = (
+                s.query(db_models.ProjectTask).filter(db_models.ProjectTask.id.in_(task_ids)).all()
+            )
 
         tracker = BudgetTracker(budget=Budget(max_agents=10))
         await orch._run_workers_parallel(
-            project_run=pr, tasks=tasks, planner_output={"project_title": "X"},
-            tracker=tracker, model_id="gpt-4o",
+            project_run=pr,
+            tasks=tasks,
+            planner_output={"project_title": "X"},
+            tracker=tracker,
+            model_id="gpt-4o",
         )
 
         with patched_session() as s:
-            artifacts = s.query(db_models.Artifact).filter_by(
-                project_run_id=pr_id, type="worker",
-            ).all()
+            artifacts = (
+                s.query(db_models.Artifact)
+                .filter_by(
+                    project_run_id=pr_id,
+                    type="worker",
+                )
+                .all()
+            )
         assert len(artifacts) == 2
 
     @pytest.mark.asyncio
@@ -159,16 +177,19 @@ class TestParallelWorkers:
         orch = ProjectOrchestrator()
         with patched_session() as s:
             pr = s.query(db_models.ProjectRun).filter_by(id=pr_id).one()
-            tasks = s.query(db_models.ProjectTask).filter(
-                db_models.ProjectTask.id.in_(task_ids)
-            ).all()
+            tasks = (
+                s.query(db_models.ProjectTask).filter(db_models.ProjectTask.id.in_(task_ids)).all()
+            )
 
         # max_agents=2 < 4 tasks; later workers should bounce.
         tracker = BudgetTracker(budget=Budget(max_agents=2))
         with pytest.raises(BudgetExceeded, match="Agent budget exceeded"):
             await orch._run_workers_parallel(
-                project_run=pr, tasks=tasks, planner_output={"project_title": "X"},
-                tracker=tracker, model_id="gpt-4o",
+                project_run=pr,
+                tasks=tasks,
+                planner_output={"project_title": "X"},
+                tracker=tracker,
+                model_id="gpt-4o",
             )
 
     @pytest.mark.asyncio
@@ -193,20 +214,24 @@ class TestParallelWorkers:
             )
 
         from app.services.project_runtime import agents as agents_module
+
         monkeypatch.setattr(agents_module.chat_runtime, "run_chat", fake_run_chat)
 
         orch = orch_module.ProjectOrchestrator()
         with patched_session() as s:
             pr = s.query(db_models.ProjectRun).filter_by(id=pr_id).one()
-            tasks = s.query(db_models.ProjectTask).filter(
-                db_models.ProjectTask.id.in_(task_ids)
-            ).all()
+            tasks = (
+                s.query(db_models.ProjectTask).filter(db_models.ProjectTask.id.in_(task_ids)).all()
+            )
 
         # Give plenty of budget so the semaphore is the only constraint.
         tracker = BudgetTracker(budget=Budget(max_agents=10))
         await orch._run_workers_parallel(
-            project_run=pr, tasks=tasks, planner_output={"project_title": "X"},
-            tracker=tracker, model_id="gpt-4o",
+            project_run=pr,
+            tasks=tasks,
+            planner_output={"project_title": "X"},
+            tracker=tracker,
+            model_id="gpt-4o",
         )
 
         # Concurrency should be capped at WORKER_CONCURRENCY (=2) and we should

@@ -44,6 +44,7 @@ class ChatRuntime:
 
     def _deregister(self, run_id: str) -> None:
         self._inflight.pop(run_id, None)
+
     async def run_chat(
         self,
         *,
@@ -90,7 +91,14 @@ class ChatRuntime:
         latency_ms = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files, system_prompt_override=system_prompt, history=history)
+            messages = self._build_messages(
+                model=model,
+                task_type=task_type,
+                prompt=prompt,
+                files=files,
+                system_prompt_override=system_prompt,
+                history=history,
+            )
             provider_params = self._map_provider_params(model=model, params=params)
             chat_input = ChatInput(
                 provider_id=provider["id"],
@@ -244,7 +252,14 @@ class ChatRuntime:
         terminal_event: dict | None = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files, system_prompt_override=system_prompt, history=history)
+            messages = self._build_messages(
+                model=model,
+                task_type=task_type,
+                prompt=prompt,
+                files=files,
+                system_prompt_override=system_prompt,
+                history=history,
+            )
             provider_params = self._map_provider_params(model=model, params=params)
             provider_params["stream"] = True
             chat_input = ChatInput(
@@ -347,7 +362,11 @@ class ChatRuntime:
                 error_type="CHAT_RUNTIME_ERROR",
                 error_message=str(exc)[:500],
             )
-            terminal_event = {"type": "error", "errorType": "CHAT_RUNTIME_ERROR", "message": "Chat runtime failed."}
+            terminal_event = {
+                "type": "error",
+                "errorType": "CHAT_RUNTIME_ERROR",
+                "message": "Chat runtime failed.",
+            }
         finally:
             self._deregister(run.id)
             # Yielding inside the except/finally can cause the cleanup path
@@ -367,7 +386,9 @@ class ChatRuntime:
 
     def _validate_model_for_task(self, *, model: dict, task_type: str) -> None:
         if task_type not in model.get("taskTypes", []):
-            raise AppError("MODEL_TASK_UNSUPPORTED", "Selected model does not support this task.", 400)
+            raise AppError(
+                "MODEL_TASK_UNSUPPORTED", "Selected model does not support this task.", 400
+            )
 
     def _load_files(self, *, db: Session, file_ids: list[str]) -> list[FileRecord]:
         records = []
@@ -376,7 +397,9 @@ class ChatRuntime:
             if record is None or record.status == "deleted":
                 raise AppError("FILE_NOT_FOUND", f"File not found: {file_id}", status_code=404)
             if record.status == "failed":
-                raise AppError("FILE_NOT_USABLE", f"File parsing failed: {file_id}", status_code=400)
+                raise AppError(
+                    "FILE_NOT_USABLE", f"File parsing failed: {file_id}", status_code=400
+                )
             if not record.direct_usable or record.status not in {"uploaded", "parsed"}:
                 raise AppError("FILE_NOT_READY", f"File is not ready: {file_id}", status_code=409)
             records.append(record)
@@ -407,7 +430,8 @@ class ChatRuntime:
             text_part = user_content if isinstance(user_content, str) else ""
 
         image_files = [
-            record for record in files
+            record
+            for record in files
             if (record.detected_type == "image" and (record.mime_type or "").startswith("image/"))
         ]
         if image_files and not supports_vision:

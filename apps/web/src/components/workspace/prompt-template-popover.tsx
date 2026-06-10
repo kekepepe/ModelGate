@@ -1,7 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { WandSparkles, Save, Settings2, Trash2, Download, Upload as UploadIcon, X } from "lucide-react";
+import {
+  WandSparkles,
+  Save,
+  Settings2,
+  Trash2,
+  Download,
+  Upload as UploadIcon,
+  X,
+} from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import {
@@ -135,10 +143,7 @@ export function PromptTemplatePopover({ taskId, currentPrompt, currentParams, on
       ) : null}
 
       {showManage ? (
-        <ManageTemplatesModal
-          onClose={() => setShowManage(false)}
-          onChanged={refresh}
-        />
+        <ManageTemplatesModal onClose={() => setShowManage(false)} onChanged={refresh} />
       ) : null}
     </>
   );
@@ -186,7 +191,8 @@ function SaveTemplateModal({
       recommendedParams: includeParams ? currentParams : undefined,
     });
     if (!result.ok) {
-      if (result.error === "duplicate_name") setError("A saved template with this name already exists for this task.");
+      if (result.error === "duplicate_name")
+        setError("A saved template with this name already exists for this task.");
       else if (result.error === "invalid_title") setError("Name is required, max 60 characters.");
       else setError("Prompt is required, max 32000 characters.");
       return;
@@ -210,7 +216,9 @@ function SaveTemplateModal({
         </div>
         <div>
           <label className="block text-xs font-medium text-muted-foreground">Task type</label>
-          <div className="mt-1 rounded border bg-muted/40 px-2 py-1.5 font-mono text-xs">{taskId}</div>
+          <div className="mt-1 rounded border bg-muted/40 px-2 py-1.5 font-mono text-xs">
+            {taskId}
+          </div>
         </div>
         <label className="flex items-center gap-2 text-xs">
           <input
@@ -223,8 +231,12 @@ function SaveTemplateModal({
         {error ? <div className="text-xs text-destructive">{error}</div> : null}
       </div>
       <div className="mt-4 flex justify-end gap-2">
-        <Button variant="outline" size="sm" onClick={onClose}>Cancel</Button>
-        <Button size="sm" onClick={submit}>Save</Button>
+        <Button variant="outline" size="sm" onClick={onClose}>
+          Cancel
+        </Button>
+        <Button size="sm" onClick={submit}>
+          Save
+        </Button>
       </div>
     </ModalShell>
   );
@@ -232,7 +244,13 @@ function SaveTemplateModal({
 
 /* ── Manage modal ─────────────────────────────────────── */
 
-function ManageTemplatesModal({ onClose, onChanged }: { onClose: () => void; onChanged: () => void }) {
+function ManageTemplatesModal({
+  onClose,
+  onChanged,
+}: {
+  onClose: () => void;
+  onChanged: () => void;
+}) {
   const [refreshKey, setRefreshKey] = useState(0);
   const [importMode, setImportMode] = useState<"skip" | "overwrite">("skip");
   const [importMessage, setImportMessage] = useState<string | null>(null);
@@ -269,7 +287,9 @@ function ManageTemplatesModal({ onClose, onChanged }: { onClose: () => void; onC
     const text = await file.text();
     const result = importUserTemplates(text, importMode);
     if (result.errors.length > 0) {
-      setImportMessage(`Import had ${result.errors.length} error(s): ${result.errors.slice(0, 3).join(", ")}`);
+      setImportMessage(
+        `Import had ${result.errors.length} error(s): ${result.errors.slice(0, 3).join(", ")}`,
+      );
     } else {
       setImportMessage(`Imported ${result.added} template(s), skipped ${result.skipped}.`);
     }
@@ -313,13 +333,16 @@ function ManageTemplatesModal({ onClose, onChanged }: { onClose: () => void; onC
       </div>
 
       {importMessage ? (
-        <div className="mt-2 rounded border border-primary/30 bg-primary/5 px-3 py-2 text-xs">{importMessage}</div>
+        <div className="mt-2 rounded border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+          {importMessage}
+        </div>
       ) : null}
 
       <div className="mt-3 max-h-[400px] overflow-y-auto">
         {userTemplates.length === 0 ? (
           <div className="py-8 text-center text-xs text-muted-foreground">
-            No saved templates. Use &ldquo;Save current as template&rdquo; in the Playground to create one.
+            No saved templates. Use &ldquo;Save current as template&rdquo; in the Playground to
+            create one.
           </div>
         ) : (
           <table className="w-full text-left text-xs">
@@ -336,7 +359,9 @@ function ManageTemplatesModal({ onClose, onChanged }: { onClose: () => void; onC
                 <tr key={t.id} className="border-b last:border-0">
                   <td className="px-2 py-2 font-medium">{t.title}</td>
                   <td className="px-2 py-2 font-mono text-[10px]">{t.taskId}</td>
-                  <td className="px-2 py-2 text-muted-foreground line-clamp-2 max-w-[300px]">{t.prompt}</td>
+                  <td className="px-2 py-2 text-muted-foreground line-clamp-2 max-w-[300px]">
+                    {t.prompt}
+                  </td>
                   <td className="px-2 py-2 text-right">
                     <button
                       type="button"
@@ -355,7 +380,9 @@ function ManageTemplatesModal({ onClose, onChanged }: { onClose: () => void; onC
       </div>
 
       <div className="mt-4 flex justify-end">
-        <Button variant="outline" size="sm" onClick={onClose}>Close</Button>
+        <Button variant="outline" size="sm" onClick={onClose}>
+          Close
+        </Button>
       </div>
     </ModalShell>
   );

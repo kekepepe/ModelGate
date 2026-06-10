@@ -186,7 +186,10 @@ def test_anthropic_split_translates_image_url_block() -> None:
     system, messages = _split_system_messages(input_data)
     assert system == "be helpful"
     user_blocks = messages[0]["content"]
-    assert {"type": "image", "source": {"type": "base64", "media_type": "image/png", "data": "QUJD"}} in user_blocks
+    assert {
+        "type": "image",
+        "source": {"type": "base64", "media_type": "image/png", "data": "QUJD"},
+    } in user_blocks
 
 
 def test_anthropic_to_image_source_handles_url() -> None:
@@ -233,7 +236,10 @@ async def test_openai_adapter_serializes_multimodal_payload() -> None:
                         role="user",
                         content=[
                             {"type": "text", "text": "describe"},
-                            {"type": "image_url", "image_url": {"url": "data:image/png;base64,QUJD"}},
+                            {
+                                "type": "image_url",
+                                "image_url": {"url": "data:image/png;base64,QUJD"},
+                            },
                         ],
                     )
                 ],

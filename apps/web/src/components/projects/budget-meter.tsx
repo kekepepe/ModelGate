@@ -35,10 +35,7 @@ export function BudgetMeter({ usage, budget }: Props) {
   const runtimeMax = budget?.maxRuntimeSeconds ?? 600;
 
   return (
-    <div
-      className="rounded-lg border bg-card p-4"
-      data-testid="budget-meter"
-    >
+    <div className="rounded-lg border bg-card p-4" data-testid="budget-meter">
       <div className="mb-3 flex items-center justify-between">
         <h3 className="text-sm font-semibold">Budget</h3>
         <span className="text-xs text-muted-foreground">live usage</span>

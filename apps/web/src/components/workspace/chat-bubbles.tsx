@@ -15,7 +15,10 @@ export function UserMessage({ message }: { message: ChatMessage }) {
         {message.attachments && message.attachments.length > 0 ? (
           <div className="mt-2 flex flex-wrap gap-1">
             {message.attachments.map((a) => (
-              <span key={a.fileId} className="rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[10px]">
+              <span
+                key={a.fileId}
+                className="rounded bg-primary-foreground/15 px-1.5 py-0.5 text-[10px]"
+              >
                 📎 {a.name}
               </span>
             ))}

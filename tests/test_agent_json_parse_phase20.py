@@ -35,7 +35,6 @@ from app.services.project_runtime.agents import (  # noqa: E402
 )
 from app.services.project_runtime.budget import Budget, BudgetTracker  # noqa: E402
 
-
 # ── pure-function tests (no DB) ──────────────────────────────────────────────
 
 
@@ -57,11 +56,11 @@ class TestTryParseJson:
 
     def test_prose_prefix_and_suffix_with_fence(self):
         text = (
-            'I will now produce the JSON:\n'
-            '```json\n'
+            "I will now produce the JSON:\n"
+            "```json\n"
             '{"role": "planner", "tasks": []}\n'
-            '```\n'
-            'Let me know if you need adjustments.'
+            "```\n"
+            "Let me know if you need adjustments."
         )
         assert _try_parse_json(text) == {"role": "planner", "tasks": []}
 
@@ -139,9 +138,7 @@ class _FakeRun:
 
 class TestRunAgentParseFailureBranch:
     @pytest.mark.asyncio
-    async def test_unparseable_output_lands_in_output_json_raw(
-        self, session, monkeypatch
-    ):
+    async def test_unparseable_output_lands_in_output_json_raw(self, session, monkeypatch):
         pr = _make_project_run(session)
 
         async def fake_run_chat(**kwargs):
@@ -172,9 +169,7 @@ class TestRunAgentParseFailureBranch:
 
 class TestRunAgentSystemPromptForwarded:
     @pytest.mark.asyncio
-    async def test_system_prompt_passed_as_top_level_kwarg(
-        self, session, monkeypatch
-    ):
+    async def test_system_prompt_passed_as_top_level_kwarg(self, session, monkeypatch):
         pr = _make_project_run(session)
         captured: dict = {}
 

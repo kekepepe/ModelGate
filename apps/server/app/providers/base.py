@@ -53,7 +53,9 @@ class ChatInput(BaseModel):
     adapter_config: dict[str, Any] = Field(default_factory=dict)
     request_id: str
     timeout_seconds: float = 120
-    cancel_event: Any = None  # asyncio.Event | None — typed as Any so pydantic keeps it out of the schema
+    cancel_event: Any = (
+        None  # asyncio.Event | None — typed as Any so pydantic keeps it out of the schema
+    )
 
 
 class ChatOutput(BaseModel):
@@ -97,21 +99,20 @@ class GenerationOutput(BaseModel):
 class ProviderAdapter(Protocol):
     provider_id: str
 
-    async def chat(self, input_data: ChatInput) -> ChatOutput:
-        ...
+    async def chat(self, input_data: ChatInput) -> ChatOutput: ...
 
-    def stream_chat(self, input_data: ChatInput) -> AsyncIterator[ChatStreamEvent]:
-        ...
+    def stream_chat(self, input_data: ChatInput) -> AsyncIterator[ChatStreamEvent]: ...
 
 
 class GenerationAdapter(Protocol):
     provider_id: str
 
-    async def create_generation_task(self, input_data: GenerationInput) -> GenerationOutput:
-        ...
+    async def create_generation_task(self, input_data: GenerationInput) -> GenerationOutput: ...
 
-    async def get_generation_task(self, input_data: GenerationInput, provider_task_id: str) -> GenerationOutput:
-        ...
+    async def get_generation_task(
+        self, input_data: GenerationInput, provider_task_id: str
+    ) -> GenerationOutput: ...
 
-    async def cancel_generation_task(self, input_data: GenerationInput, provider_task_id: str) -> GenerationOutput:
-        ...
+    async def cancel_generation_task(
+        self, input_data: GenerationInput, provider_task_id: str
+    ) -> GenerationOutput: ...

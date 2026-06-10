@@ -33,7 +33,7 @@ class Budget:
     max_same_test_failures: int = 2
 
     @classmethod
-    def from_dict(cls, data: dict | None) -> "Budget":
+    def from_dict(cls, data: dict | None) -> Budget:
         if not data:
             return cls()
         return cls(
@@ -43,9 +43,7 @@ class Budget:
             max_runtime_seconds=int(
                 data.get("maxRuntimeSeconds", data.get("max_runtime_seconds", 600))
             ),
-            max_context_files=int(
-                data.get("maxContextFiles", data.get("max_context_files", 8))
-            ),
+            max_context_files=int(data.get("maxContextFiles", data.get("max_context_files", 8))),
             max_schema_failures=int(
                 data.get("maxSchemaFailures", data.get("max_schema_failures", 2))
             ),
@@ -142,9 +140,7 @@ class BudgetTracker:
 
         Returns True if the task has exceeded ``max_schema_failures``.
         """
-        self.schema_failures_per_task[task_id] = (
-            self.schema_failures_per_task.get(task_id, 0) + 1
-        )
+        self.schema_failures_per_task[task_id] = self.schema_failures_per_task.get(task_id, 0) + 1
         return self.schema_failures_per_task[task_id] >= self.budget.max_schema_failures
 
     def record_failed_tests(self, nodeids: set[str]) -> bool:

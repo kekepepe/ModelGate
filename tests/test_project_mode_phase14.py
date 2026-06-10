@@ -43,7 +43,10 @@ def session():
 
 def _make_project_run(session) -> db_models.ProjectRun:
     pr = db_models.ProjectRun(
-        id=f"pr_{uuid4().hex}", title="t", goal="goal", status="running",
+        id=f"pr_{uuid4().hex}",
+        title="t",
+        goal="goal",
+        status="running",
     )
     session.add(pr)
     session.commit()
@@ -105,9 +108,7 @@ class TestRunIntake:
     async def test_markdown_fenced_output(self, session, mock_runtime):
         pr = _make_project_run(session)
         mock_runtime["text"] = (
-            "```json\n"
-            '{"summary": "S", "goal": "G", "risk_level": "medium"}\n'
-            "```"
+            "```json\n" '{"summary": "S", "goal": "G", "risk_level": "medium"}\n' "```"
         )
 
         from app.services.project_runtime.agents import run_intake
@@ -174,8 +175,11 @@ class TestRunPlanner:
         from app.services.project_runtime.agents import run_planner
 
         intake_output = {
-            "summary": "S", "goal": "G", "project_area": ["backend"],
-            "risk_level": "low", "expected_outputs": ["plan"],
+            "summary": "S",
+            "goal": "G",
+            "project_area": ["backend"],
+            "risk_level": "low",
+            "expected_outputs": ["plan"],
         }
         agent, output = await run_planner(
             db=session,
@@ -213,9 +217,7 @@ class TestBudgetInteraction:
     @pytest.mark.asyncio
     async def test_budget_exceeded_marks_failed(self, session, mock_runtime):
         pr = _make_project_run(session)
-        mock_runtime["text"] = (
-            '{"summary": "S", "goal": "G", "risk_level": "medium"}'
-        )
+        mock_runtime["text"] = '{"summary": "S", "goal": "G", "risk_level": "medium"}'
 
         from app.services.project_runtime.agents import run_intake
         from app.services.project_runtime.budget import BudgetExceeded
@@ -237,16 +239,17 @@ class TestBudgetInteraction:
     @pytest.mark.asyncio
     async def test_agent_call_counts_against_budget(self, session, mock_runtime):
         pr = _make_project_run(session)
-        mock_runtime["text"] = (
-            '{"summary": "S", "goal": "G", "risk_level": "medium"}'
-        )
+        mock_runtime["text"] = '{"summary": "S", "goal": "G", "risk_level": "medium"}'
 
         from app.services.project_runtime.agents import run_intake
 
         tracker = BudgetTracker(budget=Budget(max_agents=5))
         await run_intake(
-            db=session, project_run_id=pr.id, goal="g",
-            budget=tracker, model_id="gpt-4o",
+            db=session,
+            project_run_id=pr.id,
+            goal="g",
+            budget=tracker,
+            model_id="gpt-4o",
         )
         assert tracker.agents_used == 1
 
@@ -258,20 +261,25 @@ class TestArtifactAfterAgent:
     @pytest.mark.asyncio
     async def test_intake_output_can_be_artifacted(self, session, mock_runtime):
         pr = _make_project_run(session)
-        mock_runtime["text"] = (
-            '{"summary": "S", "goal": "G", "risk_level": "medium"}'
-        )
+        mock_runtime["text"] = '{"summary": "S", "goal": "G", "risk_level": "medium"}'
 
         from app.services.project_runtime.agents import run_intake
         from app.services.project_runtime.artifacts import write_artifact
 
         agent, output = await run_intake(
-            db=session, project_run_id=pr.id, goal="g",
-            budget=BudgetTracker(budget=Budget()), model_id="gpt-4o",
+            db=session,
+            project_run_id=pr.id,
+            goal="g",
+            budget=BudgetTracker(budget=Budget()),
+            model_id="gpt-4o",
         )
         art = write_artifact(
-            db=session, project_run_id=pr.id, agent_run_id=agent.id,
-            artifact_type="intake", name="intake.json", content=output,
+            db=session,
+            project_run_id=pr.id,
+            agent_run_id=agent.id,
+            artifact_type="intake",
+            name="intake.json",
+            content=output,
         )
         assert art.content_json == output
         assert art.agent_run_id == agent.id

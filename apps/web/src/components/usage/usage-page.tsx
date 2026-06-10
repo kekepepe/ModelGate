@@ -146,15 +146,7 @@ const PRESETS: { value: Preset; label: string }[] = [
   { value: "custom", label: "Custom" },
 ];
 
-const CHART_COLORS = [
-  "#6366f1",
-  "#10b981",
-  "#f59e0b",
-  "#ef4444",
-  "#0ea5e9",
-  "#a855f7",
-  "#ec4899",
-];
+const CHART_COLORS = ["#6366f1", "#10b981", "#f59e0b", "#ef4444", "#0ea5e9", "#a855f7", "#ec4899"];
 
 const STATUS_LABELS: Record<string, string> = {
   success: "Success",
@@ -167,7 +159,10 @@ const STATUS_LABELS: Record<string, string> = {
   running: "Running",
 };
 
-const STATUS_VARIANT: Record<string, "default" | "destructive" | "warning" | "info" | "secondary" | "outline"> = {
+const STATUS_VARIANT: Record<
+  string,
+  "default" | "destructive" | "warning" | "info" | "secondary" | "outline"
+> = {
   success: "default",
   failed: "destructive",
   timeout: "warning",
@@ -351,18 +346,13 @@ export function UsagePage() {
             <h2 className="text-sm font-semibold">Provider Distribution</h2>
           </div>
           <div className="p-4">
-            <ProviderDistribution
-              data={providers}
-              isLoading={providersQuery.isLoading}
-            />
+            <ProviderDistribution data={providers} isLoading={providersQuery.isLoading} />
           </div>
         </div>
         <div className="rounded-lg border bg-card">
           <div className="flex items-center justify-between border-b px-4 py-3">
             <h2 className="text-sm font-semibold">Model Usage Ranking</h2>
-            <span className="text-xs text-muted-foreground">
-              Top {models.length}
-            </span>
+            <span className="text-xs text-muted-foreground">Top {models.length}</span>
           </div>
           <div className="p-4">
             <ModelRanking data={models} isLoading={modelsQuery.isLoading} />
@@ -377,21 +367,19 @@ export function UsagePage() {
             {logs.length} {logs.length === 1 ? "request" : "requests"}
           </span>
         </div>
-        <RecentLogsTable
-          data={logs}
-          isLoading={logsQuery.isLoading}
-          onSelect={setSelectedLogId}
-        />
+        <RecentLogsTable data={logs} isLoading={logsQuery.isLoading} onSelect={setSelectedLogId} />
       </div>
 
       {selectedLogId && (
-        <RequestDetailDrawer
-          logId={selectedLogId}
-          onClose={() => setSelectedLogId(null)}
-        />
+        <RequestDetailDrawer logId={selectedLogId} onClose={() => setSelectedLogId(null)} />
       )}
 
-      {isLoading && !summary && !daily.length && !providers.length && !models.length && !logs.length ? (
+      {isLoading &&
+      !summary &&
+      !daily.length &&
+      !providers.length &&
+      !models.length &&
+      !logs.length ? (
         <div className="text-xs text-muted-foreground">Loading…</div>
       ) : null}
     </div>
@@ -495,13 +483,7 @@ function SummaryCards({
         icon={<DollarSign className="h-4 w-4" />}
         label="Total Cost"
         value={isLoading ? "—" : formatCost(cost ?? 0)}
-        sub={
-          !isLoading && (cost ?? 0) === 0
-            ? "Cost estimation pending"
-            : !isLoading
-              ? "USD"
-              : ""
-        }
+        sub={!isLoading && (cost ?? 0) === 0 ? "Cost estimation pending" : !isLoading ? "USD" : ""}
         muted={!isLoading && (cost ?? 0) === 0}
       />
       <MetricCard
@@ -518,7 +500,11 @@ function SummaryCards({
         icon={<AlertOctagon className="h-4 w-4" />}
         label="Failed Requests"
         value={isLoading ? "—" : formatNumber(failed ?? 0)}
-        sub={!isLoading && totalRequests && failed ? `${((failed / totalRequests) * 100).toFixed(1)}% of total` : ""}
+        sub={
+          !isLoading && totalRequests && failed
+            ? `${((failed / totalRequests) * 100).toFixed(1)}% of total`
+            : ""
+        }
       />
     </div>
   );
@@ -555,13 +541,7 @@ function MetricCard({
 
 type TrendMetric = "requests" | "tokens" | "cost";
 
-function DailyTrendChart({
-  data,
-  isLoading,
-}: {
-  data: DailyUsage[];
-  isLoading: boolean;
-}) {
+function DailyTrendChart({ data, isLoading }: { data: DailyUsage[]; isLoading: boolean }) {
   const [metric, setMetric] = useState<TrendMetric>("requests");
 
   if (isLoading) {
@@ -605,7 +585,12 @@ function DailyTrendChart({
         <ResponsiveContainer width="100%" height="100%">
           <ComposedChart data={formatted} margin={{ top: 8, right: 16, left: 0, bottom: 0 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-            <XAxis dataKey="date" tickFormatter={formatDay} tick={{ fontSize: 11 }} stroke="hsl(var(--muted-foreground))" />
+            <XAxis
+              dataKey="date"
+              tickFormatter={formatDay}
+              tick={{ fontSize: 11 }}
+              stroke="hsl(var(--muted-foreground))"
+            />
             <YAxis
               tickFormatter={(value: number) => formatNumber(Number(value))}
               tick={{ fontSize: 11 }}
@@ -620,7 +605,12 @@ function DailyTrendChart({
             />
             <Legend wrapperStyle={{ fontSize: 12 }} />
             {metric === "requests" && (
-              <Bar dataKey="requests" name="Requests" fill={CHART_COLORS[0]} radius={[4, 4, 0, 0]} />
+              <Bar
+                dataKey="requests"
+                name="Requests"
+                fill={CHART_COLORS[0]}
+                radius={[4, 4, 0, 0]}
+              />
             )}
             {metric === "tokens" && (
               <Line
@@ -651,13 +641,7 @@ function DailyTrendChart({
 
 // --- Provider distribution -------------------------------------------------
 
-function ProviderDistribution({
-  data,
-  isLoading,
-}: {
-  data: ProviderUsage[];
-  isLoading: boolean;
-}) {
+function ProviderDistribution({ data, isLoading }: { data: ProviderUsage[]; isLoading: boolean }) {
   if (isLoading) {
     return <div className="h-64 animate-pulse rounded bg-muted/40" />;
   }
@@ -737,7 +721,11 @@ function UsageHeatmap({ data, isLoading }: { data: ModelUsage[]; isLoading: bool
     return <div className="h-32 animate-pulse rounded bg-muted/30" />;
   }
   if (data.length === 0) {
-    return <div className="py-6 text-center text-xs text-muted-foreground">No usage data for this period.</div>;
+    return (
+      <div className="py-6 text-center text-xs text-muted-foreground">
+        No usage data for this period.
+      </div>
+    );
   }
 
   // Build provider → models map
@@ -803,7 +791,8 @@ function UsageHeatmap({ data, isLoading }: { data: ModelUsage[]; isLoading: bool
                   className="flex items-center justify-center rounded-sm px-1 py-1.5 text-[10px] font-medium"
                   style={{
                     backgroundColor: `hsl(var(--primary) / ${intensity * 0.6})`,
-                    color: intensity > 0.4 ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))",
+                    color:
+                      intensity > 0.4 ? "hsl(var(--primary-foreground))" : "hsl(var(--foreground))",
                   }}
                   title={`${provider} × ${model}: ${count} requests`}
                 >
@@ -820,29 +809,24 @@ function UsageHeatmap({ data, isLoading }: { data: ModelUsage[]; isLoading: bool
 
 // --- Model ranking ---------------------------------------------------------
 
-type SortKey = "model" | "provider" | "requests" | "tokens" | "cost" | "successRate" | "avgLatencyMs";
+type SortKey =
+  | "model"
+  | "provider"
+  | "requests"
+  | "tokens"
+  | "cost"
+  | "successRate"
+  | "avgLatencyMs";
 type SortDir = "asc" | "desc";
 
-function ModelRanking({
-  data,
-  isLoading,
-}: {
-  data: ModelUsage[];
-  isLoading: boolean;
-}) {
+function ModelRanking({ data, isLoading }: { data: ModelUsage[]; isLoading: boolean }) {
   const [sort, setSort] = useState<{ key: SortKey; dir: SortDir }>({
     key: "requests",
     dir: "desc",
   });
 
   const sorted = useMemo(() => {
-    const numericKeys: SortKey[] = [
-      "requests",
-      "tokens",
-      "cost",
-      "successRate",
-      "avgLatencyMs",
-    ];
+    const numericKeys: SortKey[] = ["requests", "tokens", "cost", "successRate", "avgLatencyMs"];
     const isNumeric = numericKeys.includes(sort.key);
     const rows = [...data];
     rows.sort((a, b) => {
@@ -862,7 +846,9 @@ function ModelRanking({
   }, [data, sort]);
 
   const onHeaderClick = (key: SortKey) => {
-    setSort((prev) => (prev.key === key ? { key, dir: prev.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" }));
+    setSort((prev) =>
+      prev.key === key ? { key, dir: prev.dir === "desc" ? "asc" : "desc" } : { key, dir: "desc" },
+    );
   };
 
   if (isLoading) {
@@ -881,13 +867,53 @@ function ModelRanking({
       <table className="w-full text-left text-sm">
         <thead>
           <tr className="border-b text-xs text-muted-foreground">
-            <SortableTh label="Model" active={sort.key === "model"} dir={sort.dir} onClick={() => onHeaderClick("model")} />
-            <SortableTh label="Provider" active={sort.key === "provider"} dir={sort.dir} onClick={() => onHeaderClick("provider")} />
-            <SortableTh label="Requests" active={sort.key === "requests"} dir={sort.dir} onClick={() => onHeaderClick("requests")} align="right" />
-            <SortableTh label="Tokens" active={sort.key === "tokens"} dir={sort.dir} onClick={() => onHeaderClick("tokens")} align="right" />
-            <SortableTh label="Cost" active={sort.key === "cost"} dir={sort.dir} onClick={() => onHeaderClick("cost")} align="right" />
-            <SortableTh label="Success Rate" active={sort.key === "successRate"} dir={sort.dir} onClick={() => onHeaderClick("successRate")} align="right" />
-            <SortableTh label="Avg Latency" active={sort.key === "avgLatencyMs"} dir={sort.dir} onClick={() => onHeaderClick("avgLatencyMs")} align="right" />
+            <SortableTh
+              label="Model"
+              active={sort.key === "model"}
+              dir={sort.dir}
+              onClick={() => onHeaderClick("model")}
+            />
+            <SortableTh
+              label="Provider"
+              active={sort.key === "provider"}
+              dir={sort.dir}
+              onClick={() => onHeaderClick("provider")}
+            />
+            <SortableTh
+              label="Requests"
+              active={sort.key === "requests"}
+              dir={sort.dir}
+              onClick={() => onHeaderClick("requests")}
+              align="right"
+            />
+            <SortableTh
+              label="Tokens"
+              active={sort.key === "tokens"}
+              dir={sort.dir}
+              onClick={() => onHeaderClick("tokens")}
+              align="right"
+            />
+            <SortableTh
+              label="Cost"
+              active={sort.key === "cost"}
+              dir={sort.dir}
+              onClick={() => onHeaderClick("cost")}
+              align="right"
+            />
+            <SortableTh
+              label="Success Rate"
+              active={sort.key === "successRate"}
+              dir={sort.dir}
+              onClick={() => onHeaderClick("successRate")}
+              align="right"
+            />
+            <SortableTh
+              label="Avg Latency"
+              active={sort.key === "avgLatencyMs"}
+              dir={sort.dir}
+              onClick={() => onHeaderClick("avgLatencyMs")}
+              align="right"
+            />
           </tr>
         </thead>
         <tbody className="divide-y divide-border">
@@ -895,9 +921,13 @@ function ModelRanking({
             <tr key={row.modelId} className="hover:bg-muted/30">
               <td className="px-2 py-2 font-mono text-xs">{row.model}</td>
               <td className="px-2 py-2 text-xs text-muted-foreground">{row.provider}</td>
-              <td className="px-2 py-2 text-right text-xs font-medium">{formatNumber(row.requests)}</td>
+              <td className="px-2 py-2 text-right text-xs font-medium">
+                {formatNumber(row.requests)}
+              </td>
               <td className="px-2 py-2 text-right text-xs">{formatNumber(row.tokens)}</td>
-              <td className="px-2 py-2 text-right text-xs">{row.cost > 0 ? `$${row.cost.toFixed(2)}` : "—"}</td>
+              <td className="px-2 py-2 text-right text-xs">
+                {row.cost > 0 ? `$${row.cost.toFixed(2)}` : "—"}
+              </td>
               <td className="px-2 py-2 text-right text-xs">{formatPercent(row.successRate)}</td>
               <td className="px-2 py-2 text-right text-xs">{formatLatency(row.avgLatencyMs)}</td>
             </tr>
@@ -951,9 +981,7 @@ function RecentLogsTable({
   }
   if (data.length === 0) {
     return (
-      <div className="p-6 text-center text-sm text-muted-foreground">
-        No requests in this range
-      </div>
+      <div className="p-6 text-center text-sm text-muted-foreground">No requests in this range</div>
     );
   }
   return (
@@ -966,9 +994,13 @@ function RecentLogsTable({
             <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Model</th>
             <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Provider</th>
             <th className="px-3 py-2 text-xs font-medium text-muted-foreground">Status</th>
-            <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Tokens</th>
+            <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
+              Tokens
+            </th>
             <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Cost</th>
-            <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">Latency</th>
+            <th className="px-3 py-2 text-right text-xs font-medium text-muted-foreground">
+              Latency
+            </th>
             <th className="px-3 py-2"></th>
           </tr>
         </thead>
@@ -985,7 +1017,9 @@ function RecentLogsTable({
               <td className="px-3 py-2 text-xs">{log.taskType ?? "—"}</td>
               <td className="px-3 py-2 font-mono text-xs">{log.modelId ?? "—"}</td>
               <td className="px-3 py-2 text-xs">
-                <Badge variant="outline" className="text-[10px]">{log.providerId}</Badge>
+                <Badge variant="outline" className="text-[10px]">
+                  {log.providerId}
+                </Badge>
               </td>
               <td className="px-3 py-2 text-xs">
                 {log.status ? (
@@ -998,7 +1032,9 @@ function RecentLogsTable({
               </td>
               <td className="px-3 py-2 text-right text-xs">{formatNumber(log.totalTokens)}</td>
               <td className="px-3 py-2 text-right text-xs">
-                {log.estimatedCost != null && log.estimatedCost > 0 ? `$${log.estimatedCost.toFixed(4)}` : "—"}
+                {log.estimatedCost != null && log.estimatedCost > 0
+                  ? `$${log.estimatedCost.toFixed(4)}`
+                  : "—"}
               </td>
               <td className="px-3 py-2 text-right text-xs">{formatLatency(log.latencyMs)}</td>
               <td className="px-3 py-2 text-right text-muted-foreground">
@@ -1014,13 +1050,7 @@ function RecentLogsTable({
 
 // --- Request detail drawer -------------------------------------------------
 
-function RequestDetailDrawer({
-  logId,
-  onClose,
-}: {
-  logId: string;
-  onClose: () => void;
-}) {
+function RequestDetailDrawer({ logId, onClose }: { logId: string; onClose: () => void }) {
   const detailQuery = useQuery({
     queryKey: ["usage-log", logId],
     queryFn: () => getData<UsageLogDetail>(`/usage/logs/${logId}`),
@@ -1062,9 +1092,7 @@ function RequestDetailDrawer({
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-5 py-4">
-          {detailQuery.isLoading && (
-            <div className="h-32 animate-pulse rounded bg-muted/40" />
-          )}
+          {detailQuery.isLoading && <div className="h-32 animate-pulse rounded bg-muted/40" />}
           {detailQuery.isError && (
             <div className="rounded-md border border-destructive/40 bg-destructive/5 p-3 text-sm text-destructive">
               Failed to load request detail.
@@ -1088,10 +1116,7 @@ function RequestDetailDrawer({
                     )
                   }
                 />
-                <DetailRow
-                  label="Created"
-                  value={formatDateTime(log.createdAt)}
-                />
+                <DetailRow label="Created" value={formatDateTime(log.createdAt)} />
               </DetailSection>
 
               <DetailSection title="Token Usage">

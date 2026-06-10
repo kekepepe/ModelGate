@@ -16,7 +16,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, event
-from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -32,7 +31,7 @@ class _FakeRedis:
         pass
 
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
         return cls()
 
     def ping(self) -> None:
@@ -139,10 +138,7 @@ class TestDeleteProjectRunCascade:
 
         with SessionLocal() as db:
             assert db.query(db_models.ProjectRun).filter_by(id=run_id).first() is None
-            assert (
-                db.query(db_models.ProjectTask).filter_by(project_run_id=run_id).count()
-                == 0
-            )
+            assert db.query(db_models.ProjectTask).filter_by(project_run_id=run_id).count() == 0
 
     def test_delete_with_agent_runs_and_artifacts_succeeds(self, client):
         """Run with tasks, agent_runs (FK → tasks), and artifacts (FK → tasks + agent_runs).
@@ -154,9 +150,7 @@ class TestDeleteProjectRunCascade:
         with SessionLocal() as db:
             run_id = _make_project_run(db, run_id="run-with-children")
             parent_id = _make_task(db, task_id="tx-parent", run_id=run_id)
-            child_id = _make_task(
-                db, task_id="tx-child", run_id=run_id, parent_id=parent_id
-            )
+            child_id = _make_task(db, task_id="tx-child", run_id=run_id, parent_id=parent_id)
 
             agent_run = db_models.AgentRun(
                 id="ar-1",
@@ -190,24 +184,10 @@ class TestDeleteProjectRunCascade:
 
         with SessionLocal() as db:
             assert db.query(db_models.ProjectRun).filter_by(id=run_id).first() is None
-            assert (
-                db.query(db_models.ProjectTask).filter_by(project_run_id=run_id).count()
-                == 0
-            )
-            assert (
-                db.query(db_models.AgentRun).filter_by(project_run_id=run_id).count()
-                == 0
-            )
-            assert (
-                db.query(db_models.Artifact).filter_by(project_run_id=run_id).count()
-                == 0
-            )
-            assert (
-                db.query(db_models.ProjectMemory)
-                .filter_by(project_run_id=run_id)
-                .count()
-                == 0
-            )
+            assert db.query(db_models.ProjectTask).filter_by(project_run_id=run_id).count() == 0
+            assert db.query(db_models.AgentRun).filter_by(project_run_id=run_id).count() == 0
+            assert db.query(db_models.Artifact).filter_by(project_run_id=run_id).count() == 0
+            assert db.query(db_models.ProjectMemory).filter_by(project_run_id=run_id).count() == 0
 
     def test_delete_nonexistent_returns_404(self, client):
         c, _ = client

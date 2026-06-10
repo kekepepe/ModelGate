@@ -50,12 +50,13 @@ test.describe("API Keys page", () => {
 
     await page.goto("/api-keys");
 
-    await expect(
-      page.getByRole("heading", { name: "API Keys", exact: true })
-    ).toBeVisible();
+    await expect(page.getByRole("heading", { name: "API Keys", exact: true })).toBeVisible();
     await expect(page.getByRole("main").getByText("Xiaomi MiMo")).toBeVisible();
 
-    await page.getByRole("button", { name: /^Test$/ }).first().click();
+    await page
+      .getByRole("button", { name: /^Test$/ })
+      .first()
+      .click();
 
     await expect(page.getByText("Connected", { exact: true })).toBeVisible({ timeout: 5000 });
   });

@@ -35,57 +35,76 @@ class _FakeRun:
 
 
 _CANNED_BY_ROLE = {
-    "intake": json.dumps({
-        "summary": "Add health check",
-        "goal": "Add /health endpoint",
-        "project_area": ["backend"],
-        "risk_level": "low",
-        "requires_repo_access": False,
-        "expected_outputs": ["plan"],
-    }),
-    "planner": json.dumps({
-        "summary": "Plan health endpoint",
-        "project_title": "Health Check",
-        "tasks": [
-            {
-                "id": "t1", "title": "Backend endpoint", "role": "backend",
-                "allowed_files": ["apps/server/app/api/health.py"],
-                "acceptance_criteria": ["returns 200"], "depends_on": [],
-            },
-            {
-                "id": "t2", "title": "Frontend button", "role": "frontend",
-                "allowed_files": ["apps/web/src/app/health/page.tsx"],
-                "acceptance_criteria": ["renders"], "depends_on": [],
-            },
-        ],
-        "parallel_groups": [["t1", "t2"]],
-    }),
-    "worker": json.dumps({
-        "summary": "Add the thing",
-        "files_to_change": ["x.py"],
-        "proposed_changes": [{"file": "x.py", "change_kind": "modify",
-                              "description": "do thing"}],
-        "tests": ["test_x"], "risks": [], "questions": [],
-    }),
-    "supervisor": json.dumps({
-        "summary": "OK",
-        "pass": True,
-        "blocking_issues": [],
-        "non_blocking_issues": [],
-        "missing_tests": [],
-        "conflicts": [],
-        "next_actions": [],
-    }),
-    "integrator": json.dumps({
-        "summary": "Final plan ready",
-        "final_plan": "# Implementation Plan\n\n1. Add endpoint\n2. Add button",
-        "ordered_changes": [{"step": 1, "file": "x.py", "what": "add"}],
-        "test_commands": ["pytest"],
-        "risks": [],
-        "rollback": "git revert",
-        "progress_update": "## Done",
-        "decisions_update": "### D-2026-06-08-X",
-    }),
+    "intake": json.dumps(
+        {
+            "summary": "Add health check",
+            "goal": "Add /health endpoint",
+            "project_area": ["backend"],
+            "risk_level": "low",
+            "requires_repo_access": False,
+            "expected_outputs": ["plan"],
+        }
+    ),
+    "planner": json.dumps(
+        {
+            "summary": "Plan health endpoint",
+            "project_title": "Health Check",
+            "tasks": [
+                {
+                    "id": "t1",
+                    "title": "Backend endpoint",
+                    "role": "backend",
+                    "allowed_files": ["apps/server/app/api/health.py"],
+                    "acceptance_criteria": ["returns 200"],
+                    "depends_on": [],
+                },
+                {
+                    "id": "t2",
+                    "title": "Frontend button",
+                    "role": "frontend",
+                    "allowed_files": ["apps/web/src/app/health/page.tsx"],
+                    "acceptance_criteria": ["renders"],
+                    "depends_on": [],
+                },
+            ],
+            "parallel_groups": [["t1", "t2"]],
+        }
+    ),
+    "worker": json.dumps(
+        {
+            "summary": "Add the thing",
+            "files_to_change": ["x.py"],
+            "proposed_changes": [
+                {"file": "x.py", "change_kind": "modify", "description": "do thing"}
+            ],
+            "tests": ["test_x"],
+            "risks": [],
+            "questions": [],
+        }
+    ),
+    "supervisor": json.dumps(
+        {
+            "summary": "OK",
+            "pass": True,
+            "blocking_issues": [],
+            "non_blocking_issues": [],
+            "missing_tests": [],
+            "conflicts": [],
+            "next_actions": [],
+        }
+    ),
+    "integrator": json.dumps(
+        {
+            "summary": "Final plan ready",
+            "final_plan": "# Implementation Plan\n\n1. Add endpoint\n2. Add button",
+            "ordered_changes": [{"step": 1, "file": "x.py", "what": "add"}],
+            "test_commands": ["pytest"],
+            "risks": [],
+            "rollback": "git revert",
+            "progress_update": "## Done",
+            "decisions_update": "### D-2026-06-08-X",
+        }
+    ),
 }
 
 
@@ -139,14 +158,20 @@ class TestFullPipeline:
         SL = env
         pr_id = f"pr_{uuid4().hex}"
         with SL() as s:
-            s.add(db_models.ProjectRun(
-                id=pr_id, title="t", goal="Add /health endpoint",
-                status="pending", planner_model_id="gpt-4o",
-            ))
+            s.add(
+                db_models.ProjectRun(
+                    id=pr_id,
+                    title="t",
+                    goal="Add /health endpoint",
+                    status="pending",
+                    planner_model_id="gpt-4o",
+                )
+            )
             s.commit()
             pr = s.query(db_models.ProjectRun).filter_by(id=pr_id).one()
 
         from app.services.project_runtime.orchestrator import ProjectOrchestrator
+
         orch = ProjectOrchestrator()
         await orch.run(project_run=pr, budget=Budget(max_agents=10))
 
@@ -164,21 +189,26 @@ class TestFullPipeline:
         SL = env
         pr_id = f"pr_{uuid4().hex}"
         with SL() as s:
-            s.add(db_models.ProjectRun(
-                id=pr_id, title="t", goal="Add /health endpoint",
-                status="pending", planner_model_id="gpt-4o",
-            ))
+            s.add(
+                db_models.ProjectRun(
+                    id=pr_id,
+                    title="t",
+                    goal="Add /health endpoint",
+                    status="pending",
+                    planner_model_id="gpt-4o",
+                )
+            )
             s.commit()
             pr = s.query(db_models.ProjectRun).filter_by(id=pr_id).one()
 
         from app.services.project_runtime.orchestrator import ProjectOrchestrator
+
         orch = ProjectOrchestrator()
         await orch.run(project_run=pr, budget=Budget(max_agents=10))
 
         with SL() as s:
             task_ids = [
-                t.id for t in s.query(db_models.ProjectTask)
-                .filter_by(project_run_id=pr_id).all()
+                t.id for t in s.query(db_models.ProjectTask).filter_by(project_run_id=pr_id).all()
             ]
 
         await orch.run_approved(
@@ -216,14 +246,20 @@ class TestFullPipeline:
         SL = env
         pr_id = f"pr_{uuid4().hex}"
         with SL() as s:
-            s.add(db_models.ProjectRun(
-                id=pr_id, title="t", goal="Add /health endpoint",
-                status="pending", planner_model_id="gpt-4o",
-            ))
+            s.add(
+                db_models.ProjectRun(
+                    id=pr_id,
+                    title="t",
+                    goal="Add /health endpoint",
+                    status="pending",
+                    planner_model_id="gpt-4o",
+                )
+            )
             s.commit()
             pr = s.query(db_models.ProjectRun).filter_by(id=pr_id).one()
 
         from app.services.project_runtime.orchestrator import ProjectOrchestrator
+
         orch = ProjectOrchestrator()
 
         # max_agents=1 → after intake (1), planner will fail.
@@ -238,16 +274,23 @@ class TestFullPipeline:
         SL = env
         pr_id = f"pr_{uuid4().hex}"
         with SL() as s:
-            s.add(db_models.ProjectRun(
-                id=pr_id, title="t", goal="Add /health endpoint",
-                status="pending", planner_model_id="gpt-4o",
-            ))
+            s.add(
+                db_models.ProjectRun(
+                    id=pr_id,
+                    title="t",
+                    goal="Add /health endpoint",
+                    status="pending",
+                    planner_model_id="gpt-4o",
+                )
+            )
             s.commit()
             pr = s.query(db_models.ProjectRun).filter_by(id=pr_id).one()
 
         from app.services.project_runtime.orchestrator import (
-            ProjectOrchestrator, pop_events,
+            ProjectOrchestrator,
+            pop_events,
         )
+
         orch = ProjectOrchestrator()
         await orch.run(project_run=pr, budget=Budget(max_agents=10))
 

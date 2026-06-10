@@ -29,7 +29,9 @@ def get_provider_secret(provider_id: str, env_key: str | None, db: Session | Non
     return settings.get_secret(env_key or "")
 
 
-def get_provider_secret_source(provider_id: str, env_key: str | None, db: Session | None = None) -> str | None:
+def get_provider_secret_source(
+    provider_id: str, env_key: str | None, db: Session | None = None
+) -> str | None:
     if get_local_provider_secret(provider_id, db=db):
         return "local"
     if settings.get_secret(env_key or ""):
@@ -87,7 +89,10 @@ def list_local_provider_secrets() -> list[str]:
         with SessionLocal() as session:
             return [
                 secret
-                for secret in (decrypt_provider_secret(record) for record in session.scalars(select(ProviderSecret)).all())
+                for secret in (
+                    decrypt_provider_secret(record)
+                    for record in session.scalars(select(ProviderSecret)).all()
+                )
                 if secret and len(secret) >= 8
             ]
     except Exception:
@@ -122,7 +127,9 @@ def _derive_key() -> bytes:
     material = settings.modelgate_secret_key
     if not material:
         if settings.app_env.lower() == "production":
-            raise RuntimeError("MODELGATE_SECRET_KEY is required for encrypted provider key storage.")
+            raise RuntimeError(
+                "MODELGATE_SECRET_KEY is required for encrypted provider key storage."
+            )
         material = DEV_SECRET_MATERIAL
     return HKDF(
         algorithm=hashes.SHA256(),

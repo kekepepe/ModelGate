@@ -76,9 +76,7 @@ export function AgentRunDrawer({ agentRun, task, artifacts, onOpenChange }: Prop
           <>
             <SheetHeader>
               <div className="flex items-center gap-2">
-                <StatusPill tone={statusTone(agentRun.status)}>
-                  {agentRun.status}
-                </StatusPill>
+                <StatusPill tone={statusTone(agentRun.status)}>{agentRun.status}</StatusPill>
                 <SheetTitle className="text-sm">
                   {formatRoleLabel(agentRun.role)}
                   {task ? ` · ${task.title}` : ""}
@@ -89,7 +87,10 @@ export function AgentRunDrawer({ agentRun, task, artifacts, onOpenChange }: Prop
               </SheetDescription>
             </SheetHeader>
 
-            <div className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4" data-testid="agent-run-stats">
+            <div
+              className="grid grid-cols-2 gap-3 text-xs sm:grid-cols-4"
+              data-testid="agent-run-stats"
+            >
               <Stat label="Model" value={agentRun.modelId ?? "—"} />
               <Stat label="Provider" value={agentRun.providerId ?? "—"} />
               <Stat label="Input tokens" value={String(agentRun.inputTokens ?? "—")} />
@@ -105,13 +106,9 @@ export function AgentRunDrawer({ agentRun, task, artifacts, onOpenChange }: Prop
                 className="rounded-md border border-rose-300 bg-rose-50 p-3 text-xs text-rose-700 dark:bg-rose-950/30 dark:text-rose-300"
                 data-testid="agent-run-error"
               >
-                <p className="font-semibold">
-                  {agentRun.errorType ?? "Error"}
-                </p>
+                <p className="font-semibold">{agentRun.errorType ?? "Error"}</p>
                 {agentRun.errorMessage && (
-                  <p className="mt-1 whitespace-pre-wrap break-words">
-                    {agentRun.errorMessage}
-                  </p>
+                  <p className="mt-1 whitespace-pre-wrap break-words">{agentRun.errorMessage}</p>
                 )}
               </div>
             ) : null}
@@ -177,9 +174,7 @@ export function AgentRunDrawer({ agentRun, task, artifacts, onOpenChange }: Prop
 function Stat({ label, value }: { label: string; value: string }) {
   return (
     <div className="rounded-md border bg-background p-2">
-      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">
-        {label}
-      </p>
+      <p className="text-[10px] uppercase tracking-wider text-muted-foreground">{label}</p>
       <p className="mt-0.5 truncate font-mono text-xs">{value}</p>
     </div>
   );

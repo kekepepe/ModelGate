@@ -1,7 +1,7 @@
-from pathlib import Path
 import asyncio
 import socket
 import sys
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -12,7 +12,11 @@ sys.path.insert(0, str(SERVER_ROOT))
 from app.db.models import FileRecord, RequestLog, Run, UsageLog  # noqa: E402
 from app.main import app  # noqa: E402
 from app.providers.base import ChatOutput, ChatStreamEvent  # noqa: E402
-from app.services.chat_runtime import FILE_CONTEXT_BEGIN, FILE_CONTEXT_END, _system_prompt  # noqa: E402
+from app.services.chat_runtime import (  # noqa: E402
+    FILE_CONTEXT_BEGIN,
+    FILE_CONTEXT_END,
+    _system_prompt,
+)
 
 
 def require_local_port(port: int) -> None:
@@ -45,7 +49,9 @@ class StreamingAdapter:
 def test_chat_runtime_injects_file_context_and_saves_logs(monkeypatch) -> None:
     require_local_port(5432)
     require_local_port(6379)
-    monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CapturingAdapter())
+    monkeypatch.setattr(
+        "app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CapturingAdapter()
+    )
 
     with TestClient(app) as client:
         upload_response = client.post(
@@ -99,7 +105,9 @@ def test_chat_runtime_injects_file_context_and_saves_logs(monkeypatch) -> None:
 def test_chat_runtime_stream_endpoint_saves_completed_run(monkeypatch) -> None:
     require_local_port(5432)
     require_local_port(6379)
-    monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: StreamingAdapter())
+    monkeypatch.setattr(
+        "app.services.chat_runtime.create_chat_adapter", lambda **kwargs: StreamingAdapter()
+    )
 
     with TestClient(app) as client:
         response = client.post(
@@ -138,7 +146,7 @@ def test_task_system_prompts_are_role_specific_and_keep_file_context_out_of_syst
 
 
 def test_request_cancel_sets_event_and_returns_task_reference() -> None:
-    from app.services.chat_runtime import ChatRuntime  # noqa: PLC0415
+    from app.services.chat_runtime import ChatRuntime
 
     runtime = ChatRuntime()
 
@@ -163,14 +171,14 @@ def test_run_chat_inflight_cancel_writes_cancelled_status(monkeypatch) -> None:
     """
     require_local_port(5432)
     require_local_port(6379)
-    from app.db.session import SessionLocal  # noqa: PLC0415
-    from app.services.chat_runtime import chat_runtime  # noqa: PLC0415
+    from app.db.session import SessionLocal
+    from app.services.chat_runtime import chat_runtime
 
     class SlowAdapter:
         def __init__(self) -> None:
             self.cancelled_seen = False
 
-        async def chat(self, input_data):  # noqa: ARG002
+        async def chat(self, input_data):
             try:
                 await asyncio.sleep(30)
             except asyncio.CancelledError:
@@ -238,11 +246,11 @@ def test_stream_chat_inflight_cancel_writes_cancelled_status(monkeypatch) -> Non
     """
     require_local_port(5432)
     require_local_port(6379)
-    from app.db.session import SessionLocal  # noqa: PLC0415
-    from app.services.chat_runtime import chat_runtime  # noqa: PLC0415
+    from app.db.session import SessionLocal
+    from app.services.chat_runtime import chat_runtime
 
     class CancelAfterFirstDelta:
-        async def stream_chat(self, input_data):  # noqa: ARG002
+        async def stream_chat(self, input_data):
             yield ChatStreamEvent(type="delta", delta="hello ")
             # Honor the cancel event raised by the cancel endpoint, then
             # short-circuit with a clean CancelledError that the runtime
@@ -251,7 +259,9 @@ def test_stream_chat_inflight_cancel_writes_cancelled_status(monkeypatch) -> Non
                 raise asyncio.CancelledError()
             yield ChatStreamEvent(type="done", content="hello ", usage={})
 
-    monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CancelAfterFirstDelta())
+    monkeypatch.setattr(
+        "app.services.chat_runtime.create_chat_adapter", lambda **kwargs: CancelAfterFirstDelta()
+    )
 
     async def drive_and_cancel() -> str:
         events: list[dict] = []
@@ -295,7 +305,9 @@ def test_stream_chat_inflight_cancel_writes_cancelled_status(monkeypatch) -> Non
     with SessionLocal() as db:
         run = db.get(Run, run_id)
         assert run is not None
-        assert run.status == "cancelled", f"expected cancelled, got {run.status} (error_type={run.error_type})"
+        assert (
+            run.status == "cancelled"
+        ), f"expected cancelled, got {run.status} (error_type={run.error_type})"
         log = (
             db.query(RequestLog)
             .filter(RequestLog.record_id == run_id, RequestLog.record_type == "run")

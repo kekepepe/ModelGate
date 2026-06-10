@@ -1,7 +1,7 @@
-from io import BytesIO
-from pathlib import Path
 import socket
 import sys
+from io import BytesIO
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient

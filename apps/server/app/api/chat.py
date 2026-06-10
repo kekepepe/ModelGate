@@ -14,7 +14,6 @@ from app.providers.base import ChatMessage
 from app.services.chat_runtime import FILE_CONTEXT_BEGIN, FILE_CONTEXT_END, chat_runtime
 from app.services.context_builder import (
     DEFAULT_BUDGET_RATIO,
-    ContextTruncationMeta,
     build_context_messages,
     estimate_tokens,
 )
@@ -250,7 +249,9 @@ async def create_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
         model_id=input_data.modelId,
         provider_id=record.provider_id,
         run_id=record.id,
-        status=record.status if record.status in ("completed", "failed", "cancelled") else "completed",
+        status=(
+            record.status if record.status in ("completed", "failed", "cancelled") else "completed"
+        ),
         error_message=record.error_message,
         created_at=now,
         updated_at=now,

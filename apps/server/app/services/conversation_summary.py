@@ -12,7 +12,6 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.db.models import Conversation, Message
-from app.providers.base import ChatMessage
 from app.services.context_builder import estimate_tokens
 from app.services.model_registry import model_registry
 
@@ -21,6 +20,9 @@ logger = logging.getLogger(__name__)
 # Trigger thresholds
 MESSAGE_COUNT_THRESHOLD = 30
 TOKEN_USAGE_RATIO = 0.80
+
+# Keep references to background summary tasks so they are not garbage-collected.
+_BACKGROUND_TASKS: set[asyncio.Task[None]] = set()
 
 # Summary generation prompt
 SUMMARY_SYSTEM_PROMPT = (
@@ -35,9 +37,7 @@ SUMMARY_SYSTEM_PROMPT = (
     "Focus on information that would be useful for continuing the conversation."
 )
 
-SUMMARY_USER_PROMPT = (
-    "Please summarize the following conversation:\n\n{conversation_text}"
-)
+SUMMARY_USER_PROMPT = "Please summarize the following conversation:\n\n{conversation_text}"
 
 # Max chars of conversation text to send for summarization
 MAX_CONVERSATION_CHARS = 80_000
@@ -48,7 +48,7 @@ def should_generate_summary(db: Session, conversation_id: str, model_id: str | N
 
     Returns True if:
     - Message count > MESSAGE_COUNT_THRESHOLD, OR
-    - Estimated token usage > TOKEN_USAGE_RATIO × model.context_window
+    - Estimated token usage > TOKEN_USAGE_RATIO * model.context_window
     """
     msg_count = (
         db.query(Message)
@@ -191,7 +191,9 @@ async def maybe_generate_summary_async(
     """
     try:
         if should_generate_summary(db, conversation_id, model_id):
-            asyncio.create_task(_generate_with_own_session(conversation_id, model_id))
+            task = asyncio.create_task(_generate_with_own_session(conversation_id, model_id))
+            _BACKGROUND_TASKS.add(task)
+            task.add_done_callback(_BACKGROUND_TASKS.discard)
     except Exception:
         logger.exception("Failed to check/trigger summary for conversation %s", conversation_id)
 

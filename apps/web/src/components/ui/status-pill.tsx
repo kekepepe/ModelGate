@@ -16,13 +16,7 @@ import { cn } from "@/lib/utils";
  * Children carry the label so callers control wording per
  * `docs/05-前端设计/前端V2界面与功能优化方案.md` §14.
  */
-export type StatusTone =
-  | "ready"
-  | "running"
-  | "queued"
-  | "warn"
-  | "failed"
-  | "muted";
+export type StatusTone = "ready" | "running" | "queued" | "warn" | "failed" | "muted";
 
 const toneClasses: Record<StatusTone, string> = {
   ready: "border-emerald-300/60 bg-emerald-50 text-emerald-800",
@@ -61,9 +55,7 @@ export function StatusPill({
         className,
       )}
     >
-      {withDot ? (
-        <span className={cn("h-1.5 w-1.5 rounded-full", dotClasses[tone])} />
-      ) : null}
+      {withDot ? <span className={cn("h-1.5 w-1.5 rounded-full", dotClasses[tone])} /> : null}
       {children}
     </span>
   );

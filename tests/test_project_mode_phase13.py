@@ -6,11 +6,8 @@ Self-contained: no Postgres, no Redis, no real network.
 
 from __future__ import annotations
 
-import json
 import sys
-from datetime import UTC, datetime
 from pathlib import Path
-from time import monotonic
 
 import pytest
 from fastapi.testclient import TestClient
@@ -25,23 +22,29 @@ from app.db import models as db_models  # noqa: E402
 from app.main import app  # noqa: E402
 from app.services.project_runtime.budget import Budget, BudgetExceeded, BudgetTracker  # noqa: E402
 from app.services.project_runtime.schemas import (  # noqa: E402
-    AgentOutput,
     IntakeOutput,
-    PlannerOutput,
-    WorkerOutput,
-    SupervisorOutput,
     IntegratorOutput,
+    PlannerOutput,
+    SupervisorOutput,
+    WorkerOutput,
     validate_agent_output,
 )
 
 
 # ── Fixture (same pattern as phase11) ────────────────────────────────────────
 class _FakeRedis:
-    def __init__(self, *args, **kwargs) -> None:        pass
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":  return cls()
-    def ping(self) -> None:                              return None
-    def close(self) -> None:                             return None
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
+        return cls()
+
+    def ping(self) -> None:
+        return None
+
+    def close(self) -> None:
+        return None
 
 
 @pytest.fixture
@@ -86,6 +89,7 @@ def client(monkeypatch):
 
 # ── Schema tests ─────────────────────────────────────────────────────────────
 
+
 class TestSchemas:
     def test_validate_intake_output(self):
         data = {
@@ -102,11 +106,14 @@ class TestSchemas:
 
     def test_validate_intake_invalid_risk_level(self):
         with pytest.raises(ValueError, match="Agent output failed schema"):
-            validate_agent_output("intake", {
-                "summary": "bad",
-                "goal": "x",
-                "risk_level": "extreme",
-            })
+            validate_agent_output(
+                "intake",
+                {
+                    "summary": "bad",
+                    "goal": "x",
+                    "risk_level": "extreme",
+                },
+            )
 
     def test_validate_planner_output(self):
         data = {
@@ -136,11 +143,14 @@ class TestSchemas:
 
     def test_validate_planner_empty_tasks(self):
         with pytest.raises(ValueError, match="Agent output failed schema"):
-            validate_agent_output("planner", {
-                "summary": "empty",
-                "project_title": "x",
-                "tasks": [],
-            })
+            validate_agent_output(
+                "planner",
+                {
+                    "summary": "empty",
+                    "project_title": "x",
+                    "tasks": [],
+                },
+            )
 
     def test_validate_worker_output(self):
         data = {
@@ -206,6 +216,7 @@ class TestSchemas:
 
 
 # ── Budget tracker tests ─────────────────────────────────────────────────────
+
 
 class TestBudget:
     def test_default_budget(self):
@@ -296,6 +307,7 @@ class TestBudget:
 
 # ── Artifact tests (basic) ───────────────────────────────────────────────────
 
+
 class TestArtifact:
     def test_artifact_create_and_read(self, client):
         c, SL = client
@@ -305,12 +317,15 @@ class TestArtifact:
         pr_id = f"pr_{uuid4().hex}"
         with SL() as session:
             pr = db_models.ProjectRun(
-                id=pr_id, title="test", goal="test", status="running",
+                id=pr_id,
+                title="test",
+                goal="test",
+                status="running",
             )
             session.add(pr)
             session.commit()
 
-        from app.services.project_runtime.artifacts import write_artifact, serialize_artifact, MAX_ARTIFACT_BYTES
+        from app.services.project_runtime.artifacts import serialize_artifact, write_artifact
 
         with SL() as session:
             art = write_artifact(
@@ -338,7 +353,10 @@ class TestArtifact:
         pr_id = f"pr_{uuid4().hex}"
         with SL() as session:
             pr = db_models.ProjectRun(
-                id=pr_id, title="test", goal="test", status="running",
+                id=pr_id,
+                title="test",
+                goal="test",
+                status="running",
             )
             session.add(pr)
             session.commit()

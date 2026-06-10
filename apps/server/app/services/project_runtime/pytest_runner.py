@@ -18,11 +18,10 @@ never accepts paths outside it.
 
 from __future__ import annotations
 
+import contextlib
 import json
-import shutil
 import subprocess
 import sys
-import tempfile
 from dataclasses import dataclass, field
 from pathlib import Path
 from uuid import uuid4
@@ -142,7 +141,8 @@ def run_pytest(
         "--no-header",
         "--json-report",  # force the report even on failures
         f"--json-report-file={report_filename}",
-        "-p", "no:cacheprovider",
+        "-p",
+        "no:cacheprovider",
     ]
     if safe_paths:
         args.extend(safe_paths)
@@ -156,7 +156,7 @@ def run_pytest(
         return result
 
     try:
-        proc = subprocess.run(  # noqa: S603 — args are vetted above
+        proc = subprocess.run(
             args,
             cwd=str(project_root),
             capture_output=True,
@@ -197,10 +197,7 @@ def run_pytest(
                     call = t.get("call") or {}
                     crash = (call.get("crash") or {}) if isinstance(call, dict) else {}
                     message = crash.get("message", "") or call.get("longrepr", "")
-                    if isinstance(message, str):
-                        message = message[:1000]
-                    else:
-                        message = str(message)[:1000]
+                    message = message[:1000] if isinstance(message, str) else str(message)[:1000]
                     tb_lines = str(crash.get("traceback", "") or "").splitlines()[:3]
                     result.failed_tests.append(
                         FailedTestInfo(
@@ -210,7 +207,7 @@ def run_pytest(
                             traceback_excerpt="\n".join(tb_lines),
                         )
                     )
-    except Exception as exc:  # noqa: BLE001 — never let parser crash the runner
+    except Exception as exc:
         result.error = f"failed to parse json-report: {exc}"
         # Fall back to exit-code-based inference
         if result.exit_code == 0:
@@ -221,9 +218,7 @@ def run_pytest(
             result.errors = max(result.errors, 1)
     finally:
         # Best-effort cleanup of the report file
-        try:
+        with contextlib.suppress(Exception):
             Path(report_path).unlink(missing_ok=True)
-        except Exception:  # noqa: BLE001
-            pass
 
     return result

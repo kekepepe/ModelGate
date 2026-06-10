@@ -1,7 +1,7 @@
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import socket
 import sys
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -56,8 +56,14 @@ FAKE_PROVIDER = {
 
 
 def patch_generation_registry(monkeypatch) -> None:
-    monkeypatch.setattr("app.services.generation_runtime.model_registry.get_model", lambda model_id: FAKE_GENERATION_MODEL)
-    monkeypatch.setattr("app.services.generation_runtime.model_registry.get_provider", lambda provider_id: FAKE_PROVIDER)
+    monkeypatch.setattr(
+        "app.services.generation_runtime.model_registry.get_model",
+        lambda model_id: FAKE_GENERATION_MODEL,
+    )
+    monkeypatch.setattr(
+        "app.services.generation_runtime.model_registry.get_provider",
+        lambda provider_id: FAKE_PROVIDER,
+    )
 
 
 def test_generation_api_creates_idempotent_queued_task(monkeypatch) -> None:
@@ -65,14 +71,17 @@ def test_generation_api_creates_idempotent_queued_task(monkeypatch) -> None:
     require_local_port(6379)
     patch_generation_registry(monkeypatch)
     enqueued: list[str] = []
-    monkeypatch.setattr("app.workers.generation_tasks.submit_generation_task.delay", lambda task_id: enqueued.append(task_id))
+    monkeypatch.setattr(
+        "app.workers.generation_tasks.submit_generation_task.delay",
+        lambda task_id: enqueued.append(task_id),
+    )
 
     payload = {
         "taskType": "text_to_video",
         "modelId": "mimo.mimo_v2_5",
         "input": {"prompt": "a calm ocean shot"},
         "params": {"max_completion_tokens": 128},
-        "idempotencyKey": f"phase7_idem_{datetime.now(timezone.utc).timestamp()}",
+        "idempotencyKey": f"phase7_idem_{datetime.now(UTC).timestamp()}",
     }
 
     with TestClient(app) as client:
@@ -155,7 +164,7 @@ def test_generation_worker_submit_poll_and_logs(monkeypatch) -> None:
         lambda task_id: scheduled_downloads.append(task_id),
     )
 
-    task_id = f"task_phase7_{datetime.now(timezone.utc).timestamp()}"
+    task_id = f"task_phase7_{datetime.now(UTC).timestamp()}"
     with SessionLocal() as db:
         db.add(
             GenerationTask(
@@ -167,7 +176,7 @@ def test_generation_worker_submit_poll_and_logs(monkeypatch) -> None:
                 params_json={"max_completion_tokens": 128},
                 status="queued",
                 progress=0,
-                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
             )
         )
         db.commit()
@@ -178,7 +187,7 @@ def test_generation_worker_submit_poll_and_logs(monkeypatch) -> None:
 
     with SessionLocal() as db:
         task = db.get(GenerationTask, task_id)
-        task.poll_after = datetime.now(timezone.utc) - timedelta(seconds=1)
+        task.poll_after = datetime.now(UTC) - timedelta(seconds=1)
         db.commit()
 
     poll_result = poll_generation_task(task_id)
@@ -216,8 +225,8 @@ def _make_completed_task(*, output_json: dict, task_id: str) -> None:
                 output_json=output_json,
                 status="completed",
                 progress=100,
-                completed_at=datetime.now(timezone.utc),
-                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                completed_at=datetime.now(UTC),
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
             )
         )
         db.commit()
@@ -226,11 +235,14 @@ def _make_completed_task(*, output_json: dict, task_id: str) -> None:
 def test_result_redirects_to_storage_key_for_single_video() -> None:
     require_local_port(5432)
     require_local_port(6379)
-    task_id = f"task_result_redir_{datetime.now(timezone.utc).timestamp()}"
+    task_id = f"task_result_redir_{datetime.now(UTC).timestamp()}"
     storage_key = "outputs/videos/2026/06/03/fake.mp4"
     _make_completed_task(
         task_id=task_id,
-        output_json={"videoStorageKey": storage_key, "videoStorageUrl": f"/api/files/_by_key/{storage_key}"},
+        output_json={
+            "videoStorageKey": storage_key,
+            "videoStorageUrl": f"/api/files/_by_key/{storage_key}",
+        },
     )
 
     with TestClient(app) as client:
@@ -246,7 +258,7 @@ def test_result_redirects_to_storage_key_for_single_video() -> None:
 def test_result_returns_descriptor_for_multi_artifact() -> None:
     require_local_port(5432)
     require_local_port(6379)
-    task_id = f"task_result_multi_{datetime.now(timezone.utc).timestamp()}"
+    task_id = f"task_result_multi_{datetime.now(UTC).timestamp()}"
     video_key = "outputs/videos/2026/06/03/first.mp4"
     image_key = "outputs/images/2026/06/03/last.jpg"
     _make_completed_task(
@@ -273,7 +285,7 @@ def test_result_returns_descriptor_for_multi_artifact() -> None:
 def test_result_not_completed_returns_409() -> None:
     require_local_port(5432)
     require_local_port(6379)
-    task_id = f"task_result_409_{datetime.now(timezone.utc).timestamp()}"
+    task_id = f"task_result_409_{datetime.now(UTC).timestamp()}"
     with SessionLocal() as db:
         db.add(
             GenerationTask(
@@ -286,7 +298,7 @@ def test_result_not_completed_returns_409() -> None:
                 output_json={},
                 status="processing",
                 progress=42,
-                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
             )
         )
         db.commit()

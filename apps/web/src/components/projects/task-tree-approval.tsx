@@ -27,14 +27,13 @@ function getTaskPatchFiles(
   taskId: string,
   artifacts: ArtifactView[],
 ): Array<{ file: string; reason?: string }> {
-  const patchArtifact = artifacts.find(
-    (a) => a.type === "patch" && a.taskId === taskId,
-  );
+  const patchArtifact = artifacts.find((a) => a.type === "patch" && a.taskId === taskId);
   if (!patchArtifact) return [];
 
   const metadata = patchArtifact.metadata as Record<string, unknown> | null | undefined;
   const validation = metadata?.validation as Record<string, unknown> | undefined;
-  const highRiskFiles = (validation?.highRiskFiles as Array<{ file: string; reason: string }>) || [];
+  const highRiskFiles =
+    (validation?.highRiskFiles as Array<{ file: string; reason: string }>) || [];
 
   // Extract file paths from diff content
   const diffText = String(patchArtifact.content ?? "");
@@ -59,9 +58,7 @@ export function TaskTreeApproval({
   onApprove,
   isSubmitting,
 }: Props) {
-  const [selected, setSelected] = useState<Set<string>>(
-    () => new Set(tasks.map((t) => t.id)),
-  );
+  const [selected, setSelected] = useState<Set<string>>(() => new Set(tasks.map((t) => t.id)));
   // Track per-file approvals: { taskId: { filePath: "accept" | "reject" } }
   const [fileApprovals, setFileApprovals] = useState<
     Record<string, Record<string, "accept" | "reject">>
@@ -135,10 +132,7 @@ export function TaskTreeApproval({
           const isExpanded = expandedTasks.has(t.id);
 
           return (
-            <li
-              key={t.id}
-              className="flex items-start gap-3 rounded-md border bg-background p-3"
-            >
+            <li key={t.id} className="flex items-start gap-3 rounded-md border bg-background p-3">
               <input
                 type="checkbox"
                 checked={selected.has(t.id)}
@@ -152,9 +146,7 @@ export function TaskTreeApproval({
                   <span className="text-sm font-medium">{t.title}</span>
                   <span className="text-xs text-muted-foreground">{t.id}</span>
                 </div>
-                {t.description && (
-                  <p className="text-xs text-muted-foreground">{t.description}</p>
-                )}
+                {t.description && <p className="text-xs text-muted-foreground">{t.description}</p>}
                 {t.allowedFiles.length > 0 && (
                   <p className="text-xs text-muted-foreground">
                     Files: {t.allowedFiles.join(", ")}
@@ -189,7 +181,9 @@ export function TaskTreeApproval({
                                 onChange={() => toggleFileApproval(t.id, pf.file)}
                                 className="h-3 w-3 rounded"
                               />
-                              <span className={isRejected ? "line-through text-muted-foreground" : ""}>
+                              <span
+                                className={isRejected ? "line-through text-muted-foreground" : ""}
+                              >
                                 {pf.file}
                               </span>
                               {pf.reason && (

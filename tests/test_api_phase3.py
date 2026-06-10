@@ -1,6 +1,6 @@
 import socket
-from pathlib import Path
 import sys
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
@@ -14,7 +14,10 @@ from app.providers.base import ChatOutput  # noqa: E402
 
 class FakeAdapter:
     async def chat(self, input_data):
-        return ChatOutput(content="fake provider response", usage={"input_tokens": 1, "output_tokens": 2, "total_tokens": 3})
+        return ChatOutput(
+            content="fake provider response",
+            usage={"input_tokens": 1, "output_tokens": 2, "total_tokens": 3},
+        )
 
 
 def require_local_port(port: int) -> None:
@@ -28,7 +31,9 @@ def require_local_port(port: int) -> None:
 def test_phase3_core_api_smoke(monkeypatch) -> None:
     require_local_port(5432)
     require_local_port(6379)
-    monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: FakeAdapter())
+    monkeypatch.setattr(
+        "app.services.chat_runtime.create_chat_adapter", lambda **kwargs: FakeAdapter()
+    )
 
     with TestClient(app) as client:
         providers_response = client.get("/api/providers")

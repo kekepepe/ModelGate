@@ -51,12 +51,7 @@ interface RowData {
   cost: number | null;
 }
 
-export function AgentRunTable({
-  agentRuns,
-  tasks,
-  onRowClick,
-  selectedAgentId,
-}: Props) {
+export function AgentRunTable({ agentRuns, tasks, onRowClick, selectedAgentId }: Props) {
   const [sortKey, setSortKey] = useState<SortKey>("role");
   const [sortAsc, setSortAsc] = useState(true);
 
@@ -193,22 +188,17 @@ export function AgentRunTable({
                 onClick={() => onRowClick?.(ar)}
                 data-testid={`agent-run-table-row-${ar.role}`}
               >
-                <td className="px-3 py-1.5 font-medium">
-                  {formatRoleLabel(ar.role, taskTitle)}
-                </td>
-                <td className="px-3 py-1.5 font-mono text-muted-foreground">
-                  {ar.modelId ?? "—"}
-                </td>
+                <td className="px-3 py-1.5 font-medium">{formatRoleLabel(ar.role, taskTitle)}</td>
+                <td className="px-3 py-1.5 font-mono text-muted-foreground">{ar.modelId ?? "—"}</td>
                 <td className="px-3 py-1.5">
                   <StatusPill tone={statusTone(ar.status)} withDot={false}>
                     {ar.status ?? "—"}
                   </StatusPill>
                 </td>
+                <td className="px-3 py-1.5 font-mono">{formatDuration(ar.latencyMs)}</td>
                 <td className="px-3 py-1.5 font-mono">
-                  {formatDuration(ar.latencyMs)}
-                </td>
-                <td className="px-3 py-1.5 font-mono">
-                  {formatTokens(ar.inputTokens)} / {formatTokens(ar.outputTokens)} / {formatTokens(ar.totalTokens)}
+                  {formatTokens(ar.inputTokens)} / {formatTokens(ar.outputTokens)} /{" "}
+                  {formatTokens(ar.totalTokens)}
                 </td>
                 <td className="px-3 py-1.5 font-mono">{formatCost(cost)}</td>
               </tr>
@@ -220,12 +210,8 @@ export function AgentRunTable({
                 Total
               </td>
               <td className="px-3 py-1.5" />
-              <td className="px-3 py-1.5 font-mono">
-                {formatTokens(totals.tokens)}
-              </td>
-              <td className="px-3 py-1.5 font-mono">
-                {formatCost(totals.cost)}
-              </td>
+              <td className="px-3 py-1.5 font-mono">{formatTokens(totals.tokens)}</td>
+              <td className="px-3 py-1.5 font-mono">{formatCost(totals.cost)}</td>
             </tr>
           </tfoot>
         </table>

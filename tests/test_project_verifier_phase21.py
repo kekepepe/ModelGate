@@ -41,32 +41,35 @@ from app.services.project_runtime.schemas import (  # noqa: E402
     validate_agent_output,
 )
 
-
 # ── schema / prompt tests (no DB, no network) ───────────────────────────────
 
 
 class TestVerifierOutputSchema:
     def test_valid_pass(self):
-        out = VerifierOutput.model_validate({
-            "summary": "all green",
-            "verdict": "pass",
-        })
+        out = VerifierOutput.model_validate(
+            {
+                "summary": "all green",
+                "verdict": "pass",
+            }
+        )
         assert out.verdict == "pass"
         assert out.failed_tests == []
         assert out.next_actions == []
 
     def test_valid_fail_with_actions(self):
-        out = VerifierOutput.model_validate({
-            "summary": "two failures",
-            "verdict": "fail",
-            "failed_tests": [
-                {"nodeid": "tests/test_x.py::test_y", "message": "assert 1==2"},
-            ],
-            "analysis": "missing return statement",
-            "next_actions": [
-                {"worker_role": "backend", "instruction": "add return foo"},
-            ],
-        })
+        out = VerifierOutput.model_validate(
+            {
+                "summary": "two failures",
+                "verdict": "fail",
+                "failed_tests": [
+                    {"nodeid": "tests/test_x.py::test_y", "message": "assert 1==2"},
+                ],
+                "analysis": "missing return statement",
+                "next_actions": [
+                    {"worker_role": "backend", "instruction": "add return foo"},
+                ],
+            }
+        )
         assert out.verdict == "fail"
         assert len(out.failed_tests) == 1
         assert out.next_actions[0].worker_role == "backend"
@@ -76,9 +79,13 @@ class TestVerifierOutputSchema:
             VerifierOutput.model_validate({"summary": "x", "verdict": "maybe"})
 
     def test_unknown_role_registered_in_schema_dict(self):
-        out = validate_agent_output("verifier", {
-            "summary": "s", "verdict": "pass",
-        })
+        out = validate_agent_output(
+            "verifier",
+            {
+                "summary": "s",
+                "verdict": "pass",
+            },
+        )
         assert isinstance(out, VerifierOutput)
 
 
@@ -141,7 +148,9 @@ def session():
 def _make_project_run(s) -> db_models.ProjectRun:
     pr = db_models.ProjectRun(
         id=f"pr_{uuid4().hex}",
-        title="t", goal="g", status="running",
+        title="t",
+        goal="g",
+        status="running",
     )
     s.add(pr)
     s.commit()
@@ -179,13 +188,15 @@ class _FakeRun:
 async def test_run_verifier_happy_pass(session, monkeypatch):
     pr = _make_project_run(session)
 
-    canned_pass = json.dumps({
-        "summary": "All tests pass",
-        "verdict": "pass",
-        "failed_tests": [],
-        "analysis": "no further work needed",
-        "next_actions": [],
-    })
+    canned_pass = json.dumps(
+        {
+            "summary": "All tests pass",
+            "verdict": "pass",
+            "failed_tests": [],
+            "analysis": "no further work needed",
+            "next_actions": [],
+        }
+    )
 
     async def fake_run_chat(**kwargs):
         return _FakeRun(canned_pass)
@@ -214,13 +225,15 @@ async def test_run_verifier_happy_pass(session, monkeypatch):
 async def test_run_verifier_fail_returns_next_actions(session, monkeypatch):
     pr = _make_project_run(session)
 
-    canned_fail = json.dumps({
-        "summary": "1 test failing",
-        "verdict": "fail",
-        "failed_tests": [{"nodeid": "tests/test_x.py::test_a", "message": "boom"}],
-        "analysis": "missing return",
-        "next_actions": [{"worker_role": "backend", "instruction": "add return foo"}],
-    })
+    canned_fail = json.dumps(
+        {
+            "summary": "1 test failing",
+            "verdict": "fail",
+            "failed_tests": [{"nodeid": "tests/test_x.py::test_a", "message": "boom"}],
+            "analysis": "missing return",
+            "next_actions": [{"worker_role": "backend", "instruction": "add return foo"}],
+        }
+    )
 
     async def fake_run_chat(**kwargs):
         return _FakeRun(canned_fail)

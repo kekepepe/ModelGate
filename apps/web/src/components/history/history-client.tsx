@@ -19,8 +19,14 @@ export function HistoryClient() {
   const [recordTypeFilter, setRecordTypeFilter] = useState<string>("");
   const [recordIdFilter, setRecordIdFilter] = useState<string>("");
 
-  const runsQuery = useQuery({ queryKey: ["history-runs"], queryFn: () => getData<RunRecord[]>("/history/runs") });
-  const providersQuery = useQuery({ queryKey: ["providers"], queryFn: () => getData<Provider[]>("/providers") });
+  const runsQuery = useQuery({
+    queryKey: ["history-runs"],
+    queryFn: () => getData<RunRecord[]>("/history/runs"),
+  });
+  const providersQuery = useQuery({
+    queryKey: ["providers"],
+    queryFn: () => getData<Provider[]>("/providers"),
+  });
   const logsQuery = useQuery({
     queryKey: ["request-logs", providerFilter, recordTypeFilter, recordIdFilter],
     queryFn: () => {
@@ -103,7 +109,9 @@ export function HistoryClient() {
             </button>
           ))}
           {runs.length === 0 ? (
-            <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">No run records yet.</div>
+            <div className="rounded-lg border bg-card p-4 text-sm text-muted-foreground">
+              No run records yet.
+            </div>
           ) : null}
         </div>
 
@@ -163,11 +171,15 @@ export function HistoryClient() {
                 <div className="mt-1 text-muted-foreground">
                   {log.recordType} / {log.recordId}
                 </div>
-                {log.errorType ? <div className="mt-1 text-destructive">{log.errorType}</div> : null}
+                {log.errorType ? (
+                  <div className="mt-1 text-destructive">{log.errorType}</div>
+                ) : null}
               </button>
             ))}
             {logs.length === 0 ? (
-              <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">No matching request logs.</div>
+              <div className="rounded-lg border bg-card p-3 text-xs text-muted-foreground">
+                No matching request logs.
+              </div>
             ) : null}
           </div>
         </aside>
@@ -239,10 +251,7 @@ function DetailDrawer({
         </div>
         <div className="mt-6 flex gap-2">
           {isRunRecord ? (
-            <Button
-              onClick={() => onRerun(record as RunRecord)}
-              disabled={rerunPending}
-            >
+            <Button onClick={() => onRerun(record as RunRecord)} disabled={rerunPending}>
               {rerunPending ? "Submitting..." : "Rerun"}
             </Button>
           ) : null}
@@ -256,7 +265,9 @@ function DetailDrawer({
         </div>
         {deleteError ? (
           <div className="mt-3 rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-            {deleteError instanceof ApiError ? deleteError.message : String(deleteError.message ?? deleteError)}
+            {deleteError instanceof ApiError
+              ? deleteError.message
+              : String(deleteError.message ?? deleteError)}
           </div>
         ) : null}
       </div>
@@ -289,8 +300,16 @@ function RequestLogDetail({ log }: { log: RequestLog }) {
       {log.modelId ? <DetailRow label="Model" value={log.modelId} /> : null}
       <DetailRow label="Record Type" value={log.recordType} />
       <DetailRow label="Record ID" value={log.recordId} />
-      <DetailRow label="Status Code" value={log.statusCode === null || log.statusCode === undefined ? "-" : String(log.statusCode)} />
-      <DetailRow label="Latency" value={log.latencyMs === null || log.latencyMs === undefined ? "-" : `${log.latencyMs}ms`} />
+      <DetailRow
+        label="Status Code"
+        value={
+          log.statusCode === null || log.statusCode === undefined ? "-" : String(log.statusCode)
+        }
+      />
+      <DetailRow
+        label="Latency"
+        value={log.latencyMs === null || log.latencyMs === undefined ? "-" : `${log.latencyMs}ms`}
+      />
       {log.errorType ? <DetailRow label="Error Type" value={log.errorType} /> : null}
       {log.errorMessage ? <DetailRow label="Error Message" value={log.errorMessage} /> : null}
       {log.createdAt ? <DetailRow label="Time" value={log.createdAt} /> : null}

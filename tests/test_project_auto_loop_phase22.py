@@ -15,13 +15,8 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 import json
-import os
-import shutil
-import subprocess
 import sys
-import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 from uuid import uuid4
@@ -39,7 +34,6 @@ from app.services.project_runtime import agents as agents_module  # noqa: E402
 from app.services.project_runtime import orchestrator as orch_module  # noqa: E402
 from app.services.project_runtime.budget import Budget, BudgetTracker  # noqa: E402
 from app.services.project_runtime.orchestrator import ProjectOrchestrator  # noqa: E402
-
 
 # ── fixtures ────────────────────────────────────────────────────────────────
 
@@ -64,7 +58,9 @@ def session():
 def _make_project_run(s, mode: str = "controlled_auto") -> db_models.ProjectRun:
     pr = db_models.ProjectRun(
         id=f"pr_{uuid4().hex}",
-        title="t", goal="g", status="running",
+        title="t",
+        goal="g",
+        status="running",
         mode=mode,
         planner_model_id="mock",
         supervisor_model_id="mock",
@@ -78,9 +74,15 @@ def _make_project_run(s, mode: str = "controlled_auto") -> db_models.ProjectRun:
 
 def _make_task(s, run_id: str, role: str = "backend") -> db_models.ProjectTask:
     t = db_models.ProjectTask(
-        id=f"t_{uuid4().hex}", project_run_id=run_id,
-        title=f"task {role}", description="d", role=role, status="pending",
-        allowed_files=[], acceptance_criteria=[], depends_on=[],
+        id=f"t_{uuid4().hex}",
+        project_run_id=run_id,
+        title=f"task {role}",
+        description="d",
+        role=role,
+        status="pending",
+        allowed_files=[],
+        acceptance_criteria=[],
+        depends_on=[],
     )
     s.add(t)
     s.commit()
@@ -88,13 +90,22 @@ def _make_task(s, run_id: str, role: str = "backend") -> db_models.ProjectTask:
 
 
 def _make_patch_artifact(
-    s, run_id: str, task_id: str, content: str = "--- a/foo.py\n+++ b/foo.py\n@@ -1 +1 @@\n-old\n+new\n",
+    s,
+    run_id: str,
+    task_id: str,
+    content: str = "--- a/foo.py\n+++ b/foo.py\n@@ -1 +1 @@\n-old\n+new\n",
 ) -> db_models.Artifact:
     art = db_models.Artifact(
-        id=f"art_{uuid4().hex}", project_run_id=run_id, task_id=task_id,
-        agent_run_id=None, type="patch", name=f"patch-{task_id}.diff",
-        content_text=content, size_bytes=len(content),
-        truncated=False, metadata_json={},
+        id=f"art_{uuid4().hex}",
+        project_run_id=run_id,
+        task_id=task_id,
+        agent_run_id=None,
+        type="patch",
+        name=f"patch-{task_id}.diff",
+        content_text=content,
+        size_bytes=len(content),
+        truncated=False,
+        metadata_json={},
     )
     s.add(art)
     s.commit()
@@ -149,23 +160,28 @@ async def test_verifier_loop_happy_path_one_round(session, monkeypatch):
 
     # 1) Force _apply_patch_artifact to succeed without touching the real project
     monkeypatch.setattr(
-        ProjectOrchestrator, "_apply_patch_artifact",
+        ProjectOrchestrator,
+        "_apply_patch_artifact",
         lambda self, db, art, pr: {"ok": True, "files": ["foo.py"], "error": ""},
     )
+
     # 2) Force pytest_runner to report 0 failures
     def fake_run_pytest(*_a, **_k):
         from app.services.project_runtime.pytest_runner import PytestResult
+
         return PytestResult(passed=5, failed=0, total=5, exit_code=0)
 
     monkeypatch.setattr(orch_module, "run_pytest", fake_run_pytest)
     # 3) run_verifier returns verdict=pass
-    canned_pass = json.dumps({
-        "summary": "all good",
-        "verdict": "pass",
-        "failed_tests": [],
-        "analysis": "looks good",
-        "next_actions": [],
-    })
+    canned_pass = json.dumps(
+        {
+            "summary": "all good",
+            "verdict": "pass",
+            "failed_tests": [],
+            "analysis": "looks good",
+            "next_actions": [],
+        }
+    )
 
     async def fake_run_chat(**_kwargs):
         return _FakeRun(canned_pass)
@@ -196,12 +212,14 @@ async def test_verifier_loop_two_rounds_then_pass(session, monkeypatch):
     _make_patch_artifact(session, pr.id, task.id)
 
     monkeypatch.setattr(
-        ProjectOrchestrator, "_apply_patch_artifact",
+        ProjectOrchestrator,
+        "_apply_patch_artifact",
         lambda self, db, art, pr: {"ok": True, "files": ["foo.py"], "error": ""},
     )
 
     def fake_run_pytest(*_a, **_k):
         from app.services.project_runtime.pytest_runner import PytestResult
+
         return PytestResult(passed=0, failed=1, total=1, exit_code=1)
 
     monkeypatch.setattr(orch_module, "run_pytest", fake_run_pytest)
@@ -216,12 +234,12 @@ async def test_verifier_loop_two_rounds_then_pass(session, monkeypatch):
             "verdict": verdict,
             "failed_tests": (
                 [{"nodeid": "tests/test_x.py::test_a", "message": "boom"}]
-                if verdict == "fail" else []
+                if verdict == "fail"
+                else []
             ),
             "analysis": verdict,
             "next_actions": (
-                [{"worker_role": "backend", "instruction": "fix foo"}]
-                if verdict == "fail" else []
+                [{"worker_role": "backend", "instruction": "fix foo"}] if verdict == "fail" else []
             ),
         }
         return _FakeRun(json.dumps(payload))
@@ -256,23 +274,27 @@ async def test_verifier_loop_exhausts_max_rounds(session, monkeypatch):
     _make_patch_artifact(session, pr.id, task.id)
 
     monkeypatch.setattr(
-        ProjectOrchestrator, "_apply_patch_artifact",
+        ProjectOrchestrator,
+        "_apply_patch_artifact",
         lambda self, db, art, pr: {"ok": True, "files": ["foo.py"], "error": ""},
     )
 
     def fake_run_pytest(*_a, **_k):
         from app.services.project_runtime.pytest_runner import PytestResult
+
         return PytestResult(passed=0, failed=1, total=1, exit_code=1)
 
     monkeypatch.setattr(orch_module, "run_pytest", fake_run_pytest)
 
-    canned_fail = json.dumps({
-        "summary": "still failing",
-        "verdict": "fail",
-        "failed_tests": [{"nodeid": "t::x", "message": "y"}],
-        "analysis": "need more work",
-        "next_actions": [{"worker_role": "backend", "instruction": "fix"}],
-    })
+    canned_fail = json.dumps(
+        {
+            "summary": "still failing",
+            "verdict": "fail",
+            "failed_tests": [{"nodeid": "t::x", "message": "y"}],
+            "analysis": "need more work",
+            "next_actions": [{"worker_role": "backend", "instruction": "fix"}],
+        }
+    )
 
     async def fake_run_chat(**_kwargs):
         return _FakeRun(canned_fail)
@@ -312,6 +334,7 @@ async def test_verifier_loop_no_patches_short_circuits(session, monkeypatch):
     def fake_run_pytest(*_a, **_k):
         invoked["pytest"] = True
         from app.services.project_runtime.pytest_runner import PytestResult
+
         return PytestResult()
 
     monkeypatch.setattr(orch_module, "run_pytest", fake_run_pytest)
@@ -346,7 +369,8 @@ async def test_verifier_loop_apply_failure_short_circuits(session, monkeypatch):
     _make_patch_artifact(session, pr.id, task.id)
 
     monkeypatch.setattr(
-        ProjectOrchestrator, "_apply_patch_artifact",
+        ProjectOrchestrator,
+        "_apply_patch_artifact",
         lambda self, db, art, pr: {"ok": False, "files": [], "error": "syntax"},
     )
 
@@ -376,23 +400,36 @@ async def test_repeated_test_failure_stops(session, monkeypatch):
     _make_patch_artifact(session, pr.id, task.id)
 
     monkeypatch.setattr(
-        ProjectOrchestrator, "_apply_patch_artifact",
+        ProjectOrchestrator,
+        "_apply_patch_artifact",
         lambda self, db, art, pr: {"ok": True, "files": ["foo.py"], "error": ""},
     )
 
     def fake_run_pytest(*_a, **_k):
         from app.services.project_runtime.pytest_runner import FailedTestInfo, PytestResult
-        return PytestResult(passed=0, failed=1, total=1, exit_code=1,
-                            failed_tests=[FailedTestInfo(nodeid="t::same", message="boom")])
+
+        return PytestResult(
+            passed=0,
+            failed=1,
+            total=1,
+            exit_code=1,
+            failed_tests=[FailedTestInfo(nodeid="t::same", message="boom")],
+        )
 
     monkeypatch.setattr(orch_module, "run_pytest", fake_run_pytest)
 
     async def fake_run_chat(**_kwargs):
-        return _FakeRun(json.dumps({
-            "summary": "same failure", "verdict": "fail",
-            "failed_tests": [{"nodeid": "t::same", "message": "boom"}],
-            "analysis": "x", "next_actions": [{"worker_role": "backend", "instruction": "fix"}],
-        }))
+        return _FakeRun(
+            json.dumps(
+                {
+                    "summary": "same failure",
+                    "verdict": "fail",
+                    "failed_tests": [{"nodeid": "t::same", "message": "boom"}],
+                    "analysis": "x",
+                    "next_actions": [{"worker_role": "backend", "instruction": "fix"}],
+                }
+            )
+        )
 
     monkeypatch.setattr(agents_module.chat_runtime, "run_chat", fake_run_chat)
 
@@ -403,9 +440,14 @@ async def test_repeated_test_failure_stops(session, monkeypatch):
 
     orch = ProjectOrchestrator()
     result = await orch._run_verifier_loop(
-        db=session, project_run=pr, tasks=[task], planner_output={},
+        db=session,
+        project_run=pr,
+        tasks=[task],
+        planner_output={},
         tracker=BudgetTracker(Budget(max_rounds=5, max_same_test_failures=2)),
-        worker_model_id="mock", verifier_model_id="mock", max_rounds=5,
+        worker_model_id="mock",
+        verifier_model_id="mock",
+        max_rounds=5,
     )
     assert result["stop_reason"] == "REPEATED_TEST_FAILURE"
     assert result["rounds"] >= 2
@@ -450,6 +492,7 @@ def test_project_run_serializes_stop_fields(session):
     pr.stop_round = 3
 
     from app.api.projects import _serialize_project_run
+
     data = _serialize_project_run(pr)
     assert data["round"] == 3
     assert data["stopReason"] == "VERIFIER_PASS"

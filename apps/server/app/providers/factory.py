@@ -22,9 +22,15 @@ def create_chat_adapter(*, provider: dict, model: dict):
         )
 
     if protocol == "openai_compatible":
-        base_url = adapter_config.get("baseUrl") or provider_metadata.get("openaiBaseUrl") or provider["baseUrl"]
+        base_url = (
+            adapter_config.get("baseUrl")
+            or provider_metadata.get("openaiBaseUrl")
+            or provider["baseUrl"]
+        )
         _validate_base_url(provider=provider, base_url=base_url)
-        return OpenAICompatibleAdapter(provider_id=provider["id"], base_url=base_url, api_key=api_key)
+        return OpenAICompatibleAdapter(
+            provider_id=provider["id"], base_url=base_url, api_key=api_key
+        )
 
     if protocol == "anthropic_compatible":
         base_url = (
@@ -33,7 +39,9 @@ def create_chat_adapter(*, provider: dict, model: dict):
             or provider["baseUrl"]
         )
         _validate_base_url(provider=provider, base_url=base_url)
-        return AnthropicCompatibleAdapter(provider_id=provider["id"], base_url=base_url, api_key=api_key)
+        return AnthropicCompatibleAdapter(
+            provider_id=provider["id"], base_url=base_url, api_key=api_key
+        )
 
     raise AppError(
         "PROVIDER_PROTOCOL_UNSUPPORTED",

@@ -48,7 +48,8 @@ export function ArtifactDrawer({
 
   const metadata = artifact?.metadata as Record<string, unknown> | null | undefined;
   const validation = metadata?.validation as Record<string, unknown> | undefined;
-  const highRiskFiles = (validation?.highRiskFiles as Array<{ file: string; reason: string }>) || [];
+  const highRiskFiles =
+    (validation?.highRiskFiles as Array<{ file: string; reason: string }>) || [];
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -97,14 +98,18 @@ export function ArtifactDrawer({
                   verdict={String((artifact.content as Record<string, unknown>)?.verdict ?? "?")}
                   analysis={String((artifact.content as Record<string, unknown>)?.analysis ?? "")}
                   failedTests={
-                    ((artifact.content as Record<string, unknown>)?.failed_tests as Array<Record<string, unknown>>) ?? []
+                    ((artifact.content as Record<string, unknown>)?.failed_tests as Array<
+                      Record<string, unknown>
+                    >) ?? []
                   }
                   appliedFiles={
                     ((artifact.content as Record<string, unknown>)?.applied_files as string[]) ?? []
                   }
                   round={(artifact.content as Record<string, unknown>)?.round as number | undefined}
                   pytestSummary={
-                    (artifact.content as Record<string, unknown>)?.pytest as Record<string, unknown> | undefined
+                    (artifact.content as Record<string, unknown>)?.pytest as
+                      | Record<string, unknown>
+                      | undefined
                   }
                 />
               </ScrollArea>

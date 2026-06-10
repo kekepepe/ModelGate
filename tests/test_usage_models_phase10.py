@@ -17,7 +17,7 @@ the lifespan's Redis ping and registry sync.
 from __future__ import annotations
 
 import sys
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from pathlib import Path
 
@@ -58,7 +58,7 @@ class _FakeRedis:
         pass
 
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
         return cls()
 
     def ping(self) -> None:
@@ -83,7 +83,7 @@ def _seed(SessionLocal) -> None:
     is the regression case the original code silently merged into one
     bucket.
     """
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     with SessionLocal() as session:
         session.add_all(
             [
@@ -197,9 +197,7 @@ def client(monkeypatch):
         connect_args={"check_same_thread": False},
         poolclass=StaticPool,
     )
-    TestSessionLocal = sessionmaker(
-        bind=test_engine, autocommit=False, autoflush=False
-    )
+    TestSessionLocal = sessionmaker(bind=test_engine, autocommit=False, autoflush=False)
 
     import app.core.startup as startup_module
     import app.db.session as session_module
@@ -277,9 +275,9 @@ def test_avg_latency_is_int_or_null(client: TestClient) -> None:
     response = client.get("/api/usage/models")
     for row in response.json()["data"]:
         latency = row["avgLatencyMs"]
-        assert latency is None or isinstance(latency, int), (
-            f"avgLatencyMs {latency!r} is neither int nor None for {row}"
-        )
+        assert latency is None or isinstance(
+            latency, int
+        ), f"avgLatencyMs {latency!r} is neither int nor None for {row}"
 
 
 def test_limit_query_param_caps_result_count(client: TestClient) -> None:
@@ -308,8 +306,6 @@ def test_does_not_swallow_provider_field_on_merge(client: TestClient) -> None:
     """The two rows for `model-x` must each carry their own provider name,
     not the last-seen value from a Python dict-keyed loop."""
     response = client.get("/api/usage/models")
-    by_provider = {
-        row["providerId"]: row["provider"] for row in response.json()["data"]
-    }
+    by_provider = {row["providerId"]: row["provider"] for row in response.json()["data"]}
     assert by_provider.get("mimo") == "Xiaomi MiMo"
     assert by_provider.get("minimax") == "MiniMax"

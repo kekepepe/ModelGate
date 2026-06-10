@@ -21,7 +21,10 @@ export function WorkspaceShell() {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
-  const [pendingTemplateParams, setPendingTemplateParams] = useState<{ name: string; params: Record<string, string | number | boolean> } | null>(null);
+  const [pendingTemplateParams, setPendingTemplateParams] = useState<{
+    name: string;
+    params: Record<string, string | number | boolean>;
+  } | null>(null);
   const [compareOpen, setCompareOpen] = useState(false);
   const [sidebarOpen, setSidebarOpen] = useState(true);
 
@@ -29,7 +32,9 @@ export function WorkspaceShell() {
     q.resetWorkspace();
     const nextParams = new URLSearchParams(searchParams.toString());
     nextParams.delete("conversationId");
-    router.replace(`${pathname}${nextParams.toString() ? `?${nextParams.toString()}` : ""}`, { scroll: false });
+    router.replace(`${pathname}${nextParams.toString() ? `?${nextParams.toString()}` : ""}`, {
+      scroll: false,
+    });
   }, [q, router, pathname, searchParams]);
 
   const handleSelectConversation = useCallback(
@@ -93,7 +98,9 @@ export function WorkspaceShell() {
         variant="ghost"
         size="sm"
         className="h-8 gap-1"
-        disabled={!q.selectedModelId || q.availableModels.length < 2 || q.prompt.trim().length === 0}
+        disabled={
+          !q.selectedModelId || q.availableModels.length < 2 || q.prompt.trim().length === 0
+        }
         onClick={() => setCompareOpen(true)}
         title="Compare with other models"
       >
@@ -150,56 +157,66 @@ export function WorkspaceShell() {
             extraActionsSlot={extraActionsSlot}
           />
 
-        {q.runMutation.error ? (
-          <div className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive" data-testid="workspace-run-error">
-            <div>{q.runMutation.error.message}</div>
-            {q.runMutation.error instanceof ApiError && q.runMutation.error.requestId ? (
-              <div className="mt-1 text-xs text-destructive/70">requestId: {q.runMutation.error.requestId}</div>
-            ) : null}
-          </div>
-        ) : null}
-
-        {pendingTemplateParams ? (
-          <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
-            <div>
-              Template <span className="font-medium">{pendingTemplateParams.name}</span> recommends specific params.
-              Apply them?
+          {q.runMutation.error ? (
+            <div
+              className="rounded-md border border-destructive/30 bg-destructive/10 px-4 py-3 text-sm text-destructive"
+              data-testid="workspace-run-error"
+            >
+              <div>{q.runMutation.error.message}</div>
+              {q.runMutation.error instanceof ApiError && q.runMutation.error.requestId ? (
+                <div className="mt-1 text-xs text-destructive/70">
+                  requestId: {q.runMutation.error.requestId}
+                </div>
+              ) : null}
             </div>
-            <div className="flex items-center gap-2">
-              <Button variant="ghost" size="sm" onClick={() => setPendingTemplateParams(null)}>Dismiss</Button>
-              <Button
-                size="sm"
-                onClick={() => {
-                  for (const [k, v] of Object.entries(pendingTemplateParams.params)) {
-                    q.setParam(k, v);
-                  }
-                  setPendingTemplateParams(null);
-                }}
-              >
-                Apply params
-              </Button>
-            </div>
-          </div>
-        ) : null}
+          ) : null}
 
-        <CompareDrawer
-          open={compareOpen}
-          onClose={() => setCompareOpen(false)}
-          taskType={q.selectedTaskType}
-          prompt={q.prompt}
-          fileIds={q.files.map((f) => f.id)}
-          params={q.params}
-          availableModels={q.availableModels}
-          providers={q.providers}
-          initialModelIds={
-            q.selectedModelId
-              ? [
-                  q.selectedModelId,
-                  ...q.availableModels.filter((m) => m.id !== q.selectedModelId).slice(0, 1).map((m) => m.id),
-                ]
-              : q.availableModels.slice(0, 2).map((m) => m.id)
-          }
-        />
+          {pendingTemplateParams ? (
+            <div className="flex items-center justify-between rounded-md border border-primary/30 bg-primary/5 px-3 py-2 text-xs">
+              <div>
+                Template <span className="font-medium">{pendingTemplateParams.name}</span>{" "}
+                recommends specific params. Apply them?
+              </div>
+              <div className="flex items-center gap-2">
+                <Button variant="ghost" size="sm" onClick={() => setPendingTemplateParams(null)}>
+                  Dismiss
+                </Button>
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    for (const [k, v] of Object.entries(pendingTemplateParams.params)) {
+                      q.setParam(k, v);
+                    }
+                    setPendingTemplateParams(null);
+                  }}
+                >
+                  Apply params
+                </Button>
+              </div>
+            </div>
+          ) : null}
+
+          <CompareDrawer
+            open={compareOpen}
+            onClose={() => setCompareOpen(false)}
+            taskType={q.selectedTaskType}
+            prompt={q.prompt}
+            fileIds={q.files.map((f) => f.id)}
+            params={q.params}
+            availableModels={q.availableModels}
+            providers={q.providers}
+            initialModelIds={
+              q.selectedModelId
+                ? [
+                    q.selectedModelId,
+                    ...q.availableModels
+                      .filter((m) => m.id !== q.selectedModelId)
+                      .slice(0, 1)
+                      .map((m) => m.id),
+                  ]
+                : q.availableModels.slice(0, 2).map((m) => m.id)
+            }
+          />
         </div>
       </div>
     </div>

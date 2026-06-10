@@ -27,11 +27,18 @@ from app.main import app  # noqa: E402
 
 
 class _FakeRedis:
-    def __init__(self, *args, **kwargs) -> None: pass
+    def __init__(self, *args, **kwargs) -> None:
+        pass
+
     @classmethod
-    def from_url(cls, *a, **k): return cls()
-    def ping(self): return None
-    def close(self): return None
+    def from_url(cls, *a, **k):
+        return cls()
+
+    def ping(self):
+        return None
+
+    def close(self):
+        return None
 
 
 class _FakeRun:
@@ -43,37 +50,68 @@ class _FakeRun:
 
 
 _CANNED = {
-    "intake": json.dumps({
-        "summary": "S", "goal": "G", "project_area": ["backend"],
-        "risk_level": "low", "requires_repo_access": False,
-        "expected_outputs": ["plan"],
-    }),
-    "planner": json.dumps({
-        "summary": "P", "project_title": "X",
-        "tasks": [
-            {"id": "t1", "title": "Backend", "role": "backend",
-             "allowed_files": ["x.py"], "acceptance_criteria": ["ok"],
-             "depends_on": []},
-        ],
-        "parallel_groups": [["t1"]],
-    }),
-    "worker": json.dumps({
-        "summary": "do x", "files_to_change": ["x.py"],
-        "proposed_changes": [{"file": "x.py", "change_kind": "modify",
-                              "description": "do thing"}],
-        "tests": [], "risks": [], "questions": [],
-    }),
-    "supervisor": json.dumps({
-        "summary": "ok", "pass": True, "blocking_issues": [],
-        "non_blocking_issues": [], "missing_tests": [],
-        "conflicts": [], "next_actions": [],
-    }),
-    "integrator": json.dumps({
-        "summary": "done", "final_plan": "# Plan",
-        "ordered_changes": [], "test_commands": [], "risks": [],
-        "rollback": "git revert", "progress_update": "## ok",
-        "decisions_update": "### D",
-    }),
+    "intake": json.dumps(
+        {
+            "summary": "S",
+            "goal": "G",
+            "project_area": ["backend"],
+            "risk_level": "low",
+            "requires_repo_access": False,
+            "expected_outputs": ["plan"],
+        }
+    ),
+    "planner": json.dumps(
+        {
+            "summary": "P",
+            "project_title": "X",
+            "tasks": [
+                {
+                    "id": "t1",
+                    "title": "Backend",
+                    "role": "backend",
+                    "allowed_files": ["x.py"],
+                    "acceptance_criteria": ["ok"],
+                    "depends_on": [],
+                },
+            ],
+            "parallel_groups": [["t1"]],
+        }
+    ),
+    "worker": json.dumps(
+        {
+            "summary": "do x",
+            "files_to_change": ["x.py"],
+            "proposed_changes": [
+                {"file": "x.py", "change_kind": "modify", "description": "do thing"}
+            ],
+            "tests": [],
+            "risks": [],
+            "questions": [],
+        }
+    ),
+    "supervisor": json.dumps(
+        {
+            "summary": "ok",
+            "pass": True,
+            "blocking_issues": [],
+            "non_blocking_issues": [],
+            "missing_tests": [],
+            "conflicts": [],
+            "next_actions": [],
+        }
+    ),
+    "integrator": json.dumps(
+        {
+            "summary": "done",
+            "final_plan": "# Plan",
+            "ordered_changes": [],
+            "test_commands": [],
+            "risks": [],
+            "rollback": "git revert",
+            "progress_update": "## ok",
+            "decisions_update": "### D",
+        }
+    ),
 }
 
 
@@ -142,6 +180,7 @@ def client(monkeypatch):
 def _wait_for_status_sync(SL, pr_id: str, target: set[str], timeout: float = 5.0):
     """Poll the DB until status reaches one of the targets."""
     import time
+
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         with SL() as s:
@@ -155,12 +194,15 @@ def _wait_for_status_sync(SL, pr_id: str, target: set[str], timeout: float = 5.0
 class TestCreateAndList:
     def test_create_project_run(self, client):
         c, SL = client
-        r = c.post("/api/projects", json={
-            "goal": "Add health endpoint",
-            "title": "Health Check",
-            "plannerModelId": "gpt-4o",
-            "budget": {"maxAgents": 10},
-        })
+        r = c.post(
+            "/api/projects",
+            json={
+                "goal": "Add health endpoint",
+                "title": "Health Check",
+                "plannerModelId": "gpt-4o",
+                "budget": {"maxAgents": 10},
+            },
+        )
         assert r.status_code == 200
         data = r.json()["data"]
         assert data["goal"] == "Add health endpoint"
@@ -192,10 +234,14 @@ class TestGetDetails:
 
     def test_get_details_after_planner(self, client):
         c, SL = client
-        r = c.post("/api/projects", json={
-            "goal": "Add health", "plannerModelId": "gpt-4o",
-            "budget": {"maxAgents": 10},
-        })
+        r = c.post(
+            "/api/projects",
+            json={
+                "goal": "Add health",
+                "plannerModelId": "gpt-4o",
+                "budget": {"maxAgents": 10},
+            },
+        )
         pr_id = r.json()["data"]["id"]
 
         # Wait for Planner stage to finish.
@@ -227,10 +273,14 @@ class TestApprove:
 
     def test_full_approve_flow_completes(self, client):
         c, SL = client
-        r = c.post("/api/projects", json={
-            "goal": "Add health", "plannerModelId": "gpt-4o",
-            "budget": {"maxAgents": 10},
-        })
+        r = c.post(
+            "/api/projects",
+            json={
+                "goal": "Add health",
+                "plannerModelId": "gpt-4o",
+                "budget": {"maxAgents": 10},
+            },
+        )
         pr_id = r.json()["data"]["id"]
 
         _wait_for_status_sync(SL, pr_id, {"awaiting_approval"}, timeout=5.0)
@@ -253,9 +303,14 @@ class TestCancel:
         # Manually create a "running" run.
         pr_id = f"pr_{uuid4().hex}"
         with SL() as s:
-            s.add(db_models.ProjectRun(
-                id=pr_id, title="t", goal="g", status="running",
-            ))
+            s.add(
+                db_models.ProjectRun(
+                    id=pr_id,
+                    title="t",
+                    goal="g",
+                    status="running",
+                )
+            )
             s.commit()
 
         r = c.post(f"/api/projects/{pr_id}/cancel")
@@ -274,10 +329,14 @@ class TestArtifact:
             s.commit()
 
         from app.services.project_runtime.artifacts import write_artifact
+
         with SL() as s:
             art = write_artifact(
-                db=s, project_run_id=pr_id, artifact_type="plan",
-                name="plan.json", content={"hello": "world"},
+                db=s,
+                project_run_id=pr_id,
+                artifact_type="plan",
+                name="plan.json",
+                content={"hello": "world"},
             )
             art_id = art.id
 
@@ -309,24 +368,43 @@ class TestDelete:
         pr_id = f"pr_{uuid4().hex}"
         with SL() as s:
             s.add(db_models.ProjectRun(id=pr_id, title="t", goal="g", status="completed"))
-            s.add(db_models.ProjectTask(
-                id=f"t_{uuid4().hex}", project_run_id=pr_id, title="x",
-                description="d", role="backend", status="pending", priority=1,
-            ))
-            s.add(db_models.AgentRun(
-                id=f"ag_{uuid4().hex}", project_run_id=pr_id, role="worker",
-                status="completed",
-            ))
-            s.add(db_models.ProjectMemory(
-                id=f"m_{uuid4().hex}", project_run_id=pr_id, type="note",
-                content='{"k": "v"}',
-            ))
+            s.add(
+                db_models.ProjectTask(
+                    id=f"t_{uuid4().hex}",
+                    project_run_id=pr_id,
+                    title="x",
+                    description="d",
+                    role="backend",
+                    status="pending",
+                    priority=1,
+                )
+            )
+            s.add(
+                db_models.AgentRun(
+                    id=f"ag_{uuid4().hex}",
+                    project_run_id=pr_id,
+                    role="worker",
+                    status="completed",
+                )
+            )
+            s.add(
+                db_models.ProjectMemory(
+                    id=f"m_{uuid4().hex}",
+                    project_run_id=pr_id,
+                    type="note",
+                    content='{"k": "v"}',
+                )
+            )
             s.commit()
 
             from app.services.project_runtime.artifacts import write_artifact
+
             art = write_artifact(
-                db=s, project_run_id=pr_id, artifact_type="plan",
-                name="plan.json", content={"x": 1},
+                db=s,
+                project_run_id=pr_id,
+                artifact_type="plan",
+                name="plan.json",
+                content={"x": 1},
             )
             art_id = art.id
 
@@ -347,7 +425,15 @@ class TestDelete:
 
     def test_delete_works_in_any_state(self, client):
         c, SL = client
-        for status in ["pending", "running", "awaiting_approval", "completed", "failed", "cancelled", "budget_exceeded"]:
+        for status in [
+            "pending",
+            "running",
+            "awaiting_approval",
+            "completed",
+            "failed",
+            "cancelled",
+            "budget_exceeded",
+        ]:
             pr_id = f"pr_{uuid4().hex}"
             with SL() as s:
                 s.add(db_models.ProjectRun(id=pr_id, title="t", goal="g", status=status))
@@ -364,14 +450,27 @@ class TestAgentRunPrompt:
         ag_id = f"ag_{uuid4().hex}"
         prompt_text = "You are a planner agent.\n\n# Goal\nAdd /health endpoint"
         with SL() as s:
-            s.add(db_models.ProjectRun(
-                id=pr_id, title="t", goal="g", status="awaiting_approval",
-            ))
-            s.add(db_models.AgentRun(
-                id=ag_id, project_run_id=pr_id, role="planner",
-                status="completed", prompt=prompt_text,
-                input_tokens=10, output_tokens=20, total_tokens=30, latency_ms=100,
-            ))
+            s.add(
+                db_models.ProjectRun(
+                    id=pr_id,
+                    title="t",
+                    goal="g",
+                    status="awaiting_approval",
+                )
+            )
+            s.add(
+                db_models.AgentRun(
+                    id=ag_id,
+                    project_run_id=pr_id,
+                    role="planner",
+                    status="completed",
+                    prompt=prompt_text,
+                    input_tokens=10,
+                    output_tokens=20,
+                    total_tokens=30,
+                    latency_ms=100,
+                )
+            )
             s.commit()
 
         r = c.get(f"/api/projects/{pr_id}")
@@ -387,13 +486,23 @@ class TestAgentRunPrompt:
         pr_id = f"pr_{uuid4().hex}"
         ag_id = f"ag_{uuid4().hex}"
         with SL() as s:
-            s.add(db_models.ProjectRun(
-                id=pr_id, title="t", goal="g", status="running",
-            ))
-            s.add(db_models.AgentRun(
-                id=ag_id, project_run_id=pr_id, role="intake",
-                status="pending", prompt=None,
-            ))
+            s.add(
+                db_models.ProjectRun(
+                    id=pr_id,
+                    title="t",
+                    goal="g",
+                    status="running",
+                )
+            )
+            s.add(
+                db_models.AgentRun(
+                    id=ag_id,
+                    project_run_id=pr_id,
+                    role="intake",
+                    status="pending",
+                    prompt=None,
+                )
+            )
             s.commit()
 
         r = c.get(f"/api/projects/{pr_id}")

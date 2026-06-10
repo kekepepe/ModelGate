@@ -57,9 +57,7 @@ def configure_logging() -> None:
         handler.setFormatter(JSONFormatter())
     else:
         handler = logging.StreamHandler(sys.stderr)
-        handler.setFormatter(
-            logging.Formatter("%(asctime)s %(levelname)s %(name)s :: %(message)s")
-        )
+        handler.setFormatter(logging.Formatter("%(asctime)s %(levelname)s %(name)s :: %(message)s"))
 
     level = getattr(logging, settings.log_level.upper(), logging.INFO)
     root = logging.getLogger()
@@ -156,7 +154,9 @@ def redact_text(value: str) -> str:
         if secret and len(secret) >= 8:
             redacted = redacted.replace(secret, REDACTED)
     redacted = re.sub(r"(?i)(bearer\s+)[A-Za-z0-9._\-+/=]{8,}", r"\1[REDACTED]", redacted)
-    redacted = re.sub(r"(?i)(api[-_]?key\s*[:=]\s*)[A-Za-z0-9._\-+/=]{8,}", r"\1[REDACTED]", redacted)
+    redacted = re.sub(
+        r"(?i)(api[-_]?key\s*[:=]\s*)[A-Za-z0-9._\-+/=]{8,}", r"\1[REDACTED]", redacted
+    )
     redacted = _redact_workspace_paths(redacted)
     return redacted
 

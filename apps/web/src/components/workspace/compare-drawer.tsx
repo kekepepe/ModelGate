@@ -42,7 +42,10 @@ type Props = {
 
 function makeSlot(modelId: string): CompareSlot {
   return {
-    slotId: typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `s-${Date.now()}-${Math.random()}`,
+    slotId:
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `s-${Date.now()}-${Math.random()}`,
     modelId,
     status: "idle",
     run: null,
@@ -64,13 +67,17 @@ export function CompareDrawer({
   providers,
   initialModelIds,
 }: Props) {
-  const [slots, setSlots] = useState<CompareSlot[]>(() => initialModelIds.slice(0, MAX_SLOTS).map(makeSlot));
+  const [slots, setSlots] = useState<CompareSlot[]>(() =>
+    initialModelIds.slice(0, MAX_SLOTS).map(makeSlot),
+  );
   const [running, setRunning] = useState(false);
   const [sortKey, setSortKey] = useState<SortKey>(null);
   const [sortDir, setSortDir] = useState<SortDir>("asc");
   const compareGroupId = useMemo(
     () =>
-      typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `cg-${Date.now()}`,
+      typeof crypto !== "undefined" && "randomUUID" in crypto
+        ? crypto.randomUUID()
+        : `cg-${Date.now()}`,
     // Regenerate group id every time drawer opens, regardless of model changes.
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [open],
@@ -111,11 +118,22 @@ export function CompareDrawer({
   };
 
   const setSlotModel = (slotId: string, modelId: string) => {
-    setSlots((prev) => prev.map((s) => (s.slotId === slotId ? { ...s, modelId, run: null, status: "idle", errorMessage: null, paramsOverride: null } : s)));
+    setSlots((prev) =>
+      prev.map((s) =>
+        s.slotId === slotId
+          ? { ...s, modelId, run: null, status: "idle", errorMessage: null, paramsOverride: null }
+          : s,
+      ),
+    );
   };
 
-  const setSlotParams = (slotId: string, overrides: Record<string, string | number | boolean> | null) => {
-    setSlots((prev) => prev.map((s) => (s.slotId === slotId ? { ...s, paramsOverride: overrides } : s)));
+  const setSlotParams = (
+    slotId: string,
+    overrides: Record<string, string | number | boolean> | null,
+  ) => {
+    setSlots((prev) =>
+      prev.map((s) => (s.slotId === slotId ? { ...s, paramsOverride: overrides } : s)),
+    );
   };
 
   const toggleSort = (key: SortKey) => {
@@ -134,7 +152,8 @@ export function CompareDrawer({
   const addSlot = () => {
     if (slots.length >= MAX_SLOTS) return;
     const used = new Set(slots.map((s) => s.modelId));
-    const candidate = availableModels.find((m) => !used.has(m.id))?.id ?? availableModels[0]?.id ?? "";
+    const candidate =
+      availableModels.find((m) => !used.has(m.id))?.id ?? availableModels[0]?.id ?? "";
     setSlots((prev) => [...prev, makeSlot(candidate)]);
   };
 
@@ -146,7 +165,13 @@ export function CompareDrawer({
 
     const initial: Record<string, Partial<CompareSlot>> = {};
     for (const s of valid) {
-      initial[s.slotId] = { status: "running", run: null, errorMessage: null, startedAt: Date.now(), finishedAt: null };
+      initial[s.slotId] = {
+        status: "running",
+        run: null,
+        errorMessage: null,
+        startedAt: Date.now(),
+        finishedAt: null,
+      };
     }
     setSlots((prev) => prev.map((s) => (initial[s.slotId] ? { ...s, ...initial[s.slotId] } : s)));
 
@@ -183,17 +208,23 @@ export function CompareDrawer({
     setRunning(false);
   };
 
-  const canRun = slots.filter((s) => s.modelId).length >= MIN_RUN_SLOTS && prompt.trim().length > 0 && !running;
+  const canRun =
+    slots.filter((s) => s.modelId).length >= MIN_RUN_SLOTS && prompt.trim().length > 0 && !running;
 
   return (
-    <div className="fixed inset-0 z-50 flex bg-background/70 backdrop-blur-sm" role="dialog" aria-modal="true">
+    <div
+      className="fixed inset-0 z-50 flex bg-background/70 backdrop-blur-sm"
+      role="dialog"
+      aria-modal="true"
+    >
       <div className="ml-auto flex h-full w-full max-w-5xl flex-col border-l bg-card shadow-2xl">
         {/* Header */}
         <div className="flex items-center justify-between border-b px-5 py-3">
           <div>
             <h2 className="text-sm font-semibold">Compare run</h2>
             <p className="text-[10px] text-muted-foreground">
-              Up to {MAX_SLOTS} models · parallel · shared prompt &amp; params · group {compareGroupId.slice(0, 8)}
+              Up to {MAX_SLOTS} models · parallel · shared prompt &amp; params · group{" "}
+              {compareGroupId.slice(0, 8)}
             </p>
           </div>
           <Button variant="ghost" size="icon" onClick={onClose} aria-label="Close">
@@ -208,7 +239,11 @@ export function CompareDrawer({
               Prompt (shared, read-only here)
             </div>
             <div className="max-h-32 overflow-y-auto rounded border bg-muted/30 px-3 py-2 text-xs text-muted-foreground whitespace-pre-wrap">
-              {prompt.length > 0 ? prompt : <em>No prompt set. Close drawer and add a prompt in Playground.</em>}
+              {prompt.length > 0 ? (
+                prompt
+              ) : (
+                <em>No prompt set. Close drawer and add a prompt in Playground.</em>
+              )}
             </div>
           </div>
 
@@ -238,7 +273,9 @@ export function CompareDrawer({
                   providers={providers}
                   onModelChange={(id) => setSlotModel(slot.slotId, id)}
                   onRemove={() => removeSlot(slot.slotId)}
-                  onParamsToggle={() => setSlotParams(slot.slotId, slot.paramsOverride ? null : { ...params })}
+                  onParamsToggle={() =>
+                    setSlotParams(slot.slotId, slot.paramsOverride ? null : { ...params })
+                  }
                   disableEdit={running}
                 />
               ))}
@@ -412,7 +449,10 @@ function ResultCard({
   const provider = providers.find((p) => p.id === model?.provider);
   const output = slot.run?.output;
   const text = typeof output?.text === "string" ? output.text : "";
-  const latency = slot.finishedAt && slot.startedAt ? `${((slot.finishedAt - slot.startedAt) / 1000).toFixed(1)}s` : "—";
+  const latency =
+    slot.finishedAt && slot.startedAt
+      ? `${((slot.finishedAt - slot.startedAt) / 1000).toFixed(1)}s`
+      : "—";
   const tokens = "—"; // Backend usage log fetch could fill this in later
   return (
     <div className="rounded-lg border bg-background p-3 text-xs">

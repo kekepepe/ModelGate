@@ -126,7 +126,9 @@ def _to_anthropic_image_source(url: str | None) -> dict[str, Any] | None:
 
 def _normalize_params(params: dict[str, Any]) -> dict[str, Any]:
     allowed = {"temperature", "top_p", "stop_sequences"}
-    normalized = {key: value for key, value in params.items() if key in allowed and value not in ("", None)}
+    normalized = {
+        key: value for key, value in params.items() if key in allowed and value not in ("", None)
+    }
     normalized["stream"] = False
     return normalized
 

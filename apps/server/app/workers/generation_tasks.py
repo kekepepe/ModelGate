@@ -49,7 +49,9 @@ def poll_generation_task(self, task_id: str) -> dict:
         _release_lock(task_id, token)
 
 
-@celery_app.task(name="generation.download_outputs", bind=True, max_retries=3, default_retry_delay=10)
+@celery_app.task(
+    name="generation.download_outputs", bind=True, max_retries=3, default_retry_delay=10
+)
 def download_generation_outputs(self, task_id: str) -> dict:
     with SessionLocal() as db:
         task = db.get(GenerationTask, task_id)

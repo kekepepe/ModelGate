@@ -165,7 +165,9 @@ def _parse_pdf(stored_path: Path) -> dict:
         text = (page.extract_text() or "").strip()
         if text:
             pages_text.append(text)
-            chunks.append({"type": "page", "index": index, "text": _truncate(text, MAX_CHUNK_TEXT_CHARS)})
+            chunks.append(
+                {"type": "page", "index": index, "text": _truncate(text, MAX_CHUNK_TEXT_CHARS)}
+            )
 
     parsed_text = _truncate("\n\n".join(pages_text), MAX_PARSED_TEXT_CHARS)
     return {"pageCount": len(reader.pages), "parsedText": parsed_text, "chunks": chunks}
@@ -175,7 +177,9 @@ def _parse_docx(stored_path: Path) -> dict:
     from docx import Document
 
     document = Document(str(stored_path))
-    paragraphs = [paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()]
+    paragraphs = [
+        paragraph.text.strip() for paragraph in document.paragraphs if paragraph.text.strip()
+    ]
     table_lines = []
     for table_index, table in enumerate(document.tables, start=1):
         for row_index, row in enumerate(table.rows, start=1):
@@ -248,7 +252,9 @@ def _parse_xlsx(stored_path: Path) -> dict:
                 {
                     "type": "sheet",
                     "name": sheet.title,
-                    "text": _truncate("\n".join(" | ".join(row) for row in rows), MAX_CHUNK_TEXT_CHARS),
+                    "text": _truncate(
+                        "\n".join(" | ".join(row) for row in rows), MAX_CHUNK_TEXT_CHARS
+                    ),
                 }
             )
     workbook.close()
@@ -311,7 +317,9 @@ def _read_text(path: Path) -> str:
 
 def _extract_xml_text(xml: str) -> str:
     raw_parts = re.findall(r"<a:t[^>]*>(.*?)</a:t>", xml, flags=re.DOTALL)
-    return "\n".join(unescape(re.sub(r"\s+", " ", part)).strip() for part in raw_parts if part.strip())
+    return "\n".join(
+        unescape(re.sub(r"\s+", " ", part)).strip() for part in raw_parts if part.strip()
+    )
 
 
 def _extract_markdown_headings(text: str) -> list[str]:

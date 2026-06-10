@@ -10,7 +10,11 @@ test.describe("Activity page", () => {
   test.beforeEach(async ({ page }) => {
     // Mock providers endpoint (needed by topbar/sidebar)
     await page.route("**/api/providers", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
     });
     // Mock runs endpoint
     await page.route("**/api/history/runs**", async (route) => {

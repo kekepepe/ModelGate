@@ -88,7 +88,9 @@ def validate_upload(
             details={"maxTotalMb": settings.max_total_upload_mb},
         )
 
-    if (detected_type in {"code", "document"} and extension in TEXT_LIKE_EXTENSIONS) or extension == ".svg":
+    if (
+        detected_type in {"code", "document"} and extension in TEXT_LIKE_EXTENSIONS
+    ) or extension == ".svg":
         _reject_binary_text(content)
 
     _validate_magic_number(extension, content)
@@ -191,7 +193,9 @@ def _validate_magic_number(extension: str, content: bytes) -> None:
         _raise_magic_error(extension)
     if extension == ".webm" and not content.startswith(b"\x1a\x45\xdf\xa3"):
         _raise_magic_error(extension)
-    if extension == ".mp3" and not (content.startswith(b"ID3") or content[:2] in {b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"}):
+    if extension == ".mp3" and not (
+        content.startswith(b"ID3") or content[:2] in {b"\xff\xfb", b"\xff\xf3", b"\xff\xf2"}
+    ):
         _raise_magic_error(extension)
     if extension == ".wav" and not (content.startswith(b"RIFF") and content[8:12] == b"WAVE"):
         _raise_magic_error(extension)

@@ -32,16 +32,12 @@ export const errorDictionary: Record<string, ErrorEntry> = {
   PROVIDER_AUTH_MISSING: {
     tone: "warn",
     message: "No API key configured for this provider.",
-    actions: [
-      { kind: "link", label: "Configure key", href: "/api-keys?provider={providerId}" },
-    ],
+    actions: [{ kind: "link", label: "Configure key", href: "/api-keys?provider={providerId}" }],
   },
   PROVIDER_AUTH_FAILED: {
     tone: "failed",
     message: "API key rejected by provider.",
-    actions: [
-      { kind: "link", label: "Edit API key", href: "/api-keys?provider={providerId}" },
-    ],
+    actions: [{ kind: "link", label: "Edit API key", href: "/api-keys?provider={providerId}" }],
   },
   PROVIDER_FORBIDDEN: {
     tone: "failed",
@@ -51,9 +47,7 @@ export const errorDictionary: Record<string, ErrorEntry> = {
   PROVIDER_RATE_LIMITED: {
     tone: "warn",
     message: "Provider rate limit hit. Try again later or switch model.",
-    actions: [
-      { kind: "button", label: "Retry", onClick: "retry" },
-    ],
+    actions: [{ kind: "button", label: "Retry", onClick: "retry" }],
   },
   PROVIDER_TIMEOUT: {
     tone: "warn",
@@ -66,16 +60,12 @@ export const errorDictionary: Record<string, ErrorEntry> = {
   PROVIDER_CONNECT_ERROR: {
     tone: "failed",
     message: "Cannot reach provider endpoint.",
-    actions: [
-      { kind: "button", label: "Retry", onClick: "retry" },
-    ],
+    actions: [{ kind: "button", label: "Retry", onClick: "retry" }],
   },
   PROVIDER_BAD_REQUEST: {
     tone: "failed",
     message: "Provider rejected the request.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
   PROVIDER_SERVER_ERROR: {
     tone: "failed",
@@ -88,23 +78,17 @@ export const errorDictionary: Record<string, ErrorEntry> = {
   PROVIDER_REQUEST_ERROR: {
     tone: "failed",
     message: "Request to provider failed.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
   PROVIDER_KEY_UNSUPPORTED: {
     tone: "warn",
     message: "Provider rejected the key format.",
-    actions: [
-      { kind: "link", label: "Edit API key", href: "/api-keys?provider={providerId}" },
-    ],
+    actions: [{ kind: "link", label: "Edit API key", href: "/api-keys?provider={providerId}" }],
   },
   PROVIDER_KEY_INVALID: {
     tone: "warn",
     message: "Stored key cannot be decrypted (data corrupted).",
-    actions: [
-      { kind: "link", label: "Re-enter key", href: "/api-keys?provider={providerId}" },
-    ],
+    actions: [{ kind: "link", label: "Re-enter key", href: "/api-keys?provider={providerId}" }],
   },
   PROVIDER_PROTOCOL_UNSUPPORTED: {
     tone: "failed",
@@ -114,9 +98,7 @@ export const errorDictionary: Record<string, ErrorEntry> = {
   PROVIDER_BASE_URL_FORBIDDEN: {
     tone: "failed",
     message: "Provider base URL is not allowed.",
-    actions: [
-      { kind: "link", label: "Edit API key", href: "/api-keys?provider={providerId}" },
-    ],
+    actions: [{ kind: "link", label: "Edit API key", href: "/api-keys?provider={providerId}" }],
   },
   PROVIDER_GENERATION_UNSUPPORTED: {
     tone: "muted",
@@ -131,44 +113,32 @@ export const errorDictionary: Record<string, ErrorEntry> = {
   PROVIDER_DISABLED: {
     tone: "muted",
     message: "This provider is disabled.",
-    actions: [
-      { kind: "link", label: "Enable provider", href: "/api-keys?provider={providerId}" },
-    ],
+    actions: [{ kind: "link", label: "Enable provider", href: "/api-keys?provider={providerId}" }],
   },
   PROVIDER_STATUS_MISSING: {
     tone: "failed",
     message: "Provider status response is missing required fields.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
   PROVIDER_STATUS_UNSUPPORTED: {
     tone: "failed",
     message: "Provider returned an unsupported status.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
   PROVIDER_INVALID_RESPONSE: {
     tone: "failed",
     message: "Provider response could not be parsed.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
   PROVIDER_TASK_ID_MISSING: {
     tone: "failed",
     message: "Provider did not return a task id.",
-    actions: [
-      { kind: "button", label: "Retry", onClick: "retry" },
-    ],
+    actions: [{ kind: "button", label: "Retry", onClick: "retry" }],
   },
   PROVIDER_GENERATION_FAILED: {
     tone: "failed",
     message: "Generation task failed.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
 
   // Runtime errors
@@ -180,30 +150,22 @@ export const errorDictionary: Record<string, ErrorEntry> = {
   RUN_CANCELLED: {
     tone: "warn",
     message: "Run was cancelled.",
-    actions: [
-      { kind: "button", label: "Retry", onClick: "retry" },
-    ],
+    actions: [{ kind: "button", label: "Retry", onClick: "retry" }],
   },
   CHAT_RUNTIME_ERROR: {
     tone: "failed",
     message: "Chat runtime error.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
   GENERATION_RUNTIME_ERROR: {
     tone: "failed",
     message: "Generation runtime error.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
   GENERATION_POLL_ERROR: {
     tone: "failed",
     message: "Failed to poll generation task status.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
   GENERATION_TASK_NOT_FOUND: {
     tone: "failed",
@@ -276,9 +238,7 @@ export const errorDictionary: Record<string, ErrorEntry> = {
   INTERNAL_ERROR: {
     tone: "failed",
     message: "Internal error. See log for details.",
-    actions: [
-      { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-    ],
+    actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
   },
 };
 
@@ -287,9 +247,7 @@ export const errorDictionary: Record<string, ErrorEntry> = {
 const fallbackEntry: ErrorEntry = {
   tone: "failed",
   message: "Something went wrong.",
-  actions: [
-    { kind: "link", label: "Open log", href: "/activity?runId={runId}" },
-  ],
+  actions: [{ kind: "link", label: "Open log", href: "/activity?runId={runId}" }],
 };
 
 /**

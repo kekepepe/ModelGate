@@ -11,8 +11,7 @@ from __future__ import annotations
 
 import sys
 from pathlib import Path
-from typing import Any
-from unittest.mock import AsyncMock, patch
+from unittest.mock import patch
 
 import httpx
 import pytest
@@ -67,7 +66,7 @@ class _FakeRedis:
         pass
 
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
         return cls()
 
     def ping(self) -> None:
@@ -121,12 +120,14 @@ def client(monkeypatch):
     if not any(p["id"] == "volcengine" for p in original_providers):
         mr_module.model_registry._cached_properties = {}
         monkeypatch.setattr(
-            type(mr_module.model_registry), "providers",
+            type(mr_module.model_registry),
+            "providers",
             property(lambda self: original_providers + [VOLCENGINE_PROVIDER]),
         )
     if not any(m["id"] == "volcengine_seedance_1_0" for m in original_models):
         monkeypatch.setattr(
-            type(mr_module.model_registry), "models",
+            type(mr_module.model_registry),
+            "models",
             property(lambda self: original_models + [VOLCENGINE_MODEL]),
         )
 
@@ -146,7 +147,9 @@ def _mock_get_response(status_code: int, body: dict | None = None) -> httpx.Resp
     return httpx.Response(
         status_code=status_code,
         json=body if body is not None else {},
-        request=httpx.Request("GET", "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/probe"),
+        request=httpx.Request(
+            "GET", "https://ark.cn-beijing.volces.com/api/v3/contents/generations/tasks/probe"
+        ),
     )
 
 
@@ -171,8 +174,10 @@ class _AsyncClientGetCtx:
 
 def _patch_httpx_get(handler):
     """Return a monkeypatch-style context manager for httpx.AsyncClient.get."""
+
     def _factory(*args, **kwargs):
         return _AsyncClientGetCtx(handler)
+
     return patch("app.api.providers.httpx.AsyncClient", _factory)
 
 

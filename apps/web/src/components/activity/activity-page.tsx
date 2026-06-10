@@ -10,7 +10,13 @@ import { lookupError } from "@/lib/errors/dictionary";
 import type { Provider, RequestLog, RunRecord } from "@/types/model";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { StatusPill, type StatusTone } from "@/components/ui/status-pill";
 import { PageHeader } from "@/components/layout/page-header";
 
@@ -88,7 +94,10 @@ export function ActivityPage() {
       status: run.status,
       latencyMs: null,
       requestId: "",
-      compareGroupId: typeof run.metadata?.compare_group_id === "string" ? run.metadata.compare_group_id : undefined,
+      compareGroupId:
+        typeof run.metadata?.compare_group_id === "string"
+          ? run.metadata.compare_group_id
+          : undefined,
       raw: run,
     }));
     const logEntries: ActivityEntry[] = logs.map((log) => ({
@@ -220,7 +229,9 @@ export function ActivityPage() {
               onClick={() => {
                 const nextParams = new URLSearchParams(searchParams.toString());
                 nextParams.delete("compareGroupId");
-                router.replace(`${pathname}${nextParams.toString() ? `?${nextParams}` : ""}`, { scroll: false });
+                router.replace(`${pathname}${nextParams.toString() ? `?${nextParams}` : ""}`, {
+                  scroll: false,
+                });
               }}
               aria-label="Clear compare group filter"
             >
@@ -228,7 +239,7 @@ export function ActivityPage() {
             </button>
           </span>
         ) : null}
-        {(search || typeFilter || providerFilter || statusFilter) ? (
+        {search || typeFilter || providerFilter || statusFilter ? (
           <Button
             variant="ghost"
             size="sm"
@@ -269,7 +280,9 @@ export function ActivityPage() {
                   </Td>
                   <Td className="text-[11px] uppercase text-muted-foreground">{entry.type}</Td>
                   <Td className="text-xs">{entry.task}</Td>
-                  <Td className="text-xs">{providerNameById.get(entry.providerId) ?? entry.providerId ?? "—"}</Td>
+                  <Td className="text-xs">
+                    {providerNameById.get(entry.providerId) ?? entry.providerId ?? "—"}
+                  </Td>
                   <Td className="font-mono text-[11px]">{entry.modelId || "—"}</Td>
                   <Td>
                     <StatusPill tone={statusTone(entry.status)} className="text-[10px]">
@@ -358,7 +371,12 @@ function DetailDrawer({
   const log = entry?.type === "request" ? (entry.raw as RequestLog) : null;
 
   return (
-    <Sheet open={open} onOpenChange={(o) => { if (!o) onClose(); }}>
+    <Sheet
+      open={open}
+      onOpenChange={(o) => {
+        if (!o) onClose();
+      }}
+    >
       <SheetContent side="right" className="w-[480px] overflow-y-auto sm:w-[520px]">
         <SheetHeader>
           <SheetTitle>{entry?.type === "run" ? "Run details" : "Request log"}</SheetTitle>
@@ -371,9 +389,7 @@ function DetailDrawer({
               <StatusPill tone={statusTone(entry.status)} className="text-[11px]">
                 {titleCase(entry.status)}
               </StatusPill>
-              <span className="text-xs text-muted-foreground">
-                {entry.task}
-              </span>
+              <span className="text-xs text-muted-foreground">{entry.task}</span>
               <span className="text-xs text-muted-foreground">
                 · {providerNameById.get(entry.providerId) ?? entry.providerId ?? "—"}
               </span>
@@ -419,7 +435,9 @@ function DetailDrawer({
 
             {deleteError ? (
               <div className="rounded-md border border-destructive/30 bg-destructive/10 p-2 text-xs text-destructive">
-                {deleteError instanceof ApiError ? deleteError.message : String(deleteError.message ?? deleteError)}
+                {deleteError instanceof ApiError
+                  ? deleteError.message
+                  : String(deleteError.message ?? deleteError)}
               </div>
             ) : null}
           </div>
@@ -438,7 +456,9 @@ function RunDetail({ run }: { run: RunRecord }) {
         <DetailRow label="Model" value={run.modelId} />
         {run.createdAt ? <DetailRow label="Created" value={run.createdAt} /> : null}
         {run.errorType ? <DetailRow label="Error type" value={run.errorType} /> : null}
-        {run.errorType ? <DetailRow label="Error" value={lookupError(run.errorType).message} /> : null}
+        {run.errorType ? (
+          <DetailRow label="Error" value={lookupError(run.errorType).message} />
+        ) : null}
         {run.errorMessage && run.errorMessage !== lookupError(run.errorType).message ? (
           <DetailRow label="Details" value={run.errorMessage} />
         ) : null}
@@ -459,10 +479,15 @@ function LogDetail({ log }: { log: RequestLog }) {
         {log.modelId ? <DetailRow label="Model" value={log.modelId} /> : null}
         <DetailRow label="Record type" value={log.recordType} />
         <DetailRow label="Record ID" value={log.recordId} copyable />
-        <DetailRow label="Status code" value={log.statusCode != null ? String(log.statusCode) : "—"} />
+        <DetailRow
+          label="Status code"
+          value={log.statusCode != null ? String(log.statusCode) : "—"}
+        />
         <DetailRow label="Latency" value={log.latencyMs != null ? `${log.latencyMs}ms` : "—"} />
         {log.errorType ? <DetailRow label="Error type" value={log.errorType} /> : null}
-        {log.errorType ? <DetailRow label="Error" value={lookupError(log.errorType).message} /> : null}
+        {log.errorType ? (
+          <DetailRow label="Error" value={lookupError(log.errorType).message} />
+        ) : null}
         {log.errorMessage && log.errorMessage !== lookupError(log.errorType).message ? (
           <DetailRow label="Details" value={log.errorMessage} />
         ) : null}

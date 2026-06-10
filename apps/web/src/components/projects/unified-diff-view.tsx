@@ -25,7 +25,10 @@ interface DiffFile {
   riskReason?: string;
 }
 
-function parseDiff(diffText: string, highRiskFiles: Array<{ file: string; reason: string }> = []): DiffFile[] {
+function parseDiff(
+  diffText: string,
+  highRiskFiles: Array<{ file: string; reason: string }> = [],
+): DiffFile[] {
   const files: DiffFile[] = [];
   const lines = diffText.split("\n");
   let currentFile: DiffFile | null = null;
@@ -86,7 +89,10 @@ function parseDiff(diffText: string, highRiskFiles: Array<{ file: string; reason
       } else if (line.startsWith("-")) {
         currentHunk.lines.push({ type: "del", content: line.slice(1) });
       } else if (line.startsWith(" ") || line === "") {
-        currentHunk.lines.push({ type: "context", content: line.startsWith(" ") ? line.slice(1) : "" });
+        currentHunk.lines.push({
+          type: "context",
+          content: line.startsWith(" ") ? line.slice(1) : "",
+        });
       }
     }
   }
@@ -94,22 +100,16 @@ function parseDiff(diffText: string, highRiskFiles: Array<{ file: string; reason
   return files;
 }
 
-function FileDiff({
-  file,
-  defaultExpanded = true,
-}: {
-  file: DiffFile;
-  defaultExpanded?: boolean;
-}) {
+function FileDiff({ file, defaultExpanded = true }: { file: DiffFile; defaultExpanded?: boolean }) {
   const [expanded, setExpanded] = useState(defaultExpanded);
 
   const addCount = file.hunks.reduce(
     (sum, h) => sum + h.lines.filter((l) => l.type === "add").length,
-    0
+    0,
   );
   const delCount = file.hunks.reduce(
     (sum, h) => sum + h.lines.filter((l) => l.type === "del").length,
-    0
+    0,
   );
 
   const displayPath = file.newPath === "/dev/null" ? file.oldPath : file.newPath;
@@ -176,9 +176,7 @@ function FileDiff({
                       <span className="text-muted-foreground/30"> </span>
                     )}
                   </span>
-                  <span className="flex-1 whitespace-pre overflow-x-auto">
-                    {line.content}
-                  </span>
+                  <span className="flex-1 whitespace-pre overflow-x-auto">{line.content}</span>
                 </div>
               ))}
             </div>

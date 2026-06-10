@@ -122,7 +122,7 @@ function AgentNode({ data }: NodeProps<Node<AgentNodeData>>) {
               <Loader2 className="h-2.5 w-2.5 animate-spin" /> run
             </span>
           ) : (
-            data.status ?? "queued"
+            (data.status ?? "queued")
           )}
         </StatusPill>
       </button>
@@ -218,7 +218,8 @@ export function AgentBoard({
         status: intakeRun?.status,
         artifacts: artifactsByType["intake"] ?? [],
         onArtifactClick,
-        onCardClick: intakeRun && handleNodeClick ? () => handleNodeClick(intakeRun, null) : undefined,
+        onCardClick:
+          intakeRun && handleNodeClick ? () => handleNodeClick(intakeRun, null) : undefined,
         emptyHint: "Awaiting intake",
         showSourceHandle: true,
         showTargetHandle: false,
@@ -242,7 +243,8 @@ export function AgentBoard({
         status: plannerRun?.status,
         artifacts: artifactsByType["plan"] ?? [],
         onArtifactClick,
-        onCardClick: plannerRun && handleNodeClick ? () => handleNodeClick(plannerRun, null) : undefined,
+        onCardClick:
+          plannerRun && handleNodeClick ? () => handleNodeClick(plannerRun, null) : undefined,
         emptyHint: "Awaiting planner",
         showSourceHandle: true,
         showTargetHandle: true,
@@ -392,7 +394,16 @@ export function AgentBoard({
     }
 
     return { nodes: ns, edges: es };
-  }, [agentRuns, tasks, artifactsByType, grouped, handleNodeClick, onArtifactClick, isControlledAuto, selectedAgentId]);
+  }, [
+    agentRuns,
+    tasks,
+    artifactsByType,
+    grouped,
+    handleNodeClick,
+    onArtifactClick,
+    isControlledAuto,
+    selectedAgentId,
+  ]);
 
   // Side artifacts (progress / decisions) — rendered below the flow as a flat list
   const sideArtifacts = [
@@ -442,10 +453,7 @@ export function AgentBoard({
       </div>
 
       {sideArtifacts.length > 0 ? (
-        <div
-          className="rounded-lg border bg-card p-2"
-          data-testid="agent-board-side-artifacts"
-        >
+        <div className="rounded-lg border bg-card p-2" data-testid="agent-board-side-artifacts">
           <p className="mb-1 text-xs font-semibold">Side artifacts</p>
           <ul className="grid grid-cols-1 gap-1 sm:grid-cols-2 lg:grid-cols-3">
             {sideArtifacts.map((a) => (

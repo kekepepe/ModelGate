@@ -29,7 +29,9 @@ export function ModelSelector({
           type="button"
           onClick={() => onProviderFilter(null)}
           className={`rounded-md border px-3 py-1.5 text-xs ${
-            providerFilter === null ? "border-slate-900 bg-slate-900 text-white" : "border-slate-200 bg-white"
+            providerFilter === null
+              ? "border-slate-900 bg-slate-900 text-white"
+              : "border-slate-200 bg-white"
           }`}
         >
           全部
@@ -55,7 +57,9 @@ export function ModelSelector({
           <ModelCard
             key={model.id}
             model={model}
-            providerName={providers.find((provider) => provider.id === model.provider)?.name ?? model.provider}
+            providerName={
+              providers.find((provider) => provider.id === model.provider)?.name ?? model.provider
+            }
             selected={model.id === selectedModelId}
             onSelect={() => onSelectModel(model.id)}
           />
@@ -97,7 +101,9 @@ function ModelCard({
       type="button"
       onClick={onSelect}
       className={`w-full rounded-md border p-3 text-left transition ${
-        selected ? "border-emerald-600 bg-emerald-50" : "border-slate-200 bg-white hover:border-slate-400"
+        selected
+          ? "border-emerald-600 bg-emerald-50"
+          : "border-slate-200 bg-white hover:border-slate-400"
       }`}
     >
       <div className="flex items-start justify-between gap-3">
@@ -105,11 +111,16 @@ function ModelCard({
           <div className="text-sm font-semibold text-slate-900">{model.displayName}</div>
           <div className="mt-1 text-xs text-slate-500">{providerName}</div>
         </div>
-        <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">{model.runtime}</span>
+        <span className="rounded bg-slate-100 px-2 py-1 text-xs text-slate-600">
+          {model.runtime}
+        </span>
       </div>
       <div className="mt-3 flex flex-wrap gap-1">
         {model.capabilities.slice(0, 5).map((capability) => (
-          <span key={capability} className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-600">
+          <span
+            key={capability}
+            className="rounded border border-slate-200 px-1.5 py-0.5 text-xs text-slate-600"
+          >
             {capability}
           </span>
         ))}

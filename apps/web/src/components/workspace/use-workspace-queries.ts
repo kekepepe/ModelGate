@@ -21,7 +21,14 @@ import { API_BASE_URL, ApiError, deleteData, getData, postData, uploadData } fro
 import type { ConversationView, MessageView } from "@/lib/api";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import type { ChatMessage } from "@/stores/workspace-store";
-import type { FileRecord, ModelInfo, ParamSchema, Provider, RecommendResult, RunRecord } from "@/types/model";
+import type {
+  FileRecord,
+  ModelInfo,
+  ParamSchema,
+  Provider,
+  RecommendResult,
+  RunRecord,
+} from "@/types/model";
 
 export type TaskOption = {
   id: string;
@@ -44,19 +51,131 @@ export type ChatRunPayload = {
 };
 
 export const tasks: TaskOption[] = [
-  { id: "chat", name: "Chat", runtime: "chat", input: "text", output: "text", requiredInputTypes: ["text"], icon: MessageSquare },
-  { id: "coding", name: "Coding", runtime: "chat", input: "text/code", output: "text", requiredInputTypes: ["text"], icon: Code2 },
-  { id: "code_review", name: "Code Review", runtime: "chat", input: "code", output: "text", requiredInputTypes: ["code"], icon: FileCode2 },
-  { id: "image_understanding", name: "Image Understanding", runtime: "chat", input: "image", output: "text", requiredInputTypes: ["image"], icon: ImageIcon, disabled: true },
-  { id: "document_analysis", name: "Document Analysis", runtime: "chat", input: "file", output: "text", requiredInputTypes: ["file"], icon: FileText },
-  { id: "video_understanding", name: "Video Understanding", runtime: "chat", input: "video", output: "text", requiredInputTypes: ["video"], icon: Video, disabled: true },
-  { id: "text_to_image", name: "Text to Image", runtime: "generation", input: "text", output: "image", requiredInputTypes: ["text"], icon: WandSparkles, disabled: true },
-  { id: "image_to_image", name: "Image to Image", runtime: "generation", input: "image", output: "image", requiredInputTypes: ["image"], icon: ImageIcon, disabled: true },
-  { id: "text_to_video", name: "Text to Video", runtime: "generation", input: "text", output: "video", requiredInputTypes: ["text"], icon: Video, disabled: true },
-  { id: "image_to_video", name: "Image to Video", runtime: "generation", input: "image", output: "video", requiredInputTypes: ["image"], icon: Video, disabled: true },
-  { id: "first_last_frame_video", name: "Frame to Video", runtime: "generation", input: "image", output: "video", requiredInputTypes: ["image"], icon: FileArchive, disabled: true },
-  { id: "prompt_optimize", name: "Prompt Optimize", runtime: "chat", input: "text", output: "text", requiredInputTypes: ["text"], icon: Sparkles },
-  { id: "multi_agent_workflow", name: "Multi-Agent Workflow", runtime: "workflow", input: "mixed", output: "flow", requiredInputTypes: ["text"], icon: Network, disabled: true },
+  {
+    id: "chat",
+    name: "Chat",
+    runtime: "chat",
+    input: "text",
+    output: "text",
+    requiredInputTypes: ["text"],
+    icon: MessageSquare,
+  },
+  {
+    id: "coding",
+    name: "Coding",
+    runtime: "chat",
+    input: "text/code",
+    output: "text",
+    requiredInputTypes: ["text"],
+    icon: Code2,
+  },
+  {
+    id: "code_review",
+    name: "Code Review",
+    runtime: "chat",
+    input: "code",
+    output: "text",
+    requiredInputTypes: ["code"],
+    icon: FileCode2,
+  },
+  {
+    id: "image_understanding",
+    name: "Image Understanding",
+    runtime: "chat",
+    input: "image",
+    output: "text",
+    requiredInputTypes: ["image"],
+    icon: ImageIcon,
+    disabled: true,
+  },
+  {
+    id: "document_analysis",
+    name: "Document Analysis",
+    runtime: "chat",
+    input: "file",
+    output: "text",
+    requiredInputTypes: ["file"],
+    icon: FileText,
+  },
+  {
+    id: "video_understanding",
+    name: "Video Understanding",
+    runtime: "chat",
+    input: "video",
+    output: "text",
+    requiredInputTypes: ["video"],
+    icon: Video,
+    disabled: true,
+  },
+  {
+    id: "text_to_image",
+    name: "Text to Image",
+    runtime: "generation",
+    input: "text",
+    output: "image",
+    requiredInputTypes: ["text"],
+    icon: WandSparkles,
+    disabled: true,
+  },
+  {
+    id: "image_to_image",
+    name: "Image to Image",
+    runtime: "generation",
+    input: "image",
+    output: "image",
+    requiredInputTypes: ["image"],
+    icon: ImageIcon,
+    disabled: true,
+  },
+  {
+    id: "text_to_video",
+    name: "Text to Video",
+    runtime: "generation",
+    input: "text",
+    output: "video",
+    requiredInputTypes: ["text"],
+    icon: Video,
+    disabled: true,
+  },
+  {
+    id: "image_to_video",
+    name: "Image to Video",
+    runtime: "generation",
+    input: "image",
+    output: "video",
+    requiredInputTypes: ["image"],
+    icon: Video,
+    disabled: true,
+  },
+  {
+    id: "first_last_frame_video",
+    name: "Frame to Video",
+    runtime: "generation",
+    input: "image",
+    output: "video",
+    requiredInputTypes: ["image"],
+    icon: FileArchive,
+    disabled: true,
+  },
+  {
+    id: "prompt_optimize",
+    name: "Prompt Optimize",
+    runtime: "chat",
+    input: "text",
+    output: "text",
+    requiredInputTypes: ["text"],
+    icon: Sparkles,
+  },
+  {
+    id: "multi_agent_workflow",
+    name: "Multi-Agent Workflow",
+    runtime: "workflow",
+    input: "mixed",
+    output: "flow",
+    requiredInputTypes: ["text"],
+    icon: Network,
+    disabled: true,
+  },
 ];
 
 export function useWorkspaceQueries() {
@@ -66,7 +185,9 @@ export function useWorkspaceQueries() {
   const searchParams = useSearchParams();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const currentRunIdRef = useRef<string | null>(null);
-  const [activeResultTab, setActiveResultTab] = useState<"preview" | "status" | "archive">("preview");
+  const [activeResultTab, setActiveResultTab] = useState<"preview" | "status" | "archive">(
+    "preview",
+  );
 
   const selectedTaskType = useWorkspaceStore((state) => state.selectedTaskType);
   const selectedModelId = useWorkspaceStore((state) => state.selectedModelId);
@@ -132,7 +253,8 @@ export function useWorkspaceQueries() {
       // Brief notification — use a simple DOM toast since we don't have a toast library
       const toast = document.createElement("div");
       toast.textContent = "Original files not re-attached. Upload again if needed.";
-      toast.className = "fixed bottom-4 right-4 z-50 rounded-md border bg-card px-4 py-2 text-sm shadow-lg";
+      toast.className =
+        "fixed bottom-4 right-4 z-50 rounded-md border bg-card px-4 py-2 text-sm shadow-lg";
       document.body.appendChild(toast);
       setTimeout(() => toast.remove(), 5000);
     }
@@ -201,8 +323,14 @@ export function useWorkspaceQueries() {
     return Array.from(inputSet);
   }, [files.length, prompt, selectedTask.requiredInputTypes]);
 
-  const providersQuery = useQuery({ queryKey: ["providers"], queryFn: () => getData<Provider[]>("/providers") });
-  const modelsQuery = useQuery({ queryKey: ["models"], queryFn: () => getData<ModelInfo[]>("/models") });
+  const providersQuery = useQuery({
+    queryKey: ["providers"],
+    queryFn: () => getData<Provider[]>("/providers"),
+  });
+  const modelsQuery = useQuery({
+    queryKey: ["models"],
+    queryFn: () => getData<ModelInfo[]>("/models"),
+  });
   const recommendationQuery = useQuery({
     queryKey: ["recommendation", selectedTaskType, inputTypes, providerFilter, params, fileIds],
     queryFn: () =>
@@ -222,7 +350,10 @@ export function useWorkspaceQueries() {
     queryFn: () => getData<ParamSchema>(`/param-schemas/${selectedModel?.paramsSchema}`),
     enabled: Boolean(selectedModel?.paramsSchema),
   });
-  const historyQuery = useQuery({ queryKey: ["history-runs"], queryFn: () => getData<RunRecord[]>("/history/runs") });
+  const historyQuery = useQuery({
+    queryKey: ["history-runs"],
+    queryFn: () => getData<RunRecord[]>("/history/runs"),
+  });
 
   useEffect(() => {
     if (!selectedModelId && recommendationQuery.data?.availableModels?.[0]) {
@@ -234,7 +365,10 @@ export function useWorkspaceQueries() {
     const schema = paramSchemaQuery.data;
     if (!schema) return;
     const defaults = Object.fromEntries(
-      schema.fields.map((field) => [field.key, field.default ?? (field.type === "boolean" ? false : "")]),
+      schema.fields.map((field) => [
+        field.key,
+        field.default ?? (field.type === "boolean" ? false : ""),
+      ]),
     );
     setParams(defaults);
   }, [paramSchemaQuery.data, setParams]);
@@ -294,7 +428,8 @@ export function useWorkspaceQueries() {
           setActiveResultTab("preview");
           const assistantMessageId = activeAssistantIdRef.current;
           if (assistantMessageId) {
-            const text = run.output?.type === "text" ? (run.output as { text?: string }).text ?? "" : "";
+            const text =
+              run.output?.type === "text" ? ((run.output as { text?: string }).text ?? "") : "";
             updateMessage(assistantMessageId, {
               content: text,
               status: run.status === "cancelled" ? "cancelled" : "streaming",
@@ -312,7 +447,8 @@ export function useWorkspaceQueries() {
       queryClient.invalidateQueries({ queryKey: ["conversations"] });
       const assistantMessageId = activeAssistantIdRef.current;
       if (assistantMessageId) {
-        const text = run.output?.type === "text" ? (run.output as { text?: string }).text ?? "" : "";
+        const text =
+          run.output?.type === "text" ? ((run.output as { text?: string }).text ?? "") : "";
         updateMessage(assistantMessageId, {
           content: text,
           status: run.status === "cancelled" ? "cancelled" : "completed",
@@ -538,7 +674,11 @@ export async function streamChatRun(
         applyEvent(JSON.parse(line.slice(5).trim()));
       } catch (eventError) {
         if (eventError instanceof CancelledRunError) {
-          try { await reader.cancel(); } catch { /* best-effort */ }
+          try {
+            await reader.cancel();
+          } catch {
+            /* best-effort */
+          }
           return {
             id: eventError.runId,
             taskType: payload.taskType,
@@ -581,7 +721,10 @@ export class CancelledRunError extends Error {
 }
 
 function buildStreamingEventError(event: Record<string, unknown>): Error {
-  const error = event.error && typeof event.error === "object" ? (event.error as Record<string, unknown>) : event;
+  const error =
+    event.error && typeof event.error === "object"
+      ? (event.error as Record<string, unknown>)
+      : event;
   return new ApiError(
     String(error.message ?? "Streaming chat failed."),
     200,

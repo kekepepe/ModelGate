@@ -6,8 +6,21 @@ import { useQuery } from "@tanstack/react-query";
 
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { Select, SelectContent, SelectGroup, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import {
+  Select,
+  SelectContent,
+  SelectGroup,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Sheet,
+  SheetContent,
+  SheetDescription,
+  SheetHeader,
+  SheetTitle,
+} from "@/components/ui/sheet";
 import { StatusPill } from "@/components/ui/status-pill";
 import { getData } from "@/lib/api";
 import { cn } from "@/lib/utils";
@@ -144,7 +157,10 @@ export function ModelSelectorRow({
       ) : null}
 
       {usage && usage.requests > 0 && usage.successRate < 0.9 ? (
-        <Badge variant="outline" className="gap-1 border-amber-400/40 bg-amber-50 text-[11px] font-normal text-amber-700">
+        <Badge
+          variant="outline"
+          className="gap-1 border-amber-400/40 bg-amber-50 text-[11px] font-normal text-amber-700"
+        >
           <Gauge className="h-3 w-3" /> {Math.round(usage.successRate * 100)}% recent success
         </Badge>
       ) : null}
@@ -235,9 +251,7 @@ function ModelDetailsSheet({
       <SheetContent side="right" className="w-[420px] sm:w-[460px]">
         <SheetHeader>
           <SheetTitle>{model?.displayName ?? "No model selected"}</SheetTitle>
-          <SheetDescription className="text-xs">
-            {model?.officialModelName ?? ""}
-          </SheetDescription>
+          <SheetDescription className="text-xs">{model?.officialModelName ?? ""}</SheetDescription>
         </SheetHeader>
 
         {model ? (
@@ -259,7 +273,9 @@ function ModelDetailsSheet({
             />
             <DetailField
               label="Max output"
-              value={model.maxOutputTokens ? `${model.maxOutputTokens.toLocaleString()} tokens` : "—"}
+              value={
+                model.maxOutputTokens ? `${model.maxOutputTokens.toLocaleString()} tokens` : "—"
+              }
             />
             <DetailField label="Params schema" value={model.paramsSchema} />
 
@@ -270,10 +286,7 @@ function ModelDetailsSheet({
               {usage && usage.requests > 0 ? (
                 <div className="mt-2 grid grid-cols-2 gap-3 text-xs">
                   <Stat label="Requests" value={usage.requests.toString()} />
-                  <Stat
-                    label="Success rate"
-                    value={`${Math.round(usage.successRate * 100)}%`}
-                  />
+                  <Stat label="Success rate" value={`${Math.round(usage.successRate * 100)}%`} />
                   <Stat
                     label="Avg latency"
                     value={usage.avgLatencyMs ? formatLatency(usage.avgLatencyMs) : "—"}

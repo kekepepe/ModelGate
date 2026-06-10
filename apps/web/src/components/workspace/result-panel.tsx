@@ -33,7 +33,11 @@ export function ResultPanel({ run, history, onRerun }: ResultPanelProps) {
               <div className="flex flex-wrap gap-2">
                 <button
                   type="button"
-                  onClick={() => navigator.clipboard.writeText(run.output?.text ?? JSON.stringify(run.output, null, 2))}
+                  onClick={() =>
+                    navigator.clipboard.writeText(
+                      run.output?.text ?? JSON.stringify(run.output, null, 2),
+                    )
+                  }
                   className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-1.5 text-xs"
                   title="复制结果"
                 >
@@ -70,7 +74,9 @@ export function ResultPanel({ run, history, onRerun }: ResultPanelProps) {
                 <div className="flex shrink-0 items-center gap-1">
                   <button
                     type="button"
-                    onClick={() => navigator.clipboard.writeText(JSON.stringify(item.params, null, 2))}
+                    onClick={() =>
+                      navigator.clipboard.writeText(JSON.stringify(item.params, null, 2))
+                    }
                     className="rounded-md p-2 text-slate-500 hover:bg-slate-100"
                     title="复制参数"
                   >
@@ -98,18 +104,38 @@ function ResultContent({ run }: { run: RunRecord }) {
   const output = run.output;
   if (!output) return null;
   if (output.imageUrl) {
-    return <img src={output.imageUrl} alt="生成结果" className="max-h-80 rounded-md border border-slate-200 object-contain" />;
+    return (
+      <img
+        src={output.imageUrl}
+        alt="生成结果"
+        className="max-h-80 rounded-md border border-slate-200 object-contain"
+      />
+    );
   }
   if (output.videoUrl) {
-    return <video src={output.videoUrl} controls className="max-h-80 w-full rounded-md border border-slate-200" />;
+    return (
+      <video
+        src={output.videoUrl}
+        controls
+        className="max-h-80 w-full rounded-md border border-slate-200"
+      />
+    );
   }
   if (output.fileUrl) {
     return (
-      <a href={output.fileUrl} download className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm">
+      <a
+        href={output.fileUrl}
+        download
+        className="inline-flex items-center gap-2 rounded-md border border-slate-300 px-3 py-2 text-sm"
+      >
         <Download className="h-4 w-4" aria-hidden="true" />
         {output.fileName ?? "下载文件"}
       </a>
     );
   }
-  return <p className="whitespace-pre-wrap text-slate-800">{output.text ?? JSON.stringify(output, null, 2)}</p>;
+  return (
+    <p className="whitespace-pre-wrap text-slate-800">
+      {output.text ?? JSON.stringify(output, null, 2)}
+    </p>
+  );
 }

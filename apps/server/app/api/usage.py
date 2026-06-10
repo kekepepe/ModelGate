@@ -50,18 +50,15 @@ def _parent_joins(stmt):
     'generation_task'. We coalesce the parent columns so a single set of labels
     is usable downstream.
     """
-    return (
-        stmt.outerjoin(
-            Run,
-            and_(UsageLog.record_type == "run", Run.id == UsageLog.record_id),
-        )
-        .outerjoin(
-            GenerationTask,
-            and_(
-                UsageLog.record_type == "generation_task",
-                GenerationTask.id == UsageLog.record_id,
-            ),
-        )
+    return stmt.outerjoin(
+        Run,
+        and_(UsageLog.record_type == "run", Run.id == UsageLog.record_id),
+    ).outerjoin(
+        GenerationTask,
+        and_(
+            UsageLog.record_type == "generation_task",
+            GenerationTask.id == UsageLog.record_id,
+        ),
     )
 
 
@@ -74,9 +71,7 @@ def _parent_columns():
             "parent_error_message"
         ),
         func.coalesce(Run.started_at, GenerationTask.started_at).label("started_at"),
-        func.coalesce(Run.completed_at, GenerationTask.completed_at).label(
-            "completed_at"
-        ),
+        func.coalesce(Run.completed_at, GenerationTask.completed_at).label("completed_at"),
     ]
 
 
@@ -175,13 +170,9 @@ def serialize_model_usage_row(row) -> dict:
         "requests": requests,
         "tokens": int(row.sum_total or 0),
         "cost": float(row.sum_cost or 0),
-        "successRate": (
-            (int(row.success_requests or 0) / requests) if requests else 0.0
-        ),
+        "successRate": ((int(row.success_requests or 0) / requests) if requests else 0.0),
         "avgLatencyMs": (
-            int((float(row.sum_latency_seconds or 0) / requests) * 1000)
-            if requests
-            else None
+            int((float(row.sum_latency_seconds or 0) / requests) * 1000) if requests else None
         ),
     }
 
@@ -296,9 +287,7 @@ async def get_usage_summary(
             success_requests += count
 
     success_rate = (success_requests / total_requests) if total_requests else 0.0
-    avg_latency_ms = (
-        int((total_latency_sec / total_requests) * 1000) if total_requests else None
-    )
+    avg_latency_ms = int((total_latency_sec / total_requests) * 1000) if total_requests else None
 
     return {
         "data": {
@@ -377,20 +366,15 @@ async def get_usage_providers(
     endDate: datetime | None = Query(default=None, alias="endDate"),
     db: Session = Depends(get_db),
 ):
-    base = (
-        select(
-            UsageLog.provider_id.label("provider_id"),
-            func.coalesce(Provider.name, UsageLog.provider_id).label("provider_name"),
-            func.coalesce(func.sum(UsageLog.total_tokens), 0).label("sum_total"),
-            func.coalesce(func.sum(UsageLog.estimated_cost), 0).label("sum_cost"),
-            func.count(UsageLog.id).label("total_requests"),
-        )
-        .outerjoin(Provider, Provider.id == UsageLog.provider_id)
-    )
+    base = select(
+        UsageLog.provider_id.label("provider_id"),
+        func.coalesce(Provider.name, UsageLog.provider_id).label("provider_name"),
+        func.coalesce(func.sum(UsageLog.total_tokens), 0).label("sum_total"),
+        func.coalesce(func.sum(UsageLog.estimated_cost), 0).label("sum_cost"),
+        func.count(UsageLog.id).label("total_requests"),
+    ).outerjoin(Provider, Provider.id == UsageLog.provider_id)
     base = _apply_date_range(base, startDate, endDate)
-    base = base.group_by(UsageLog.provider_id, Provider.name).order_by(
-        desc("total_requests")
-    )
+    base = base.group_by(UsageLog.provider_id, Provider.name).order_by(desc("total_requests"))
 
     rows = db.execute(base).all()
     total = sum(int(r.total_requests or 0) for r in rows) or 1
@@ -425,9 +409,9 @@ async def get_usage_models(
     base = _parent_joins(
         select(
             UsageLog.model_id.label("model_id"),
-            func.coalesce(
-                Model.display_name, Model.official_model_name, UsageLog.model_id
-            ).label("model_name"),
+            func.coalesce(Model.display_name, Model.official_model_name, UsageLog.model_id).label(
+                "model_name"
+            ),
             UsageLog.provider_id.label("provider_id"),
             func.coalesce(Provider.name, UsageLog.provider_id).label("provider_name"),
             func.coalesce(func.sum(UsageLog.total_tokens), 0).label("sum_total"),
@@ -487,9 +471,7 @@ async def list_usage_logs(
         func.coalesce(Run.completed_at, GenerationTask.completed_at),
     ).label("latency_seconds")
 
-    base = _parent_joins(
-        select(UsageLog, *_parent_columns(), status_col, latency_col)
-    )
+    base = _parent_joins(select(UsageLog, *_parent_columns(), status_col, latency_col))
     base = _apply_date_range(base, startDate, endDate)
     if compareGroupId:
         base = base.where(
@@ -506,9 +488,7 @@ async def list_usage_logs(
                 task_type=row.task_type,
                 status=row.status_bucket,
                 latency_ms=(
-                    int(row.latency_seconds * 1000)
-                    if row.latency_seconds is not None
-                    else None
+                    int(row.latency_seconds * 1000) if row.latency_seconds is not None else None
                 ),
                 error_message=row.parent_error_message,
             )
@@ -545,18 +525,9 @@ async def get_usage_log_detail(
 
     task_type = (run.task_type if run else None) or (task.task_type if task else None)
     parent_status = (run.status if run else None) or (task.status if task else None)
-    error_type = (run.error_type if run else None) or (
-        task.error_type if task else None
-    )
-    error_message = (run.error_message if run else None) or (
-        task.error_message if task else None
-    )
-    started_at = (run.started_at if run else None) or (
-        task.started_at if task else None
-    )
-    completed_at = (run.completed_at if run else None) or (
-        task.completed_at if task else None
-    )
+    error_message = (run.error_message if run else None) or (task.error_message if task else None)
+    started_at = (run.started_at if run else None) or (task.started_at if task else None)
+    completed_at = (run.completed_at if run else None) or (task.completed_at if task else None)
     latency_ms = (
         int((completed_at - started_at).total_seconds() * 1000)
         if started_at and completed_at
@@ -632,9 +603,7 @@ async def delete_usage_logs_batch(
     }
 
 
-def _delete_records_for(
-    db: Session, record_type: str, record_id: str
-) -> dict[str, int]:
+def _delete_records_for(db: Session, record_type: str, record_id: str) -> dict[str, int]:
     """Delete the parent record (Run or GenerationTask) and associated RequestLogs.
 
     Returns a dict with counts of deleted sub-records.

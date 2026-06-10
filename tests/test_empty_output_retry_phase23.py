@@ -10,7 +10,6 @@ Covers:
 
 from __future__ import annotations
 
-import asyncio
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -28,7 +27,6 @@ from app.db import models as db_models  # noqa: E402
 from app.services.project_runtime import agents as agents_module  # noqa: E402
 from app.services.project_runtime import orchestrator as orch_module  # noqa: E402
 from app.services.project_runtime.budget import Budget, BudgetTracker  # noqa: E402
-
 
 # ── fixtures ─────────────────────────────────────────────────────────────────
 
@@ -203,7 +201,9 @@ class TestEmptyOutputRetry:
 
 
 class _FakeAgentRun:
-    def __init__(self, *, status: str = "completed", error_type=None, error_message=None, output=None):
+    def __init__(
+        self, *, status: str = "completed", error_type=None, error_message=None, output=None
+    ):
         self.id = f"agent_{uuid4().hex}"
         self.status = status
         self.error_type = error_type
@@ -211,7 +211,14 @@ class _FakeAgentRun:
         self.output_json = output or {}
 
 
-_VALID_INTAKE = {"summary": "s", "goal": "g", "project_area": [], "risk_level": "low", "requires_repo_access": False, "expected_outputs": []}
+_VALID_INTAKE = {
+    "summary": "s",
+    "goal": "g",
+    "project_area": [],
+    "risk_level": "low",
+    "requires_repo_access": False,
+    "expected_outputs": [],
+}
 
 
 def _fake_serialize_artifact(artifact):
@@ -237,11 +244,18 @@ class TestOrchestratorPlannerFailure:
             return _FakeAgentRun(output=_VALID_INTAKE), _VALID_INTAKE
 
         async def fake_run_planner(**kwargs):
-            return _FakeAgentRun(status="failed", error_type="JSON_PARSE_ERROR", error_message="empty output"), {}
+            return (
+                _FakeAgentRun(
+                    status="failed", error_type="JSON_PARSE_ERROR", error_message="empty output"
+                ),
+                {},
+            )
 
         monkeypatch.setattr(orch_module, "run_intake", fake_run_intake)
         monkeypatch.setattr(orch_module, "run_planner", fake_run_planner)
-        monkeypatch.setattr(orch_module, "write_artifact", lambda **kw: type("A", (), {"id": "a1"})())
+        monkeypatch.setattr(
+            orch_module, "write_artifact", lambda **kw: type("A", (), {"id": "a1"})()
+        )
         monkeypatch.setattr(orch_module, "serialize_artifact", _fake_serialize_artifact)
         monkeypatch.setattr(orch_module, "write_memory", lambda **kw: None)
 
@@ -265,10 +279,17 @@ class TestOrchestratorPlannerFailure:
         session.commit()
 
         async def fake_run_intake(**kwargs):
-            return _FakeAgentRun(status="failed", error_type="JSON_PARSE_ERROR", error_message="empty"), {}
+            return (
+                _FakeAgentRun(
+                    status="failed", error_type="JSON_PARSE_ERROR", error_message="empty"
+                ),
+                {},
+            )
 
         monkeypatch.setattr(orch_module, "run_intake", fake_run_intake)
-        monkeypatch.setattr(orch_module, "write_artifact", lambda **kw: type("A", (), {"id": "a1"})())
+        monkeypatch.setattr(
+            orch_module, "write_artifact", lambda **kw: type("A", (), {"id": "a1"})()
+        )
         monkeypatch.setattr(orch_module, "serialize_artifact", _fake_serialize_artifact)
 
         orch = orch_module.ProjectOrchestrator()
@@ -295,18 +316,25 @@ class TestOrchestratorPlannerFailure:
             return _FakeAgentRun(output=_VALID_INTAKE), _VALID_INTAKE
 
         async def fake_run_planner(**kwargs):
-            return _FakeAgentRun(status="failed", error_type="JSON_PARSE_ERROR", error_message="bad"), {}
+            return (
+                _FakeAgentRun(status="failed", error_type="JSON_PARSE_ERROR", error_message="bad"),
+                {},
+            )
 
         monkeypatch.setattr(orch_module, "run_intake", fake_run_intake)
         monkeypatch.setattr(orch_module, "run_planner", fake_run_planner)
-        monkeypatch.setattr(orch_module, "write_artifact", lambda **kw: type("A", (), {"id": "a1"})())
+        monkeypatch.setattr(
+            orch_module, "write_artifact", lambda **kw: type("A", (), {"id": "a1"})()
+        )
         monkeypatch.setattr(orch_module, "serialize_artifact", _fake_serialize_artifact)
         monkeypatch.setattr(orch_module, "write_memory", lambda **kw: None)
 
         orch = orch_module.ProjectOrchestrator()
         await orch._execute(pr, Budget())
 
-        tasks = session.query(db_models.ProjectTask).filter(
-            db_models.ProjectTask.project_run_id == pr.id
-        ).all()
+        tasks = (
+            session.query(db_models.ProjectTask)
+            .filter(db_models.ProjectTask.project_run_id == pr.id)
+            .all()
+        )
         assert len(tasks) == 0

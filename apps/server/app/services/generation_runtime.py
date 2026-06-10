@@ -49,7 +49,9 @@ class GenerationRuntime:
     ) -> GenerationTask:
         if idempotency_key:
             existing = (
-                db.query(GenerationTask).filter(GenerationTask.idempotency_key == idempotency_key).one_or_none()
+                db.query(GenerationTask)
+                .filter(GenerationTask.idempotency_key == idempotency_key)
+                .one_or_none()
             )
             if existing is not None:
                 return existing
@@ -104,12 +106,16 @@ class GenerationRuntime:
         self._validate_generation_model(model=model, provider=provider, task_type=task.task_type)
 
         provider_params = self._map_provider_params(model=model, params=task.params_json or {})
-        generation_input = _generation_input(task=task, model=model, provider=provider, params=provider_params)
+        generation_input = _generation_input(
+            task=task, model=model, provider=provider, params=provider_params
+        )
         request_payload = _safe_request_payload(generation_input)
         latency_ms = None
 
         try:
-            transition_generation_task(task, to_status="submitted", from_status=["queued"], reason="worker_submit")
+            transition_generation_task(
+                task, to_status="submitted", from_status=["queued"], reason="worker_submit"
+            )
             task.started_at = _now()
             db.commit()
 
@@ -191,8 +197,12 @@ class GenerationRuntime:
         model = model_registry.get_model(task.model_id)
         provider = model_registry.get_provider(task.provider_id)
         provider_params = self._map_provider_params(model=model, params=task.params_json or {})
-        generation_input = _generation_input(task=task, model=model, provider=provider, params=provider_params)
-        request_payload = _safe_request_payload(generation_input) | {"providerTaskId": task.provider_task_id}
+        generation_input = _generation_input(
+            task=task, model=model, provider=provider, params=provider_params
+        )
+        request_payload = _safe_request_payload(generation_input) | {
+            "providerTaskId": task.provider_task_id
+        }
         latency_ms = None
 
         try:
@@ -251,8 +261,12 @@ class GenerationRuntime:
             try:
                 model = model_registry.get_model(task.model_id)
                 provider = model_registry.get_provider(task.provider_id)
-                provider_params = self._map_provider_params(model=model, params=task.params_json or {})
-                generation_input = _generation_input(task=task, model=model, provider=provider, params=provider_params)
+                provider_params = self._map_provider_params(
+                    model=model, params=task.params_json or {}
+                )
+                generation_input = _generation_input(
+                    task=task, model=model, provider=provider, params=provider_params
+                )
                 adapter = create_generation_adapter(provider=provider, model=model)
                 await adapter.cancel_generation_task(generation_input, task.provider_task_id)
                 provider_cancelled = True
@@ -271,7 +285,9 @@ class GenerationRuntime:
         db.refresh(task)
         return task, provider_cancelled
 
-    async def rerun_task(self, *, db: Session, task_id: str, enqueue: bool = True) -> GenerationTask:
+    async def rerun_task(
+        self, *, db: Session, task_id: str, enqueue: bool = True
+    ) -> GenerationTask:
         record = db.get(GenerationTask, task_id)
         if record is None:
             raise AppError("GENERATION_TASK_NOT_FOUND", f"Task not found: {task_id}", 404)
@@ -291,9 +307,13 @@ class GenerationRuntime:
         if not model.get("enabled", False):
             raise AppError("MODEL_DISABLED", "Selected model is disabled.", 400)
         if task_type not in model.get("taskTypes", []):
-            raise AppError("MODEL_TASK_UNSUPPORTED", "Selected model does not support this task.", 400)
+            raise AppError(
+                "MODEL_TASK_UNSUPPORTED", "Selected model does not support this task.", 400
+            )
         if model.get("category") != "generation" or not model.get("async"):
-            raise AppError("GENERATION_MODEL_REQUIRED", "Selected model is not an async generation model.", 400)
+            raise AppError(
+                "GENERATION_MODEL_REQUIRED", "Selected model is not an async generation model.", 400
+            )
 
     def _map_provider_params(self, *, model: dict, params: dict) -> dict:
         schema = model_registry.get_param_schema(model["paramsSchema"])
@@ -374,7 +394,9 @@ def _apply_provider_output(task: GenerationTask, output: GenerationOutput) -> No
 
     if status == "submitted":
         if task.status != "submitted":
-            transition_generation_task(task, to_status="submitted", from_status=["queued"], reason="provider_submitted")
+            transition_generation_task(
+                task, to_status="submitted", from_status=["queued"], reason="provider_submitted"
+            )
         task.poll_after = _now() + timedelta(seconds=_next_poll_delay_seconds(task, output))
         return
 
@@ -493,10 +515,13 @@ def _download_to_storage(
             "message": "Provider URL host is not in the ModelGate allowlist.",
         }
     try:
-        with httpx.Client(
-            timeout=OUTPUT_DOWNLOAD_TIMEOUT_SECONDS,
-            follow_redirects=False,
-        ) as client, client.stream("GET", url) as response:
+        with (
+            httpx.Client(
+                timeout=OUTPUT_DOWNLOAD_TIMEOUT_SECONDS,
+                follow_redirects=False,
+            ) as client,
+            client.stream("GET", url) as response,
+        ):
             response.raise_for_status()
             content_type = response.headers.get("content-type") or ""
             extension = _extension_for_content_type(content_type) or default_extension
@@ -598,7 +623,8 @@ def _generation_input(
     return GenerationInput(
         provider_id=provider["id"],
         model_id=model["id"],
-        provider_model_name=(model.get("adapterConfig") or {}).get("providerModelName") or model["officialModelName"],
+        provider_model_name=(model.get("adapterConfig") or {}).get("providerModelName")
+        or model["officialModelName"],
         task_type=task.task_type,
         input=task.input_json or {},
         params=params,
@@ -633,14 +659,20 @@ def _next_poll_delay_seconds(task: GenerationTask, output: GenerationOutput | No
     if isinstance(task.output_json, dict):
         runtime = task.output_json.get("_runtime") or {}
     attempts = int(runtime.get("pollAttempts") or 0) + 1
-    delay = int((output.metadata or {}).get("pollAfterSeconds") or min(60, 5 * (2 ** (attempts - 1))))
+    delay = int(
+        (output.metadata or {}).get("pollAfterSeconds") or min(60, 5 * (2 ** (attempts - 1)))
+    )
     current_output = task.output_json if isinstance(task.output_json, dict) else {}
-    task.output_json = current_output | {"_runtime": {"pollAttempts": attempts, "nextPollDelaySeconds": delay}}
+    task.output_json = current_output | {
+        "_runtime": {"pollAttempts": attempts, "nextPollDelaySeconds": delay}
+    }
     return delay
 
 
 def _expires_at(params: dict) -> datetime:
-    raw_seconds = params.get("execution_expires_after") or params.get("expires_after_seconds") or 24 * 60 * 60
+    raw_seconds = (
+        params.get("execution_expires_after") or params.get("expires_after_seconds") or 24 * 60 * 60
+    )
     try:
         seconds = int(raw_seconds)
     except (TypeError, ValueError):

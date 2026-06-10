@@ -58,7 +58,9 @@ class VolcengineSeedanceAdapter:
 
     @staticmethod
     def _build_content(input_data: GenerationInput) -> list[dict[str, Any]]:
-        prompt = (input_data.input or {}).get("prompt") or (input_data.input or {}).get("text") or ""
+        prompt = (
+            (input_data.input or {}).get("prompt") or (input_data.input or {}).get("text") or ""
+        )
         content: list[dict[str, Any]] = [{"type": "text", "text": str(prompt)}]
         first_frame = (input_data.input or {}).get("firstFrameUrl") or (input_data.input or {}).get(
             "first_frame_url"
@@ -125,12 +127,12 @@ class VolcengineSeedanceAdapter:
         if video_url:
             output["videoUrl"] = video_url
             output["videoSource"] = "provider"
-        first_frame = (content.get("first_frame_url") if isinstance(content, dict) else None) or raw.get(
-            "first_frame_url"
-        )
-        last_frame = (content.get("last_frame_url") if isinstance(content, dict) else None) or raw.get(
-            "last_frame_url"
-        )
+        first_frame = (
+            content.get("first_frame_url") if isinstance(content, dict) else None
+        ) or raw.get("first_frame_url")
+        last_frame = (
+            content.get("last_frame_url") if isinstance(content, dict) else None
+        ) or raw.get("last_frame_url")
         if first_frame:
             output["firstFrameUrl"] = first_frame
         if last_frame:
@@ -151,13 +153,16 @@ class VolcengineSeedanceAdapter:
             status=status,
             provider_task_id=provider_task_id,
             provider_status=raw.get("status"),
-            progress=_coerce_int(raw.get("progress")) or (
-                100 if status == TaskStatus.COMPLETED else None
-            ),
+            progress=_coerce_int(raw.get("progress"))
+            or (100 if status == TaskStatus.COMPLETED else None),
             output=output,
             metadata=metadata,
-            error_type=raw.get("error", {}).get("code") if isinstance(raw.get("error"), dict) else None,
-            error_message=raw.get("error", {}).get("message") if isinstance(raw.get("error"), dict) else None,
+            error_type=(
+                raw.get("error", {}).get("code") if isinstance(raw.get("error"), dict) else None
+            ),
+            error_message=(
+                raw.get("error", {}).get("message") if isinstance(raw.get("error"), dict) else None
+            ),
         )
 
     async def create_generation_task(self, input_data: GenerationInput) -> GenerationOutput:
@@ -276,6 +281,8 @@ def is_volcengine_hosted_url(url: str) -> bool:
         host = (urlparse(url).hostname or "").lower()
     except ValueError:
         return False
-    return host.endswith(".volces.com") or host.endswith(".volcengine.com") or host.endswith(
-        ".bytedance.com"
+    return (
+        host.endswith(".volces.com")
+        or host.endswith(".volcengine.com")
+        or host.endswith(".bytedance.com")
     )

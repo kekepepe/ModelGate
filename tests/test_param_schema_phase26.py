@@ -104,9 +104,9 @@ class TestMaxOutputTokens:
     def test_chat_models_have_max_output_tokens(self):
         for model in model_registry.model_configs:
             if model.runtime == "chat_completion":
-                assert model.max_output_tokens is not None, (
-                    f"Chat model {model.id} missing maxOutputTokens"
-                )
+                assert (
+                    model.max_output_tokens is not None
+                ), f"Chat model {model.id} missing maxOutputTokens"
                 assert model.max_output_tokens > 0
 
     def test_video_model_max_output_tokens_is_none(self):
@@ -119,9 +119,7 @@ class TestMaxOutputTokens:
         assert raw["maxOutputTokens"] == 16384
 
     def test_max_output_tokens_exposed_in_config(self):
-        config = next(
-            m for m in model_registry.model_configs if m.id == "mimo.mimo_v2_5_pro"
-        )
+        config = next(m for m in model_registry.model_configs if m.id == "mimo.mimo_v2_5_pro")
         assert config.max_output_tokens == 16384
 
 
@@ -130,7 +128,7 @@ class TestMaxOutputTokens:
 
 class TestResolveBudgetRatio:
     def test_auto_returns_default(self):
-        from app.api.chat import _resolve_budget_ratio, DEFAULT_BUDGET_RATIO
+        from app.api.chat import DEFAULT_BUDGET_RATIO, _resolve_budget_ratio
 
         assert _resolve_budget_ratio({}) == DEFAULT_BUDGET_RATIO
         assert _resolve_budget_ratio({"contextBudget": "auto"}) == DEFAULT_BUDGET_RATIO
@@ -151,13 +149,13 @@ class TestResolveBudgetRatio:
         assert _resolve_budget_ratio({"contextBudget": "aggressive"}) == 0.85
 
     def test_unknown_value_returns_default(self):
-        from app.api.chat import _resolve_budget_ratio, DEFAULT_BUDGET_RATIO
+        from app.api.chat import DEFAULT_BUDGET_RATIO, _resolve_budget_ratio
 
         assert _resolve_budget_ratio({"contextBudget": "unknown"}) == DEFAULT_BUDGET_RATIO
         assert _resolve_budget_ratio({"contextBudget": ""}) == DEFAULT_BUDGET_RATIO
 
     def test_non_string_value_returns_default(self):
-        from app.api.chat import _resolve_budget_ratio, DEFAULT_BUDGET_RATIO
+        from app.api.chat import DEFAULT_BUDGET_RATIO, _resolve_budget_ratio
 
         assert _resolve_budget_ratio({"contextBudget": 123}) == DEFAULT_BUDGET_RATIO
 

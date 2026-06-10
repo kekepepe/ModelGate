@@ -1,7 +1,7 @@
-from decimal import Decimal
-from pathlib import Path
 import socket
 import sys
+from decimal import Decimal
+from pathlib import Path
 
 import httpx
 import pytest
@@ -17,7 +17,10 @@ from app.db.models import ProviderSecret, RequestLog, UsageLog  # noqa: E402
 from app.db.session import SessionLocal  # noqa: E402
 from app.main import app  # noqa: E402
 from app.providers.errors import map_provider_status  # noqa: E402
-from app.services.provider_secrets import decrypt_provider_secret, encrypt_provider_secret  # noqa: E402
+from app.services.provider_secrets import (  # noqa: E402
+    decrypt_provider_secret,
+    encrypt_provider_secret,
+)
 
 
 def require_local_port(port: int) -> None:
@@ -172,9 +175,17 @@ def test_provider_error_messages_are_redacted() -> None:
 
 def test_frontend_source_does_not_reference_provider_api_keys() -> None:
     source_files = list((PROJECT_ROOT / "apps" / "web" / "src").rglob("*"))
-    checked_text = "\n".join(path.read_text(encoding="utf-8") for path in source_files if path.is_file())
+    checked_text = "\n".join(
+        path.read_text(encoding="utf-8") for path in source_files if path.is_file()
+    )
 
-    forbidden = ["MIMO_API_KEY", "MINIMAX_API_KEY", "VOLCENGINE_API_KEY", "Authorization", "api-key"]
+    forbidden = [
+        "MIMO_API_KEY",
+        "MINIMAX_API_KEY",
+        "VOLCENGINE_API_KEY",
+        "Authorization",
+        "api-key",
+    ]
     assert all(item not in checked_text for item in forbidden)
 
 
@@ -183,7 +194,10 @@ def test_redact_removes_sensitive_keys_and_local_paths() -> None:
     settings.minimax_api_key = secret
     payload = {
         "authorization": f"Bearer {secret}",
-        "nested": {"api_key": secret, "path": str(PROJECT_ROOT / "storage" / "uploads" / "file.txt")},
+        "nested": {
+            "api_key": secret,
+            "path": str(PROJECT_ROOT / "storage" / "uploads" / "file.txt"),
+        },
         "message": f"token={secret}",
     }
 

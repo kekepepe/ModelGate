@@ -1,7 +1,7 @@
-from pathlib import Path
 import os
 import socket
 import sys
+from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient

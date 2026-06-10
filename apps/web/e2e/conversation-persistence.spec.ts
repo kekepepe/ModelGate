@@ -66,7 +66,11 @@ test.describe("V3.2 Conversation Persistence", () => {
     sendCount = 0;
 
     await page.route("**/api/providers", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(providers) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(providers),
+      }),
     );
     await page.route("**/api/models", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(models) }),
@@ -81,10 +85,18 @@ test.describe("V3.2 Conversation Persistence", () => {
       }),
     );
     await page.route("**/api/usage/models**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      }),
     );
     await page.route("**/api/history/runs", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      }),
     );
     await page.route("**/api/param-schemas/**", (route) =>
       route.fulfill({

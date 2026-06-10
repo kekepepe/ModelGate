@@ -13,7 +13,9 @@ class ErrorBody(BaseModel):
 
 
 class AppError(Exception):
-    def __init__(self, error_type: str, message: str, status_code: int = 400, details: dict | None = None):
+    def __init__(
+        self, error_type: str, message: str, status_code: int = 400, details: dict | None = None
+    ):
         self.error_type = error_type
         self.message = message
         self.status_code = status_code
@@ -21,7 +23,9 @@ class AppError(Exception):
         super().__init__(message)
 
 
-def error_response(request: Request, error_type: str, message: str, status_code: int, details: dict | None = None):
+def error_response(
+    request: Request, error_type: str, message: str, status_code: int, details: dict | None = None
+):
     request_id = getattr(request.state, "request_id", "req_unknown")
     return JSONResponse(
         status_code=status_code,

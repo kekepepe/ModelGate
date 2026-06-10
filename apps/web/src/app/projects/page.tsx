@@ -54,10 +54,7 @@ export default function ProjectsPage() {
     refetchInterval: (q) => {
       const runs = q.state.data ?? [];
       const hasActive = runs.some(
-        (r) =>
-          r.status === "running" ||
-          r.status === "pending" ||
-          r.status === "awaiting_approval",
+        (r) => r.status === "running" || r.status === "pending" || r.status === "awaiting_approval",
       );
       return hasActive ? 2000 : false;
     },
@@ -140,13 +137,9 @@ export default function ProjectsPage() {
                       {pr.status.replace("_", " ")}
                     </StatusPill>
                   </td>
-                  <td className="px-4 py-3 max-w-md truncate text-muted-foreground">
-                    {pr.goal}
-                  </td>
+                  <td className="px-4 py-3 max-w-md truncate text-muted-foreground">{pr.goal}</td>
                   <td className="px-4 py-3 text-muted-foreground">{formatDate(pr.createdAt)}</td>
-                  <td className="px-4 py-3 text-muted-foreground">
-                    {pr.usage?.tokensUsed ?? "—"}
-                  </td>
+                  <td className="px-4 py-3 text-muted-foreground">{pr.usage?.tokensUsed ?? "—"}</td>
                   <td className="px-4 py-3 text-right">
                     <Button
                       variant="ghost"
@@ -179,7 +172,17 @@ export default function ProjectsPage() {
         error={createMut.error instanceof Error ? createMut.error.message : null}
       />
 
-      <Dialog open={pendingDelete !== null} onOpenChange={(o) => { if (!deleteMut.isPending) { if (!o) { setPendingDelete(null); setListDeleteError(null); } } }}>
+      <Dialog
+        open={pendingDelete !== null}
+        onOpenChange={(o) => {
+          if (!deleteMut.isPending) {
+            if (!o) {
+              setPendingDelete(null);
+              setListDeleteError(null);
+            }
+          }
+        }}
+      >
         <DialogContent data-testid="list-delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete this project run?</DialogTitle>
@@ -199,7 +202,10 @@ export default function ProjectsPage() {
               type="button"
               variant="outline"
               size="sm"
-              onClick={() => { setPendingDelete(null); setListDeleteError(null); }}
+              onClick={() => {
+                setPendingDelete(null);
+                setListDeleteError(null);
+              }}
               disabled={deleteMut.isPending}
               data-testid="list-delete-cancel"
             >

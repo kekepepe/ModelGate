@@ -207,7 +207,12 @@ export interface ProjectRunView {
   workerModelId: string | null;
   intake: unknown;
   budget: unknown;
-  usage: { agentsUsed?: number; tokensUsed?: number; runtimeSeconds?: number; contextFilesUsed?: number } | null;
+  usage: {
+    agentsUsed?: number;
+    tokensUsed?: number;
+    runtimeSeconds?: number;
+    contextFilesUsed?: number;
+  } | null;
   errorType: string | null;
   errorMessage: string | null;
   round: number | null;
@@ -274,16 +279,16 @@ export const projectApi = {
     postData<PatchApplyResponse>(`/projects/${id}/patches/${artifactId}/apply`, body),
   rejectPatch: (id: string, artifactId: string) =>
     postData<PatchRejectResponse>(`/projects/${id}/patches/${artifactId}/reject`, {}),
-  regeneratePatches: (id: string, body: { taskIds: string[]; budget?: CreateProjectRunBody["budget"] }) =>
+  regeneratePatches: (
+    id: string,
+    body: { taskIds: string[]; budget?: CreateProjectRunBody["budget"] },
+  ) =>
     postData<{ projectRunId: string; status: string; regenerating: string[] }>(
       `/projects/${id}/patches/regenerate`,
       body,
     ),
   retryPlanner: (id: string) =>
-    postData<{ projectRunId: string; status: string }>(
-      `/projects/${id}/retry-planner`,
-      {},
-    ),
+    postData<{ projectRunId: string; status: string }>(`/projects/${id}/retry-planner`, {}),
 };
 
 // ── Conversation Persistence V3.2 ──────────────────────────────────────────
@@ -319,10 +324,15 @@ export interface MessageView {
 export const conversationApi = {
   list: () => getData<ConversationView[]>("/conversations"),
   get: (id: string) => getData<ConversationView>(`/conversations/${id}`),
-  create: (body: { title?: string; taskType?: string; modelId?: string; params?: Record<string, unknown> }) =>
-    postData<ConversationView>("/conversations", body),
-  patch: (id: string, body: { title?: string; modelId?: string; params?: Record<string, unknown> }) =>
-    putData<ConversationView>(`/conversations/${id}`, body),
+  create: (body: {
+    title?: string;
+    taskType?: string;
+    modelId?: string;
+    params?: Record<string, unknown>;
+  }) => postData<ConversationView>("/conversations", body),
+  patch: (
+    id: string,
+    body: { title?: string; modelId?: string; params?: Record<string, unknown> },
+  ) => putData<ConversationView>(`/conversations/${id}`, body),
   delete: (id: string) => deleteData<{ id: string; status: string }>(`/conversations/${id}`),
 };
-

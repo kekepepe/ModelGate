@@ -137,9 +137,13 @@ class ModelRegistry:
 
     def validate(self) -> None:
         errors: list[str] = []
-        self._validate_unique("providers", [provider.id for provider in self.provider_configs], errors)
+        self._validate_unique(
+            "providers", [provider.id for provider in self.provider_configs], errors
+        )
         self._validate_unique("models", [model.id for model in self.model_configs], errors)
-        self._validate_unique("task-types", [task_type.id for task_type in self.task_type_configs], errors)
+        self._validate_unique(
+            "task-types", [task_type.id for task_type in self.task_type_configs], errors
+        )
         self._validate_unique(
             "param-schemas", [schema.id for schema in self.param_schema_configs], errors
         )
@@ -268,7 +272,9 @@ class ModelRegistry:
             else:
                 available.append(raw_model)
 
-        available.sort(key=lambda model: self._provider_sort_key(model["provider"], preferred_providers))
+        available.sort(
+            key=lambda model: self._provider_sort_key(model["provider"], preferred_providers)
+        )
         return {"availableModels": available, "hiddenModels": hidden}
 
     def _get_hidden_reasons(

@@ -236,7 +236,10 @@ export function ParamsPopover({
                       <>
                         <div className="my-1 border-t" />
                         {customPresets.map((cp) => (
-                          <div key={cp.id} className="group flex items-center rounded px-2 py-1.5 text-left text-xs hover:bg-accent">
+                          <div
+                            key={cp.id}
+                            className="group flex items-center rounded px-2 py-1.5 text-left text-xs hover:bg-accent"
+                          >
                             <button
                               type="button"
                               className="min-w-0 flex-1"
@@ -250,7 +253,10 @@ export function ParamsPopover({
                             <button
                               type="button"
                               className="ml-1 text-muted-foreground opacity-0 group-hover:opacity-100 hover:text-destructive"
-                              onClick={(e) => { e.stopPropagation(); handleDeleteCustom(cp.id); }}
+                              onClick={(e) => {
+                                e.stopPropagation();
+                                handleDeleteCustom(cp.id);
+                              }}
                               aria-label={`Delete ${cp.name} preset`}
                             >
                               <X className="h-3 w-3" />
@@ -266,7 +272,13 @@ export function ParamsPopover({
                           type="text"
                           value={saveName}
                           onChange={(e) => setSaveName(e.target.value)}
-                          onKeyDown={(e) => { if (e.key === "Enter") handleSaveCustom(); if (e.key === "Escape") { setSaveMode(false); setSaveName(""); } }}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter") handleSaveCustom();
+                            if (e.key === "Escape") {
+                              setSaveMode(false);
+                              setSaveName("");
+                            }
+                          }}
                           placeholder="Preset name"
                           className="h-6 flex-1 rounded border bg-background px-1.5 text-xs"
                           autoFocus
@@ -302,7 +314,12 @@ export function ParamsPopover({
 
           {/* Body */}
           <div className="max-h-[280px] overflow-y-auto p-4">
-            <ParamsGroup schema={effectiveSchema} params={params} onChange={handleFieldChange} modifiedFields={modifiedFields} />
+            <ParamsGroup
+              schema={effectiveSchema}
+              params={params}
+              onChange={handleFieldChange}
+              modifiedFields={modifiedFields}
+            />
 
             {/* Schema source info */}
             {schema ? (
@@ -328,7 +345,17 @@ export function ParamsPopover({
 
           {/* Footer */}
           <div className="flex items-center justify-between border-t px-4 py-3">
-            <Button variant="ghost" size="sm" onClick={() => { onReset(); setActivePreset("default"); setModifiedFields(new Set()); setUserModifiedAfterPreset(false); }} disabled={!schema}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => {
+                onReset();
+                setActivePreset("default");
+                setModifiedFields(new Set());
+                setUserModifiedAfterPreset(false);
+              }}
+              disabled={!schema}
+            >
               <RefreshCw className="mr-1 h-3 w-3" />
               Reset to Defaults
             </Button>

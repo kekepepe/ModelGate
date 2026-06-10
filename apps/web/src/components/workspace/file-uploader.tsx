@@ -40,13 +40,18 @@ export function FileUploader({ files, uploading, onUpload, onDelete }: FileUploa
 
       <div className="space-y-2">
         {files.map((file) => (
-          <div key={file.id} className="flex items-center justify-between gap-3 rounded-md border border-slate-200 p-2">
+          <div
+            key={file.id}
+            className="flex items-center justify-between gap-3 rounded-md border border-slate-200 p-2"
+          >
             <div className="min-w-0">
               <div className="truncate text-sm font-medium">{file.originalName}</div>
               <div className="text-xs text-slate-500">
                 {file.detectedType} / {file.status} / {(file.sizeBytes / 1024).toFixed(1)} KB
               </div>
-              {file.errorMessage ? <div className="mt-1 text-xs text-red-600">{file.errorMessage}</div> : null}
+              {file.errorMessage ? (
+                <div className="mt-1 text-xs text-red-600">{file.errorMessage}</div>
+              ) : null}
               {file.detectedType === "image" && file.previewUrl ? (
                 <img
                   src={`${API_BASE_URL.replace(/\/api$/, "")}${file.previewUrl}`}

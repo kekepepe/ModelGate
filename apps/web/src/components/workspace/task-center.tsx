@@ -39,7 +39,9 @@ export function TaskCenter({ tasks, selectedTaskType, onSelectTask }: TaskCenter
             <Icon className="mt-0.5 h-4 w-4 shrink-0" aria-hidden="true" />
             <span className="min-w-0">
               <span className="block text-sm font-medium">{task.name}</span>
-              <span className={`mt-1 block text-xs ${selected ? "text-slate-200" : "text-slate-500"}`}>
+              <span
+                className={`mt-1 block text-xs ${selected ? "text-slate-200" : "text-slate-500"}`}
+              >
                 {task.input} → {task.output}
               </span>
             </span>

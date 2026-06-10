@@ -31,16 +31,27 @@ export function ConversationSidebar({ activeConversationId, onSelect, onNewChat 
   const conversations = conversationsQuery.data ?? [];
 
   return (
-    <div className="flex h-full w-60 flex-col border-r bg-muted/30" data-testid="conversation-sidebar">
+    <div
+      className="flex h-full w-60 flex-col border-r bg-muted/30"
+      data-testid="conversation-sidebar"
+    >
       <div className="flex items-center justify-between border-b px-3 py-2">
         <span className="text-xs font-medium text-muted-foreground">Conversations</span>
-        <Button variant="ghost" size="icon" className="h-7 w-7" onClick={onNewChat} data-testid="conversation-new-chat">
+        <Button
+          variant="ghost"
+          size="icon"
+          className="h-7 w-7"
+          onClick={onNewChat}
+          data-testid="conversation-new-chat"
+        >
           <Plus className="h-4 w-4" />
         </Button>
       </div>
       <div className="flex-1 overflow-y-auto">
         {conversations.length === 0 ? (
-          <div className="px-3 py-8 text-center text-xs text-muted-foreground">No conversations yet</div>
+          <div className="px-3 py-8 text-center text-xs text-muted-foreground">
+            No conversations yet
+          </div>
         ) : (
           <div className="space-y-0.5 p-1">
             {conversations.map((conv) => (

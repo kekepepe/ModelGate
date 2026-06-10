@@ -9,13 +9,25 @@ import { test, expect } from "@playwright/test";
 test.describe.skip("Workspace Output Tabs (V2 — superseded)", () => {
   test.beforeEach(async ({ page }) => {
     await page.route("**/api/providers", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
     });
     await page.route("**/api/models**", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
     });
     await page.route("**/api/usage/models**", async (route) => {
-      await route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) });
+      await route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      });
     });
   });
 

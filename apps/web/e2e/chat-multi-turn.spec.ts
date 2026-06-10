@@ -64,7 +64,11 @@ test.describe("V3.3 Multi-turn Context", () => {
     requests.length = 0;
 
     await page.route("**/api/providers", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(providers) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify(providers),
+      }),
     );
     await page.route("**/api/models", (route) =>
       route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify(models) }),
@@ -79,10 +83,18 @@ test.describe("V3.3 Multi-turn Context", () => {
       }),
     );
     await page.route("**/api/usage/models**", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      }),
     );
     await page.route("**/api/history/runs", (route) =>
-      route.fulfill({ status: 200, contentType: "application/json", body: JSON.stringify({ data: [] }) }),
+      route.fulfill({
+        status: 200,
+        contentType: "application/json",
+        body: JSON.stringify({ data: [] }),
+      }),
     );
     await page.route("**/api/param-schemas/**", (route) =>
       route.fulfill({
@@ -117,7 +129,8 @@ test.describe("V3.3 Multi-turn Context", () => {
       });
 
       // First request creates a conversation, subsequent ones reuse it
-      const effectiveConvId = sendCount === 1 ? `conv_${sendCount}` : capturedConversationId ?? convId;
+      const effectiveConvId =
+        sendCount === 1 ? `conv_${sendCount}` : (capturedConversationId ?? convId);
 
       // Simulate context truncation metadata on 3rd+ request
       const truncationMeta =
@@ -168,7 +181,9 @@ test.describe("V3.3 Multi-turn Context", () => {
     });
   });
 
-  test("first message creates conversation, subsequent reuse same conversationId", async ({ page }) => {
+  test("first message creates conversation, subsequent reuse same conversationId", async ({
+    page,
+  }) => {
     await page.goto("/workspace?taskType=chat");
 
     await expect(page.getByTestId("chat-workspace")).toBeVisible({ timeout: 10_000 });
@@ -179,9 +194,12 @@ test.describe("V3.3 Multi-turn Context", () => {
     await page.getByTestId("chat-composer-send").click();
 
     // Wait for reply
-    await expect(page.getByTestId("chat-message-assistant-content").first()).toContainText("Reply 1", {
-      timeout: 10_000,
-    });
+    await expect(page.getByTestId("chat-message-assistant-content").first()).toContainText(
+      "Reply 1",
+      {
+        timeout: 10_000,
+      },
+    );
 
     // First request should have no conversationId (new conversation)
     expect(requests[0].conversationId).toBeFalsy();
@@ -190,9 +208,12 @@ test.describe("V3.3 Multi-turn Context", () => {
     await composer.fill("Can you give an example?");
     await page.getByTestId("chat-composer-send").click();
 
-    await expect(page.getByTestId("chat-message-assistant-content").nth(1)).toContainText("Reply 2", {
-      timeout: 10_000,
-    });
+    await expect(page.getByTestId("chat-message-assistant-content").nth(1)).toContainText(
+      "Reply 2",
+      {
+        timeout: 10_000,
+      },
+    );
 
     // After first message, URL should have conversationId param
     const url = page.url();
@@ -213,9 +234,12 @@ test.describe("V3.3 Multi-turn Context", () => {
     for (let i = 1; i <= 3; i++) {
       await composer.fill(`Message ${i}`);
       await page.getByTestId("chat-composer-send").click();
-      await expect(page.getByTestId("chat-message-assistant-content").nth(i - 1)).toContainText(`Reply ${i}`, {
-        timeout: 10_000,
-      });
+      await expect(page.getByTestId("chat-message-assistant-content").nth(i - 1)).toContainText(
+        `Reply ${i}`,
+        {
+          timeout: 10_000,
+        },
+      );
     }
 
     // All 3 user + 3 assistant messages visible

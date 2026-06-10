@@ -57,9 +57,7 @@ def test_parse_succeeded_response() -> None:
     )
     assert output.status == TaskStatus.COMPLETED
     assert output.provider_task_id == "cgt-abc"
-    assert output.output["videoUrl"] == (
-        "https://ark.cn-beijing.volces.com/api/v3/files/video.mp4"
-    )
+    assert output.output["videoUrl"] == ("https://ark.cn-beijing.volces.com/api/v3/files/video.mp4")
     assert output.progress == 100
 
 
@@ -140,7 +138,9 @@ def test_persist_generation_artifacts_records_download_errors(
 ) -> None:
     monkeypatch.setattr(
         "app.services.generation_runtime.get_storage",
-        lambda: SimpleNamespace(put_bytes=lambda *_a, **_kw: SimpleNamespace(key="x", size_bytes=0)),
+        lambda: SimpleNamespace(
+            put_bytes=lambda *_a, **_kw: SimpleNamespace(key="x", size_bytes=0)
+        ),
     )
     with patch("app.services.generation_runtime.httpx.Client") as client_cls:
         client = MagicMock()
@@ -163,7 +163,9 @@ def test_persist_generation_artifacts_blocks_untrusted_url(
 ) -> None:
     monkeypatch.setattr(
         "app.services.generation_runtime.get_storage",
-        lambda: SimpleNamespace(put_bytes=lambda *_a, **_kw: SimpleNamespace(key="x", size_bytes=0)),
+        lambda: SimpleNamespace(
+            put_bytes=lambda *_a, **_kw: SimpleNamespace(key="x", size_bytes=0)
+        ),
     )
     task = SimpleNamespace(id="task_blocked")
     output = {"videoUrl": "https://malicious.example.com/x.mp4"}

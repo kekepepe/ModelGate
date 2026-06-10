@@ -32,8 +32,8 @@ from app.providers.base import ChatMessage  # noqa: E402
 from app.services.context_builder import (  # noqa: E402
     ContextTruncationMeta,
     build_context_messages,
-    estimate_tokens,
     estimate_message_tokens,
+    estimate_tokens,
 )
 
 
@@ -211,7 +211,9 @@ class TestBuildContextMessages:
         for i in range(10):
             role = "user" if i % 2 == 0 else "assistant"
             _make_message(
-                db_session, "conv_test1", role,
+                db_session,
+                "conv_test1",
+                role,
                 f"Message {i}: " + "x" * 2000,
                 offset_seconds=-(100 - i),
             )
@@ -245,7 +247,9 @@ class TestBuildContextMessages:
         for i in range(6):
             role = "user" if i % 2 == 0 else "assistant"
             _make_message(
-                db_session, "conv_test1", role,
+                db_session,
+                "conv_test1",
+                role,
                 f"Message_{i}: " + "x" * 500,
                 offset_seconds=-(6 - i),
             )
@@ -303,7 +307,9 @@ class TestBuildContextMessages:
         for i in range(4):
             role = "user" if i % 2 == 0 else "assistant"
             _make_message(
-                db_session, "conv_test1", role,
+                db_session,
+                "conv_test1",
+                role,
                 f"History message {i} with some content here.",
                 offset_seconds=-(4 - i),
             )
@@ -339,7 +345,9 @@ class TestBuildContextMessages:
         for i in range(8):
             role = "user" if i % 2 == 0 else "assistant"
             _make_message(
-                db_session, "conv_test1", role,
+                db_session,
+                "conv_test1",
+                role,
                 f"Message {i}: " + "word " * 200,
                 offset_seconds=-(8 - i),
             )
@@ -369,7 +377,7 @@ class TestBuildContextMessages:
         assert meta_small.included_count < 8
 
     def test_current_user_message_excluded_from_history(self, db_session):
-        conv = _make_conversation(db_session)
+        _make_conversation(db_session)
         user_msg = _make_message(db_session, "conv_test1", "user", "I am the current msg")
         _make_message(db_session, "conv_test1", "assistant", "I am a prior answer")
 
@@ -397,7 +405,9 @@ class TestBuildContextMessages:
         _make_message(db_session, "conv_test1", "user", "Question", offset_seconds=-20)
         _make_message(db_session, "conv_test1", "assistant", "Answer", offset_seconds=-10)
         # A streaming placeholder should be excluded
-        _make_message(db_session, "conv_test1", "assistant", "", status="streaming", offset_seconds=-5)
+        _make_message(
+            db_session, "conv_test1", "assistant", "", status="streaming", offset_seconds=-5
+        )
 
         system = ChatMessage(role="system", content="S")
         user = ChatMessage(role="user", content="Next question")

@@ -67,7 +67,10 @@ const COMPLETED_PATCH_DETAILS = {
         status: "completed",
         modelId: "gpt-4o",
         providerId: null,
-        output: { summary: "Created health.py", files_to_change: ["apps/server/app/api/health.py"] },
+        output: {
+          summary: "Created health.py",
+          files_to_change: ["apps/server/app/api/health.py"],
+        },
         inputTokens: 100,
         outputTokens: 200,
         totalTokens: 300,
@@ -176,9 +179,7 @@ const HIGH_RISK_COMPLETED = {
           validation: {
             valid: true,
             violations: [],
-            highRiskFiles: [
-              { file: ".env", reason: "Environment variable file" },
-            ],
+            highRiskFiles: [{ file: ".env", reason: "Environment variable file" }],
           },
         },
       },
@@ -187,11 +188,34 @@ const HIGH_RISK_COMPLETED = {
 };
 
 const MOCK_PROVIDERS = [
-  { id: "openai", name: "OpenAI", authType: "api_key", enabled: true, adapter: "openai", configured: true, keySource: "local" },
+  {
+    id: "openai",
+    name: "OpenAI",
+    authType: "api_key",
+    enabled: true,
+    adapter: "openai",
+    configured: true,
+    keySource: "local",
+  },
 ];
 
 const MOCK_MODELS = [
-  { id: "gpt-4o", officialModelName: "gpt-4o", displayName: "GPT-4o", provider: "openai", category: "chat", runtime: "chat", capabilities: [], inputTypes: ["text"], outputTypes: ["text"], taskTypes: ["chat"], contextWindow: 128000, async: false, paramsSchema: "openai-chat", enabled: true },
+  {
+    id: "gpt-4o",
+    officialModelName: "gpt-4o",
+    displayName: "GPT-4o",
+    provider: "openai",
+    category: "chat",
+    runtime: "chat",
+    capabilities: [],
+    inputTypes: ["text"],
+    outputTypes: ["text"],
+    taskTypes: ["chat"],
+    contextWindow: 128000,
+    async: false,
+    paramsSchema: "openai-chat",
+    enabled: true,
+  },
 ];
 
 test.describe("V2.6 Patch Mode", () => {

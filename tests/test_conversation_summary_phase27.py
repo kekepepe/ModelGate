@@ -38,7 +38,6 @@ from app.services.context_builder import (  # noqa: E402
 )
 from app.services.conversation_summary import (  # noqa: E402
     MESSAGE_COUNT_THRESHOLD,
-    TOKEN_USAGE_RATIO,
     _build_conversation_text,
     should_generate_summary,
 )
@@ -119,21 +118,27 @@ class TestShouldGenerateSummary:
     def test_below_threshold_returns_false(self, db_session):
         _make_conversation(db_session)
         for i in range(5):
-            _make_message(db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", f"msg {i}")
+            _make_message(
+                db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", f"msg {i}"
+            )
 
         assert should_generate_summary(db_session, "conv_test1") is False
 
     def test_above_message_count_threshold_returns_true(self, db_session):
         _make_conversation(db_session)
         for i in range(MESSAGE_COUNT_THRESHOLD + 1):
-            _make_message(db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", f"msg {i}")
+            _make_message(
+                db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", f"msg {i}"
+            )
 
         assert should_generate_summary(db_session, "conv_test1") is True
 
     def test_exactly_at_threshold_returns_false(self, db_session):
         _make_conversation(db_session)
         for i in range(MESSAGE_COUNT_THRESHOLD):
-            _make_message(db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", f"msg {i}")
+            _make_message(
+                db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", f"msg {i}"
+            )
 
         # > threshold, not >=
         assert should_generate_summary(db_session, "conv_test1") is False
@@ -144,7 +149,9 @@ class TestShouldGenerateSummary:
         # Each message: ~2000 chars = ~500 tokens. 10 messages = ~5000 tokens.
         # Context window 5000, ratio 0.8 = 4000. 5000 > 4000 -> True
         for i in range(10):
-            _make_message(db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", "x" * 2000)
+            _make_message(
+                db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", "x" * 2000
+            )
 
         with patch("app.services.conversation_summary.model_registry") as mock_registry:
             mock_registry.get_model.return_value = {"contextWindow": 5000}
@@ -153,7 +160,9 @@ class TestShouldGenerateSummary:
     def test_token_usage_below_ratio_returns_false(self, db_session):
         _make_conversation(db_session)
         for i in range(3):
-            _make_message(db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", "short msg")
+            _make_message(
+                db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", "short msg"
+            )
 
         # With no model_id, only message count check applies
         assert should_generate_summary(db_session, "conv_test1") is False
@@ -197,7 +206,9 @@ class TestBuildConversationText:
 class TestSummaryInjection:
     def test_summary_injected_between_system_and_history(self, db_session):
         _make_conversation(db_session, summary="Previous conversation about Python.")
-        _make_message(db_session, "conv_test1", "user", "What about decorators?", offset_seconds=-10)
+        _make_message(
+            db_session, "conv_test1", "user", "What about decorators?", offset_seconds=-10
+        )
         _make_message(db_session, "conv_test1", "assistant", "Decorators are...", offset_seconds=-5)
 
         system = ChatMessage(role="system", content="You are helpful.")
@@ -266,7 +277,13 @@ class TestSummaryInjection:
     def test_summary_tokens_reduce_history_budget(self, db_session):
         _make_conversation(db_session)
         for i in range(6):
-            _make_message(db_session, "conv_test1", "user" if i % 2 == 0 else "assistant", "x" * 500, offset_seconds=-(6 - i))
+            _make_message(
+                db_session,
+                "conv_test1",
+                "user" if i % 2 == 0 else "assistant",
+                "x" * 500,
+                offset_seconds=-(6 - i),
+            )
 
         system = ChatMessage(role="system", content="S")
         user = ChatMessage(role="user", content="Current")
@@ -338,10 +355,9 @@ class TestSerializeConversation:
 class TestSummaryAPI:
     @pytest.fixture
     def client(self, db_session):
-        from fastapi import Depends, FastAPI
-        from fastapi.testclient import TestClient
-
         from app.api.conversations import router as conv_router
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
 
         app = FastAPI()
         app.include_router(conv_router, prefix="/conversations")
@@ -349,7 +365,9 @@ class TestSummaryAPI:
         def _override_db():
             yield db_session
 
-        app.dependency_overrides = {__import__("app.db.session", fromlist=["get_db"]).get_db: _override_db}
+        app.dependency_overrides = {
+            __import__("app.db.session", fromlist=["get_db"]).get_db: _override_db
+        }
         return TestClient(app)
 
     def test_reset_summary(self, client, db_session):
@@ -366,7 +384,13 @@ class TestSummaryAPI:
     def test_regenerate_summary(self, client, db_session):
         _make_conversation(db_session)
         _make_message(db_session, "conv_test1", "user", "What is Python?", offset_seconds=-10)
-        _make_message(db_session, "conv_test1", "assistant", "Python is a programming language.", offset_seconds=-5)
+        _make_message(
+            db_session,
+            "conv_test1",
+            "assistant",
+            "Python is a programming language.",
+            offset_seconds=-5,
+        )
 
         async def fake_generate(db, conv_id, model_id=None):
             conv = db.get(Conversation, conv_id)

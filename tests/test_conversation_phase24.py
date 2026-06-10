@@ -34,7 +34,7 @@ class _FakeRedis:
         pass
 
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
         return cls()
 
     def ping(self) -> None:
@@ -110,9 +110,9 @@ class TestConversationCRUD:
         deleted_id = resp2.json()["data"]["id"]
 
         db = SessionLocal()
-        db.query(db_models.Conversation).filter(
-            db_models.Conversation.id == deleted_id
-        ).update({"status": "deleted"})
+        db.query(db_models.Conversation).filter(db_models.Conversation.id == deleted_id).update(
+            {"status": "deleted"}
+        )
         db.commit()
         db.close()
 
@@ -133,9 +133,9 @@ class TestConversationCRUD:
 
         # Update older one to have earlier timestamp
         db = SessionLocal()
-        db.query(db_models.Conversation).filter(
-            db_models.Conversation.id == older_id
-        ).update({"updated_at": datetime.now(UTC) - timedelta(hours=1)})
+        db.query(db_models.Conversation).filter(db_models.Conversation.id == older_id).update(
+            {"updated_at": datetime.now(UTC) - timedelta(hours=1)}
+        )
         db.commit()
         db.close()
 
@@ -154,10 +154,19 @@ class TestConversationCRUD:
         now = datetime.now(UTC)
         db = SessionLocal()
         msg1 = db_models.Message(
-            id="msg_1", conversation_id=conv_id, role="user", content="Hello", status="completed", created_at=now
+            id="msg_1",
+            conversation_id=conv_id,
+            role="user",
+            content="Hello",
+            status="completed",
+            created_at=now,
         )
         msg2 = db_models.Message(
-            id="msg_2", conversation_id=conv_id, role="assistant", content="Hi there", status="completed",
+            id="msg_2",
+            conversation_id=conv_id,
+            role="assistant",
+            content="Hi there",
+            status="completed",
             created_at=now,
         )
         db.add_all([msg1, msg2])
@@ -190,7 +199,12 @@ class TestConversationCRUD:
         now = datetime.now(UTC)
         db = SessionLocal()
         msg = db_models.Message(
-            id="msg_del", conversation_id=conv_id, role="user", content="test", status="completed", created_at=now
+            id="msg_del",
+            conversation_id=conv_id,
+            role="user",
+            content="test",
+            status="completed",
+            created_at=now,
         )
         db.add(msg)
         db.commit()
@@ -206,9 +220,9 @@ class TestConversationCRUD:
         assert conv.status == "deleted"
 
         # Verify messages are deleted (hard delete)
-        msgs = db.query(db_models.Message).filter(
-            db_models.Message.conversation_id == conv_id
-        ).all()
+        msgs = (
+            db.query(db_models.Message).filter(db_models.Message.conversation_id == conv_id).all()
+        )
         assert len(msgs) == 0
         db.close()
 
@@ -222,9 +236,9 @@ class TestConversationCRUD:
         conv_id = resp.json()["data"]["id"]
 
         db = SessionLocal()
-        db.query(db_models.Conversation).filter(
-            db_models.Conversation.id == conv_id
-        ).update({"status": "deleted"})
+        db.query(db_models.Conversation).filter(db_models.Conversation.id == conv_id).update(
+            {"status": "deleted"}
+        )
         db.commit()
         db.close()
 
@@ -244,11 +258,19 @@ class TestMessageOrdering:
         now = datetime.now(UTC)
         db = SessionLocal()
         msg1 = db_models.Message(
-            id="msg_first", conversation_id=conv_id, role="user", content="first", status="completed",
+            id="msg_first",
+            conversation_id=conv_id,
+            role="user",
+            content="first",
+            status="completed",
             created_at=now - timedelta(minutes=5),
         )
         msg2 = db_models.Message(
-            id="msg_second", conversation_id=conv_id, role="assistant", content="second", status="completed",
+            id="msg_second",
+            conversation_id=conv_id,
+            role="assistant",
+            content="second",
+            status="completed",
             created_at=now,
         )
         db.add_all([msg2, msg1])  # Add out of order

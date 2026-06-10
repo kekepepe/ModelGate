@@ -38,7 +38,9 @@ def serialize_file(record: FileRecord) -> dict:
 async def upload_file(file: UploadFile, db: Session = Depends(get_db)):
     content = await file.read()
     current_total_bytes = db.execute(
-        select(func.coalesce(func.sum(FileRecord.size_bytes), 0)).where(FileRecord.status != "deleted")
+        select(func.coalesce(func.sum(FileRecord.size_bytes), 0)).where(
+            FileRecord.status != "deleted"
+        )
     ).scalar_one()
     validated = validate_upload(
         original_name=file.filename,
@@ -121,7 +123,9 @@ async def preview_file(file_id: str, db: Session = Depends(get_db)):
     path = storage.absolute_path(key)
 
     metadata = record.metadata_json or {}
-    is_attachment = record.mime_type in {"image/svg+xml", "text/html"} or metadata.get("extension") in {
+    is_attachment = record.mime_type in {"image/svg+xml", "text/html"} or metadata.get(
+        "extension"
+    ) in {
         ".svg",
         ".html",
     }
@@ -241,7 +245,4 @@ def _is_allowlisted_storage_key(key: str) -> bool:
     if not key:
         return False
     normalized = key.lstrip("/")
-    return any(
-        normalized.startswith(prefix)
-        for prefix in ("uploads/", "previews/", "outputs/")
-    )
+    return any(normalized.startswith(prefix) for prefix in ("uploads/", "previews/", "outputs/"))

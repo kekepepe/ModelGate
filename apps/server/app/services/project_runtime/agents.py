@@ -233,9 +233,7 @@ def _try_parse_json(text: str) -> dict:
             pass
 
     preview = original.strip()[:500]
-    raise ValueError(
-        f"Agent output is not valid JSON. Raw preview (first 500 chars): {preview!r}"
-    )
+    raise ValueError(f"Agent output is not valid JSON. Raw preview (first 500 chars): {preview!r}")
 
 
 def _extract_first_json_object(text: str) -> str | None:
@@ -276,7 +274,11 @@ def _extract_first_json_object(text: str) -> str | None:
 def _get_run_tokens(db: Session, run_id: str, field: str) -> int | None:
     from app.db.models import UsageLog
 
-    usage = db.query(UsageLog).filter(UsageLog.record_type == "run", UsageLog.record_id == run_id).first()
+    usage = (
+        db.query(UsageLog)
+        .filter(UsageLog.record_type == "run", UsageLog.record_id == run_id)
+        .first()
+    )
     if usage:
         return getattr(usage, field, None) or 0
     return None
@@ -479,13 +481,11 @@ def _verifier_user_prompt(
     if failed_tests:
         lines.append("Failed tests:")
         for ft in failed_tests[:20]:
-            lines.append(
-                f"- {ft.get('nodeid', '?')}: {ft.get('message', '')[:300]}"
-            )
+            lines.append(f"- {ft.get('nodeid', '?')}: {ft.get('message', '')[:300]}")
         lines.append("")
     if previous_verdicts:
         lines.append("Previous verdicts (for context on repeats):")
-        for i, prev in enumerate(previous_verdicts[-3:], start=1):
+        for prev in previous_verdicts[-3:]:
             lines.append(
                 f"- Round {prev.get('round', '?')}: verdict={prev.get('verdict', '?')}, "
                 f"failed={len(prev.get('failed_tests', []))}"

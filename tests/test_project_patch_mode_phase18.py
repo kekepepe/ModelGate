@@ -20,23 +20,23 @@ sys.path.insert(0, str(SERVER_ROOT))
 
 from app.db import models as db_models  # noqa: E402
 from app.main import app  # noqa: E402
+from app.services.project_runtime.orchestrator import validate_patch  # noqa: E402
 from app.services.project_runtime.schemas import (  # noqa: E402
     PatchValidationResult,
     WorkerOutput,
     WorkerProposedChange,
     validate_agent_output,
 )
-from app.services.project_runtime.orchestrator import validate_patch  # noqa: E402
-
 
 # ── Fixture (same 3-piece pattern as phase13) ───────────────────────────────
+
 
 class _FakeRedis:
     def __init__(self, *args, **kwargs) -> None:
         pass
 
     @classmethod
-    def from_url(cls, *args, **kwargs) -> "_FakeRedis":
+    def from_url(cls, *args, **kwargs) -> _FakeRedis:
         return cls()
 
     def ping(self) -> None:
@@ -87,6 +87,7 @@ def client(monkeypatch):
 
 # ── Test: Schema extensions ─────────────────────────────────────────────────
 
+
 class TestWorkerSchemaWithPatch:
     def test_proposed_change_with_patch(self):
         """WorkerProposedChange accepts the new patch field."""
@@ -100,7 +101,9 @@ class TestWorkerSchemaWithPatch:
 
     def test_proposed_change_without_patch(self):
         """Advisory mode: patch field defaults to empty string."""
-        change = WorkerProposedChange(file="foo.py", change_kind="modify", description="add function")
+        change = WorkerProposedChange(
+            file="foo.py", change_kind="modify", description="add function"
+        )
         assert change.patch == ""
 
     def test_worker_output_with_patch_combined(self):
@@ -122,7 +125,12 @@ class TestWorkerSchemaWithPatch:
             "summary": "done",
             "patch_combined": "--- a/x.py\n+++ b/x.py\n@@ ...",
             "proposed_changes": [
-                {"file": "x.py", "change_kind": "modify", "description": "add", "patch": "--- a/x.py\n+++ b/x.py\n@@"}
+                {
+                    "file": "x.py",
+                    "change_kind": "modify",
+                    "description": "add",
+                    "patch": "--- a/x.py\n+++ b/x.py\n@@",
+                }
             ],
         }
         result = validate_agent_output("worker", payload)
@@ -131,6 +139,7 @@ class TestWorkerSchemaWithPatch:
 
 
 # ── Test: PatchValidationResult ─────────────────────────────────────────────
+
 
 class TestPatchValidationResult:
     def test_default_valid(self):
@@ -146,6 +155,7 @@ class TestPatchValidationResult:
 
 
 # ── Test: validate_patch ────────────────────────────────────────────────────
+
 
 class TestValidatePatch:
     VALID_DIFF = (
@@ -181,18 +191,14 @@ class TestValidatePatch:
         assert "migration" in result.high_risk_files[0]["reason"].lower()
 
     def test_high_risk_env_file(self):
-        diff = (
-            "--- a/.env\n"
-            "+++ b/.env\n"
-            "@@ -1 +1 @@\n"
-            "-OLD=val\n"
-            "+NEW=val\n"
-        )
+        diff = "--- a/.env\n" "+++ b/.env\n" "@@ -1 +1 @@\n" "-OLD=val\n" "+NEW=val\n"
         result = validate_patch(diff, [".env*"])
         assert result.valid is True
         assert len(result.high_risk_files) >= 1
-        assert any("secret" in hr["reason"].lower() or "environment" in hr["reason"].lower()
-                     for hr in result.high_risk_files)
+        assert any(
+            "secret" in hr["reason"].lower() or "environment" in hr["reason"].lower()
+            for hr in result.high_risk_files
+        )
 
     def test_empty_patch_valid(self):
         result = validate_patch("", ["any/file.py"])
@@ -237,6 +243,7 @@ class TestValidatePatch:
 
 
 # ── Test: Apply endpoint ────────────────────────────────────────────────────
+
 
 class TestApplyPatchEndpoint:
     def _create_completed_project(self, client, monkeypatch, diff_text):
@@ -283,11 +290,16 @@ class TestApplyPatchEndpoint:
 
     def test_apply_non_completed_run(self, client, monkeypatch):
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_running", title="T", goal="G", status="running", mode="patch",
+                id="pr_running",
+                title="T",
+                goal="G",
+                status="running",
+                mode="patch",
             )
             db.add(pr)
             db.commit()
@@ -299,11 +311,16 @@ class TestApplyPatchEndpoint:
 
     def test_apply_nonexistent_artifact(self, client, monkeypatch):
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_no_art", title="T", goal="G", status="completed", mode="patch",
+                id="pr_no_art",
+                title="T",
+                goal="G",
+                status="completed",
+                mode="patch",
             )
             db.add(pr)
             db.commit()
@@ -315,16 +332,24 @@ class TestApplyPatchEndpoint:
 
     def test_apply_non_patch_artifact(self, client, monkeypatch):
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_not_patch", title="T", goal="G", status="completed", mode="patch",
+                id="pr_not_patch",
+                title="T",
+                goal="G",
+                status="completed",
+                mode="patch",
             )
             db.add(pr)
             art = db_models.Artifact(
-                id="art_worker_1", project_run_id="pr_not_patch",
-                type="worker", name="worker.json", content_json={"summary": "x"},
+                id="art_worker_1",
+                project_run_id="pr_not_patch",
+                type="worker",
+                name="worker.json",
+                content_json={"summary": "x"},
             )
             db.add(art)
             db.commit()
@@ -336,16 +361,24 @@ class TestApplyPatchEndpoint:
 
     def test_apply_high_risk_without_confirm(self, client, monkeypatch):
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_high_risk", title="T", goal="G", status="completed", mode="patch",
+                id="pr_high_risk",
+                title="T",
+                goal="G",
+                status="completed",
+                mode="patch",
             )
             db.add(pr)
             art = db_models.Artifact(
-                id="art_hr_1", project_run_id="pr_high_risk",
-                type="patch", name="patch.diff", content_text="--- a/.env\n+++ b/.env\n@@ -1 +1 @@\n-a\n+b\n",
+                id="art_hr_1",
+                project_run_id="pr_high_risk",
+                type="patch",
+                name="patch.diff",
+                content_text="--- a/.env\n+++ b/.env\n@@ -1 +1 @@\n-a\n+b\n",
                 metadata_json={
                     "validation": {
                         "valid": True,
@@ -367,19 +400,28 @@ class TestApplyPatchEndpoint:
 
 # ── Test: Reject endpoint ───────────────────────────────────────────────────
 
+
 class TestRejectPatchEndpoint:
     def test_reject_patch(self, client, monkeypatch):
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_reject", title="T", goal="G", status="completed", mode="patch",
+                id="pr_reject",
+                title="T",
+                goal="G",
+                status="completed",
+                mode="patch",
             )
             db.add(pr)
             art = db_models.Artifact(
-                id="art_reject_1", project_run_id="pr_reject",
-                type="patch", name="patch.diff", content_text="diff",
+                id="art_reject_1",
+                project_run_id="pr_reject",
+                type="patch",
+                name="patch.diff",
+                content_text="diff",
             )
             db.add(art)
             db.commit()
@@ -401,16 +443,24 @@ class TestRejectPatchEndpoint:
 
     def test_reject_non_patch_artifact(self, client, monkeypatch):
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_reject2", title="T", goal="G", status="completed", mode="patch",
+                id="pr_reject2",
+                title="T",
+                goal="G",
+                status="completed",
+                mode="patch",
             )
             db.add(pr)
             art = db_models.Artifact(
-                id="art_worker_r", project_run_id="pr_reject2",
-                type="worker", name="w.json", content_json={"summary": "x"},
+                id="art_worker_r",
+                project_run_id="pr_reject2",
+                type="worker",
+                name="w.json",
+                content_json={"summary": "x"},
             )
             db.add(art)
             db.commit()
@@ -423,21 +473,31 @@ class TestRejectPatchEndpoint:
 
 # ── Test: File approvals in approve endpoint ────────────────────────────────
 
+
 class TestFileApprovals:
     def test_approve_with_file_approvals(self, client, monkeypatch):
         """Approve stores fileApprovals in task metadata."""
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_fa", title="T", goal="G", status="awaiting_approval", mode="patch",
+                id="pr_fa",
+                title="T",
+                goal="G",
+                status="awaiting_approval",
+                mode="patch",
                 planner_model_id="test-model",
             )
             db.add(pr)
             task = db_models.ProjectTask(
-                id="t_fa1", project_run_id="pr_fa", title="Task 1", role="backend",
-                status="pending", allowed_files=["foo.py"],
+                id="t_fa1",
+                project_run_id="pr_fa",
+                title="Task 1",
+                role="backend",
+                status="pending",
+                allowed_files=["foo.py"],
             )
             db.add(task)
             db.commit()
@@ -452,10 +512,13 @@ class TestFileApprovals:
             "app.api.projects.project_orchestrator.run_approved", _mock_run_approved
         )
 
-        r = client.post("/api/projects/pr_fa/approve", json={
-            "taskIds": ["t_fa1"],
-            "fileApprovals": {"t_fa1": {"foo.py": "accept", "bar.py": "reject"}},
-        })
+        r = client.post(
+            "/api/projects/pr_fa/approve",
+            json={
+                "taskIds": ["t_fa1"],
+                "fileApprovals": {"t_fa1": {"foo.py": "accept", "bar.py": "reject"}},
+            },
+        )
         assert r.status_code == 200
 
         # Verify fileApprovals stored
@@ -470,16 +533,24 @@ class TestFileApprovals:
     def test_approve_without_file_approvals_backward_compat(self, client, monkeypatch):
         """Approve without fileApprovals still works (backward compatible)."""
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_fa2", title="T", goal="G", status="awaiting_approval", mode="advisory",
+                id="pr_fa2",
+                title="T",
+                goal="G",
+                status="awaiting_approval",
+                mode="advisory",
                 planner_model_id="test-model",
             )
             db.add(pr)
             task = db_models.ProjectTask(
-                id="t_fa2", project_run_id="pr_fa2", title="Task 1", role="backend",
+                id="t_fa2",
+                project_run_id="pr_fa2",
+                title="Task 1",
+                role="backend",
                 status="pending",
             )
             db.add(task)
@@ -500,14 +571,20 @@ class TestFileApprovals:
 
 # ── Test: Regenerate endpoint ───────────────────────────────────────────────
 
+
 class TestRegeneratePatch:
     def test_regenerate_requires_task_ids(self, client, monkeypatch):
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_regen", title="T", goal="G", status="completed", mode="patch",
+                id="pr_regen",
+                title="T",
+                goal="G",
+                status="completed",
+                mode="patch",
             )
             db.add(pr)
             db.commit()
@@ -523,11 +600,16 @@ class TestRegeneratePatch:
 
     def test_regenerate_wrong_status(self, client, monkeypatch):
         import app.db.session as session_module
+
         TestSessionLocal = session_module.SessionLocal
         db = TestSessionLocal()
         try:
             pr = db_models.ProjectRun(
-                id="pr_regen2", title="T", goal="G", status="running", mode="patch",
+                id="pr_regen2",
+                title="T",
+                goal="G",
+                status="running",
+                mode="patch",
             )
             db.add(pr)
             db.commit()
@@ -540,32 +622,34 @@ class TestRegeneratePatch:
 
 # ── Test: Mode in create endpoint ───────────────────────────────────────────
 
+
 class TestCreateWithMode:
     def test_create_patch_mode(self, client, monkeypatch):
         """Create endpoint accepts mode='patch'."""
+
         async def _mock_run(*args, **kwargs):
             pass
 
-        monkeypatch.setattr(
-            "app.api.projects.project_orchestrator.run", _mock_run
-        )
+        monkeypatch.setattr("app.api.projects.project_orchestrator.run", _mock_run)
 
-        r = client.post("/api/projects", json={
-            "goal": "test patch mode",
-            "mode": "patch",
-        })
+        r = client.post(
+            "/api/projects",
+            json={
+                "goal": "test patch mode",
+                "mode": "patch",
+            },
+        )
         assert r.status_code == 200
         data = r.json()["data"]
         assert data["mode"] == "patch"
 
     def test_create_default_mode(self, client, monkeypatch):
         """Create endpoint defaults to 'advisory'."""
+
         async def _mock_run(*args, **kwargs):
             pass
 
-        monkeypatch.setattr(
-            "app.api.projects.project_orchestrator.run", _mock_run
-        )
+        monkeypatch.setattr("app.api.projects.project_orchestrator.run", _mock_run)
 
         r = client.post("/api/projects", json={"goal": "test default"})
         assert r.status_code == 200
@@ -573,21 +657,23 @@ class TestCreateWithMode:
 
     def test_create_with_intake_model_id(self, client, monkeypatch):
         """Create endpoint accepts and stores intakeModelId."""
+
         async def _mock_run(*args, **kwargs):
             pass
 
-        monkeypatch.setattr(
-            "app.api.projects.project_orchestrator.run", _mock_run
-        )
+        monkeypatch.setattr("app.api.projects.project_orchestrator.run", _mock_run)
 
-        r = client.post("/api/projects", json={
-            "goal": "test per-agent models",
-            "intakeModelId": "gpt-4o",
-            "plannerModelId": "gpt-4o-mini",
-            "workerModelId": "gpt-4o",
-            "supervisorModelId": "gpt-4o",
-            "integratorModelId": "gpt-4o",
-        })
+        r = client.post(
+            "/api/projects",
+            json={
+                "goal": "test per-agent models",
+                "intakeModelId": "gpt-4o",
+                "plannerModelId": "gpt-4o-mini",
+                "workerModelId": "gpt-4o",
+                "supervisorModelId": "gpt-4o",
+                "integratorModelId": "gpt-4o",
+            },
+        )
         assert r.status_code == 200
         data = r.json()["data"]
         assert data["intakeModelId"] == "gpt-4o"

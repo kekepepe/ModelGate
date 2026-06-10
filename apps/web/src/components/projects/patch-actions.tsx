@@ -24,7 +24,8 @@ export function PatchActions({
 
   const metadata = artifact.metadata as Record<string, unknown> | null | undefined;
   const validation = metadata?.validation as Record<string, unknown> | undefined;
-  const highRiskFiles = (validation?.highRiskFiles as Array<{ file: string; reason: string }>) || [];
+  const highRiskFiles =
+    (validation?.highRiskFiles as Array<{ file: string; reason: string }>) || [];
   const isRejected = metadata?.rejected === true;
   const isApplied = metadata?.applied === true;
   const hasHighRisk = highRiskFiles.length > 0;
@@ -86,21 +87,11 @@ export function PatchActions({
           <Check className="h-3.5 w-3.5 mr-1" />
           Apply
         </Button>
-        <Button
-          size="sm"
-          variant="destructive"
-          onClick={onReject}
-          disabled={disabled}
-        >
+        <Button size="sm" variant="destructive" onClick={onReject} disabled={disabled}>
           <X className="h-3.5 w-3.5 mr-1" />
           Reject
         </Button>
-        <Button
-          size="sm"
-          variant="outline"
-          onClick={onRegenerate}
-          disabled={disabled}
-        >
+        <Button size="sm" variant="outline" onClick={onRegenerate} disabled={disabled}>
           <RefreshCw className="h-3.5 w-3.5 mr-1" />
           Regenerate
         </Button>

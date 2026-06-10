@@ -2,7 +2,13 @@
 
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import type { ParamField, ParamSchema } from "@/types/model";
 
@@ -69,7 +75,9 @@ export function ParamsGroup({
         if (!fields || fields.length === 0) return null;
         return (
           <div key={groupName}>
-            <h4 className="mb-3 text-xs font-medium uppercase text-muted-foreground">{groupName}</h4>
+            <h4 className="mb-3 text-xs font-medium uppercase text-muted-foreground">
+              {groupName}
+            </h4>
             <div className="space-y-3">
               {fields.map((field) => (
                 <ParamFieldRow

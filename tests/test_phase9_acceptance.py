@@ -1,8 +1,8 @@
 import asyncio
-from datetime import datetime, timedelta, timezone
-from pathlib import Path
 import socket
 import sys
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from uuid import uuid4
 
 import httpx
@@ -51,13 +51,18 @@ def test_capability_router_and_param_schema_contracts() -> None:
         required_output="text",
     )
     assert recommendation["availableModels"]
-    assert all("file_understanding" in model["capabilities"] for model in recommendation["availableModels"])
+    assert all(
+        "file_understanding" in model["capabilities"] for model in recommendation["availableModels"]
+    )
 
     video_schema = registry.get_param_schema("video_generation_schema")
     fields = {field["key"]: field for field in video_schema["fields"]}
     assert fields["ratio"]["type"] == "select"
     assert "16:9" in fields["ratio"]["options"]
-    assert fields["execution_expires_after"]["providerMapping"]["volcengine_seedance"] == "execution_expires_after"
+    assert (
+        fields["execution_expires_after"]["providerMapping"]["volcengine_seedance"]
+        == "execution_expires_after"
+    )
 
 
 def test_provider_adapters_construct_requests_and_parse_responses(monkeypatch) -> None:
@@ -104,15 +109,18 @@ def test_provider_adapters_construct_requests_and_parse_responses(monkeypatch) -
         model_id="mimo.mimo_v2_5",
         provider_model_name="provider-model",
         task_type="chat",
-        messages=[ChatMessage(role="system", content="system"), ChatMessage(role="user", content="hello")],
+        messages=[
+            ChatMessage(role="system", content="system"),
+            ChatMessage(role="user", content="hello"),
+        ],
         params={"temperature": 0, "max_completion_tokens": 64, "stream": True},
         request_id="run_phase9_adapter",
     )
 
     openai_output = asyncio.run(
-        OpenAICompatibleAdapter(provider_id="mimo", base_url="https://provider.test/v1", api_key="secret").chat(
-            input_data
-        )
+        OpenAICompatibleAdapter(
+            provider_id="mimo", base_url="https://provider.test/v1", api_key="secret"
+        ).chat(input_data)
     )
     anthropic_output = asyncio.run(
         AnthropicCompatibleAdapter(
@@ -152,11 +160,15 @@ def test_generation_state_machine_rejects_terminal_regression() -> None:
 def test_api_level_e2e_chat_file_recommend_history_logs_and_cancel(monkeypatch) -> None:
     require_local_port(5432)
     require_local_port(6379)
-    monkeypatch.setattr("app.services.chat_runtime.create_chat_adapter", lambda **kwargs: FakeChatAdapter())
+    monkeypatch.setattr(
+        "app.services.chat_runtime.create_chat_adapter", lambda **kwargs: FakeChatAdapter()
+    )
 
     with TestClient(app) as client:
         request_id = f"req_phase9_{uuid4().hex}"
-        error_response = client.get("/api/history/missing_record", headers={"X-Request-Id": request_id})
+        error_response = client.get(
+            "/api/history/missing_record", headers={"X-Request-Id": request_id}
+        )
         assert error_response.status_code == 404
         assert error_response.json()["error"]["requestId"] == request_id
 
@@ -213,7 +225,7 @@ def test_api_level_e2e_chat_file_recommend_history_logs_and_cancel(monkeypatch) 
                 params_json={},
                 status="queued",
                 progress=0,
-                expires_at=datetime.now(timezone.utc) + timedelta(hours=1),
+                expires_at=datetime.now(UTC) + timedelta(hours=1),
             )
             db.add(generation_task)
             db.commit()

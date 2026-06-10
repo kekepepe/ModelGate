@@ -16,10 +16,7 @@ export function SettingsClient() {
 
   return (
     <div className="space-y-6">
-      <PageHeader
-        title="Settings"
-        description="ModelGate workspace preferences."
-      />
+      <PageHeader title="Settings" description="ModelGate workspace preferences." />
 
       <div className="rounded-lg border bg-card p-5">
         <h2 className="flex items-center gap-2 text-sm font-semibold">
@@ -40,7 +37,8 @@ export function SettingsClient() {
       <div className="rounded-lg border bg-card p-5">
         <h2 className="text-sm font-semibold">Privacy & Data</h2>
         <p className="mt-2 text-sm text-muted-foreground">
-          Export or delete your local workspace data. API keys are never exported and always preserved on delete.
+          Export or delete your local workspace data. API keys are never exported and always
+          preserved on delete.
         </p>
         <div className="mt-4 flex gap-2">
           <Button size="sm" variant="outline" onClick={() => setExportOpen(true)}>
@@ -59,4 +57,3 @@ export function SettingsClient() {
     </div>
   );
 }
-

@@ -22,7 +22,15 @@ import { AgentRunTable } from "@/components/projects/agent-run-table";
 import { TaskTreeApproval } from "@/components/projects/task-tree-approval";
 import { BudgetMeter } from "@/components/projects/budget-meter";
 import { ArtifactDrawer } from "@/components/projects/artifact-drawer";
-import { projectApi, type ProjectRunStatus, type ProjectRunDetails, type ArtifactView, type AgentRunView, type ProjectTaskView, type PatchApplyResponse } from "@/lib/api";
+import {
+  projectApi,
+  type ProjectRunStatus,
+  type ProjectRunDetails,
+  type ArtifactView,
+  type AgentRunView,
+  type ProjectTaskView,
+  type PatchApplyResponse,
+} from "@/lib/api";
 
 interface Budget {
   maxAgents?: number;
@@ -71,7 +79,11 @@ export default function ProjectDetailPage({ params }: PageProps) {
       const d = q.state.data as ProjectRunDetails | undefined;
       const status = d?.projectRun.status;
       if (!status) return 2000;
-      return status === "completed" || status === "failed" || status === "cancelled" || status === "budget_exceeded" || status === "validation_failed"
+      return status === "completed" ||
+        status === "failed" ||
+        status === "cancelled" ||
+        status === "budget_exceeded" ||
+        status === "validation_failed"
         ? false
         : 2000;
     },
@@ -115,14 +127,12 @@ export default function ProjectDetailPage({ params }: PageProps) {
   });
 
   const regenerateMut = useMutation({
-    mutationFn: (taskIds: string[]) =>
-      projectApi.regeneratePatches(id, { taskIds }),
+    mutationFn: (taskIds: string[]) => projectApi.regeneratePatches(id, { taskIds }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
   });
 
   const retryWorkerMut = useMutation({
-    mutationFn: (taskId: string) =>
-      projectApi.regeneratePatches(id, { taskIds: [taskId] }),
+    mutationFn: (taskId: string) => projectApi.regeneratePatches(id, { taskIds: [taskId] }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ["project", id] }),
   });
 
@@ -232,7 +242,9 @@ export default function ProjectDetailPage({ params }: PageProps) {
                 round={pr.round}
                 stopReason={pr.stopReason}
                 stopRound={pr.stopRound}
-                maxRounds={(pr.budget as Record<string, unknown> | null)?.maxRounds as number | undefined}
+                maxRounds={
+                  (pr.budget as Record<string, unknown> | null)?.maxRounds as number | undefined
+                }
               />
             </div>
             <div className="w-[30%] min-w-0">
@@ -288,18 +300,24 @@ export default function ProjectDetailPage({ params }: PageProps) {
         }}
       />
 
-      <Dialog open={deleteOpen} onOpenChange={(o) => { if (!deleteMut.isPending) { setDeleteOpen(o); if (!o) setDeleteError(null); } }}>
+      <Dialog
+        open={deleteOpen}
+        onOpenChange={(o) => {
+          if (!deleteMut.isPending) {
+            setDeleteOpen(o);
+            if (!o) setDeleteError(null);
+          }
+        }}
+      >
         <DialogContent data-testid="delete-confirm-dialog">
           <DialogHeader>
             <DialogTitle>Delete this project run?</DialogTitle>
             <DialogDescription>
-              This will permanently remove the run, its tasks, agent runs, artifacts, and memory entries.
-              This action cannot be undone.
+              This will permanently remove the run, its tasks, agent runs, artifacts, and memory
+              entries. This action cannot be undone.
             </DialogDescription>
           </DialogHeader>
-          {deleteError && (
-            <p className="text-sm text-destructive">{deleteError}</p>
-          )}
+          {deleteError && <p className="text-sm text-destructive">{deleteError}</p>}
           <DialogFooter>
             <Button
               type="button"
