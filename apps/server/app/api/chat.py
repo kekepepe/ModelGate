@@ -18,6 +18,7 @@ from app.services.context_builder import (
     build_context_messages,
     estimate_tokens,
 )
+from app.services.conversation_summary import maybe_generate_summary_async
 from app.services.model_registry import model_registry
 
 router = APIRouter()
@@ -140,6 +141,10 @@ def _build_context_for_stream(
     model_cfg = model_registry.get_model(model_id)
     ctx_window = (model_cfg or {}).get("contextWindow")
 
+    # Load conversation summary if available
+    conv = db.get(Conversation, conversation_id)
+    summary_text = getattr(conv, "summary", None) if conv else None
+
     # Build context with budget trimming
     all_messages, meta = build_context_messages(
         db=db,
@@ -150,6 +155,7 @@ def _build_context_for_stream(
         budget_ratio=budget_ratio,
         file_context_tokens=file_ctx_tokens,
         current_user_message_id=current_user_message_id,
+        summary_text=summary_text,
     )
 
     # If no prior messages were included, nothing to do
@@ -252,6 +258,10 @@ async def create_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
     db.add(assistant_msg)
     conv.updated_at = now
     db.commit()
+
+    # V3.5: Trigger async summary generation if thresholds met
+    if record.status == "completed":
+        await maybe_generate_summary_async(db, conversation_id, input_data.modelId)
 
     result = serialize_run(record)
     result["conversationId"] = conversation_id
@@ -387,6 +397,10 @@ async def stream_run(input_data: CreateRunInput, db: Session = Depends(get_db)):
                         run_rec.metadata_json = {"context_truncation": ctx_meta}
 
             db.commit()
+
+            # V3.5: Trigger async summary generation if thresholds met
+            if final_status == "completed":
+                await maybe_generate_summary_async(db, conversation_id, input_data.modelId)
         except Exception:
             db.rollback()
 

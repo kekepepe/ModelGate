@@ -295,6 +295,7 @@ export interface ConversationView {
   modelId: string | null;
   params: Record<string, unknown> | null;
   status: string;
+  summary: string | null;
   createdAt: string | null;
   updatedAt: string | null;
   messages?: MessageView[];

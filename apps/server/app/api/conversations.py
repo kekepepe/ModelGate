@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Conversation, Message
 from app.db.session import get_db
+from app.services.conversation_summary import generate_summary
 
 router = APIRouter()
 
@@ -33,6 +34,7 @@ def serialize_conversation(record: Conversation, messages: list[Message] | None 
         "modelId": record.model_id,
         "params": record.params_json,
         "status": record.status,
+        "summary": record.summary,
         "createdAt": record.created_at.isoformat() if record.created_at else None,
         "updatedAt": record.updated_at.isoformat() if record.updated_at else None,
     }
@@ -130,3 +132,29 @@ def delete_conversation(conversation_id: str, db: Session = Depends(get_db)):
     conv.updated_at = datetime.now(UTC)
     db.commit()
     return {"data": {"id": conversation_id, "status": "deleted"}}
+
+
+@router.post("/{conversation_id}/summary/reset")
+def reset_summary(conversation_id: str, db: Session = Depends(get_db)):
+    """Clear the conversation summary."""
+    conv = db.get(Conversation, conversation_id)
+    if conv is None or conv.status == "deleted":
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    conv.summary = None
+    conv.updated_at = datetime.now(UTC)
+    db.commit()
+    db.refresh(conv)
+    return {"data": serialize_conversation(conv)}
+
+
+@router.post("/{conversation_id}/summary/regenerate")
+async def regenerate_summary(conversation_id: str, db: Session = Depends(get_db)):
+    """Force regeneration of the conversation summary."""
+    conv = db.get(Conversation, conversation_id)
+    if conv is None or conv.status == "deleted":
+        raise HTTPException(status_code=404, detail="Conversation not found")
+    summary = await generate_summary(db, conversation_id, conv.model_id)
+    if summary is None:
+        raise HTTPException(status_code=500, detail="Failed to generate summary")
+    db.refresh(conv)
+    return {"data": serialize_conversation(conv)}

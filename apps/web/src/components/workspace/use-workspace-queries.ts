@@ -415,6 +415,8 @@ export function useWorkspaceQueries() {
     fileIds,
     inputTypes,
     canRun,
+    // Conversation data
+    conversationSummary: (conversationQuery.data as ConversationView | undefined)?.summary ?? null,
     // Query data
     providers,
     models: modelsQuery.data ?? [],

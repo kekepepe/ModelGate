@@ -426,6 +426,7 @@ class Conversation(Base):
     model_id: Mapped[str | None] = mapped_column(String(128))
     params_json: Mapped[dict | None] = mapped_column(JSON)
     status: Mapped[str] = mapped_column(String(16), nullable=False, default="active")
+    summary: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), server_default=func.now(), onupdate=func.now()

@@ -50,6 +50,8 @@ class ContextTruncationMeta:
     dropped_count: int = 0
     dropped_token_estimate: int = 0
     budget_tokens: int = 0
+    summary_included: bool = False
+    summary_tokens: int = 0
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -62,6 +64,8 @@ class ContextTruncationMeta:
             "dropped_count": self.dropped_count,
             "dropped_token_estimate": self.dropped_token_estimate,
             "budget_tokens": self.budget_tokens,
+            "summary_included": self.summary_included,
+            "summary_tokens": self.summary_tokens,
         }
 
 
@@ -90,6 +94,7 @@ def build_context_messages(
     budget_ratio: float = DEFAULT_BUDGET_RATIO,
     file_context_tokens: int = 0,
     current_user_message_id: str | None = None,
+    summary_text: str | None = None,
 ) -> tuple[list[ChatMessage], ContextTruncationMeta]:
     """Build the full message list for a chat request with budget trimming.
 
@@ -115,8 +120,20 @@ def build_context_messages(
     # 3. Account for file context (already embedded in current_user_message)
     meta.file_tokens = file_context_tokens
 
+    # 3b. Account for summary injection
+    summary_msg: ChatMessage | None = None
+    summary_tokens = 0
+    if summary_text and summary_text.strip():
+        summary_msg = ChatMessage(
+            role="system",
+            content=f"[Previous conversation summary]\n{summary_text.strip()}",
+        )
+        summary_tokens = estimate_message_tokens(summary_msg)
+        meta.summary_included = True
+        meta.summary_tokens = summary_tokens
+
     # 4. Available tokens for history
-    fixed_tokens = system_tokens + current_user_tokens
+    fixed_tokens = system_tokens + current_user_tokens + summary_tokens
     available_for_history = max(0, total_budget - fixed_tokens)
 
     # 5. Load prior messages from DB (exclude the current user message we just saved)
@@ -176,8 +193,10 @@ def build_context_messages(
         meta.dropped_count = meta.original_count - meta.included_count
         meta.dropped_token_estimate = dropped_tokens
 
-    # 7. Assemble final message list: system + history + current_user
+    # 7. Assemble final message list: system + summary + history + current_user
     result: list[ChatMessage] = [system_message]
+    if summary_msg:
+        result.append(summary_msg)
     result.extend(prior_messages)
     result.append(current_user_message)
 

@@ -5,6 +5,7 @@ import { useCallback } from "react";
 import { useWorkspaceStore } from "@/stores/workspace-store";
 import type { ChatMessage } from "@/stores/workspace-store";
 
+import { ConversationHeader } from "./conversation-header";
 import { MessageList } from "./message-list";
 import { Composer } from "./composer";
 import { useWorkspaceQueries } from "./use-workspace-queries";
@@ -19,6 +20,9 @@ export function ChatWorkspace({ modelSlot, paramsSlot, extraActionsSlot }: Props
   const q = useWorkspaceQueries();
   const messages = useWorkspaceStore((s) => s.messages);
   const appendMessage = useWorkspaceStore((s) => s.appendMessage);
+
+  const conversationId = q.conversationId;
+  const summary = q.conversationSummary;
 
   const isStreaming = q.runMutation.isPending;
   const canSend = q.canRun && !isStreaming;
@@ -48,6 +52,9 @@ export function ChatWorkspace({ modelSlot, paramsSlot, extraActionsSlot }: Props
 
   return (
     <div className="flex h-[calc(100vh-180px)] min-h-[480px] flex-col rounded-2xl border bg-card shadow-[0_12px_36px_rgba(72,60,45,0.06)]" data-testid="chat-workspace">
+      {conversationId && summary && (
+        <ConversationHeader conversationId={conversationId} summary={summary} />
+      )}
       <div className="flex-1 overflow-hidden">
         <MessageList messages={messages} />
       </div>
