@@ -42,7 +42,19 @@ export function ChatWorkspace({ modelSlot, paramsSlot, extraActionsSlot }: Props
     };
     appendMessage(userMessage);
 
-    q.runMutation.mutate(undefined);
+    // Pass the values explicitly as a payload instead of relying on the
+    // mutationFn closure. TanStack Query v5's useMutation only updates the
+    // observer's options via a useEffect that runs *after* commit, so
+    // clicking send right after typing can race against that effect and
+    // dispatch a stale mutationFn closure whose `prompt` is `""`.
+    q.runMutation.mutate({
+      taskType: q.selectedTaskType,
+      modelId: q.selectedModelId,
+      prompt: trimmed,
+      fileIds: q.fileIds,
+      params: q.params,
+      conversationId: q.conversationId,
+    });
     q.setPrompt("");
   }, [appendMessage, q]);
 

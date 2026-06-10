@@ -102,47 +102,57 @@ for the full request flows, data model, and deployment topology.
 
 ### Overview
 
-![ModelGate Overview — providers, models, recent runs, and capabilities](github-picture/github1.png)
+![ModelGate Overview — providers, models, total runs, failures, and capability tiles](github-picture/github1-1.png)
 
 The Overview dashboard surfaces everything you need to know about the
 local installation: provider health, model count, run / failure
-statistics, and the last few runs with status badges.
+statistics, the available capabilities, and the last few runs with
+status badges — all on one screen.
 
 ### Playground
 
-![ModelGate Playground — task tabs, model recommendation, prompt input, compare, and output tabs](github-picture/github2.png)
+![ModelGate Playground — task tabs, model picker, prompt editor, templates, and Compare](github-picture/github2-1.png)
 
-The Playground is the main work surface. Pick a task type (chat, coding,
-code review, document analysis, prompt optimize, ...), pick a model from
-the ones that can answer it, upload files, apply prompt templates, tune
-schema-driven parameters, run or cancel a task, and open Compare to run
-multiple models side by side.
-
-### Models
-
-![ModelGate Models — registry with capabilities, parameter schema, and runtime](github-picture/github3.png)
-
-Every model in the system is declared in `configs/models.json`. The
-table is the same data the capability router uses to pick models, so
-"what the UI shows" and "what runs" cannot drift apart.
+The Playground is the main work surface. Pick a task type (Chat,
+Coding, Code Review, Document Analysis, Prompt Optimize, Generation),
+pick a model from the ones that can answer it, upload files, apply
+prompt templates, tune schema-driven parameters, run or cancel a task,
+and open Compare to run up to three models in parallel with a shared
+prompt and params.
 
 ### Usage
 
-![ModelGate Usage — daily token chart, provider distribution, and per-model ranking](github-picture/github4.png)
+![ModelGate Usage — totals, daily token trend, and provider × model matrix](github-picture/github3-1.png)
 
-Usage analytics is sourced from `usage_logs` and `request_logs`: daily
-token spend, provider distribution, per-model ranking, success rate,
-and a recent request log with the same `requestId` you can grep in the
-backend logs.
+![ModelGate Usage — provider distribution, model ranking, and recent request logs](github-picture/github3-2.png)
+
+Usage analytics is sourced from `usage_logs` and `request_logs`:
+total requests, total tokens, success rate, failed-request count,
+daily token trend, provider × model usage matrix, provider
+distribution donut, per-model ranking with success rate and average
+latency, and a recent request log with the same `requestId` you can
+grep for in the backend logs.
 
 ### Project Mode
 
-![ModelGate Project Mode — multi-agent project runs with status, goal, tokens, and actions](github-picture/github5.png)
+![ModelGate Project Mode — multi-agent project runs with status, goal, tokens, and actions](github-picture/github4-1.png)
 
-Project Mode is the multi-agent side of ModelGate: create a goal, let the
-Intake and Planner agents structure it, approve or adjust the task tree,
-then run Workers, Supervisor, Integrator, and optional Verifier stages with
-budgets, artifacts, patch review, test feedback, and explicit stop reasons.
+Project Mode is the multi-agent side of ModelGate: create a goal, let
+the Intake and Planner agents structure it, approve or adjust the
+task tree, then run Workers, Supervisor, Integrator, and an optional
+Verifier stage with budgets, artifacts, patch review, test feedback,
+and explicit stop reasons.
+
+### API Keys
+
+![ModelGate API Keys — encrypted provider key management with status, test, and clear actions](github-picture/github5-1.png)
+
+The API Keys page is where providers come online. Keys are encrypted
+on save as AES-256-GCM ciphertext (derived from `MODELGATE_SECRET_KEY`
+via HKDF), never displayed back in plaintext, and you can test or
+clear each key in place — the same `Test` action is wired to the
+backend's `POST /api/providers/{id}/test` so you can verify
+connectivity without leaving the page.
 
 ---
 

@@ -88,43 +88,51 @@ Postgres · Redis · 存储 Adapter (本地, 可平替 S3)
 
 ### Overview（总览）
 
-![ModelGate Overview 截图 — 厂商、模型、最近运行、能力一览](github-picture/github1.png)
+![ModelGate Overview 截图 — 厂商、模型、总运行数、失败率、能力卡片](github-picture/github1-1.png)
 
-Overview 仪表盘把本机安装的所有关键信息摊在首页：厂商健康度、
-模型数量、运行 / 失败统计，以及最近几条带状态徽章的运行记录。
+Overview 仪表盘把本机安装的关键信息摊在首页：厂商健康度、模型
+数量、运行 / 失败统计、可用能力卡片，以及最近几条带状态徽章的
+运行记录——一屏全包。
 
 ### Playground（实验场）
 
-![ModelGate Playground 截图 — 任务 tabs、模型推荐、Prompt 输入、Compare、输出 tabs](github-picture/github2.png)
+![ModelGate Playground 截图 — 任务 tabs、模型选择、Prompt 编辑、模板、Compare](github-picture/github2-1.png)
 
-Playground 是真正干活的地方。挑一个任务类型（聊天、写代码、代码
-审查、文档分析、Prompt 优化等），从能回答这个任务的模型里挑一个，
-上传文件，套用 Prompt Template，在由 `configs/param-schemas.json`
-实时渲染出的参数面板里调参，然后运行、取消或打开 Compare 并排对比模型。
-
-### Models（模型）
-
-![ModelGate Models 截图 — 模型注册表，含能力、参数 schema、运行时](github-picture/github3.png)
-
-每一个模型都在 `configs/models.json` 里声明。表里看到的字段就是
-能力路由用来选模型的字段——"UI 展示"和"实际能跑"永远不会脱节。
+Playground 是真正干活的地方。挑一个任务类型（Chat、Coding、Code
+Review、Document Analysis、Prompt Optimize、Generation），从能回答
+这个任务的模型里挑一个，上传文件，套用 Prompt 模板，在由
+`configs/param-schemas.json` 实时渲染出的参数面板里调参，然后
+运行、取消，或者打开 Compare 用同一份 prompt 并发跑最多 3 个模型
+并排对比。
 
 ### Usage（用量分析）
 
-![ModelGate Usage 截图 — 每日 token 柱状图、厂商分布、模型排行](github-picture/github4.png)
+![ModelGate Usage 截图 — 总览统计、每日 token 趋势、Provider × Model 矩阵](github-picture/github3-1.png)
 
-用量分析的数据源是 `usage_logs` 和 `request_logs`：每日 token 消耗、
-厂商分布、按模型的成功率排行，以及最近的请求日志。后端日志里
-grep 同一个 `requestId` 即可对应起来。
+![ModelGate Usage 截图 — 厂商占比、模型排行、最近请求日志](github-picture/github3-2.png)
+
+用量分析的数据源是 `usage_logs` 和 `request_logs`：总请求数、总
+token、成功率、失败请求数、每日 token 趋势、Provider × Model 用量
+矩阵、厂商占比环形图、按模型的成功率与平均延迟排行，以及最近的
+请求日志。后端日志里 grep 同一个 `requestId` 即可对应起来。
 
 ### Project Mode（项目模式）
 
-![ModelGate Project Mode 截图 — 多 Agent 项目运行，含状态、目标、token 和操作](github-picture/github5.png)
+![ModelGate Project Mode 截图 — 多 Agent 项目运行，含状态、目标、token 和操作](github-picture/github4-1.png)
 
-Project Mode 是 ModelGate 的多 Agent 项目界面：输入目标后，由 Intake
-和 Planner 拆解任务，用户审批或调整任务树，再运行 Workers、Supervisor、
-Integrator 和可选 Verifier。整个过程带预算、Artifacts、Patch 审查、
-测试反馈和明确的停止原因。
+Project Mode 是 ModelGate 的多 Agent 项目界面：输入目标后，由
+Intake 和 Planner 拆解任务，用户审批或调整任务树，再运行 Workers、
+Supervisor、Integrator 和可选 Verifier。整个过程带预算、Artifacts、
+Patch 审查、测试反馈和明确的停止原因。
+
+### API Keys（密钥管理）
+
+![ModelGate API Keys 截图 — 厂商密钥加密管理，含状态、测试、清除操作](github-picture/github5-1.png)
+
+API Keys 页是接入厂商的入口。Key 在保存时即被加密为 AES-256-GCM
+密文（密钥从 `MODELGATE_SECRET_KEY` 经 HKDF 派生），永远不以明文
+回显，可原地测试连通性或清除——`Test` 按钮直接调用后端的
+`POST /api/providers/{id}/test`，无需离开页面。
 
 ---
 
