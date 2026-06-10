@@ -56,6 +56,7 @@ class ChatRuntime:
         idempotency_key: str | None = None,
         compare_group_id: str | None = None,
         system_prompt: str | None = None,
+        history: list[ChatMessage] | None = None,
     ) -> Run:
         if idempotency_key:
             existing = db.query(Run).filter(Run.idempotency_key == idempotency_key).one_or_none()
@@ -89,7 +90,7 @@ class ChatRuntime:
         latency_ms = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files, system_prompt_override=system_prompt)
+            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files, system_prompt_override=system_prompt, history=history)
             provider_params = self._map_provider_params(model=model, params=params)
             chat_input = ChatInput(
                 provider_id=provider["id"],
@@ -197,6 +198,7 @@ class ChatRuntime:
         idempotency_key: str | None = None,
         compare_group_id: str | None = None,
         system_prompt: str | None = None,
+        history: list[ChatMessage] | None = None,
     ) -> AsyncIterator[dict]:
         if idempotency_key:
             existing = db.query(Run).filter(Run.idempotency_key == idempotency_key).one_or_none()
@@ -242,7 +244,7 @@ class ChatRuntime:
         terminal_event: dict | None = None
         try:
             files = self._load_files(db=db, file_ids=file_ids)
-            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files, system_prompt_override=system_prompt)
+            messages = self._build_messages(model=model, task_type=task_type, prompt=prompt, files=files, system_prompt_override=system_prompt, history=history)
             provider_params = self._map_provider_params(model=model, params=params)
             provider_params["stream"] = True
             chat_input = ChatInput(
@@ -388,6 +390,7 @@ class ChatRuntime:
         prompt: str,
         files: list[FileRecord],
         system_prompt_override: str | None = None,
+        history: list[ChatMessage] | None = None,
     ) -> list[ChatMessage]:
         system = system_prompt_override if system_prompt_override else _system_prompt(task_type)
         user_content: str | list[dict] = prompt.strip()
@@ -428,10 +431,11 @@ class ChatRuntime:
         elif text_part:
             user_content = text_part
 
-        return [
-            ChatMessage(role="system", content=system),
-            ChatMessage(role="user", content=user_content),
-        ]
+        result = [ChatMessage(role="system", content=system)]
+        if history:
+            result.extend(history)
+        result.append(ChatMessage(role="user", content=user_content))
+        return result
 
     def _map_provider_params(self, *, model: dict, params: dict) -> dict:
         schema = model_registry.get_param_schema(model["paramsSchema"])
